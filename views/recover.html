@@ -1,0 +1,28 @@
+<head>
+
+  <meta charset="utf-8">
+
+  <title>Recover</title>
+  <meta name="description" content="Recover">
+  <meta name="author" content="Company">
+
+	<link rel="stylesheet" type="text/css" href="/public/css/main.css">
+
+</head>
+<body>
+
+	<div id="top-spacer"></div>
+
+	<div id="content-wrapper">
+		<img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />
+		<h1>Identity Provider</h1>
+		<form action="/recover" method="post">
+		  <input type="text" name="identity" placeholder="Username or email" />
+		  <input type="submit" name="submit" value="Recover" />
+		</form>
+
+		<span class="info">Go to <a href="/authenticate">authentication</a></span>
+	</div>
+
+	<script type="text/javascript"></script>
+</body>
