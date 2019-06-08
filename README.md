@@ -1,2 +1,1 @@
-# golang-idp-fe
-Golang Identity Provider Frontend
+# Golang Identity Provider Frontend
