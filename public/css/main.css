@@ -1,5 +1,5 @@
 html {
-	background: url(/public/images/background.jpg) no-repeat center center fixed; 
+	background: url(/public/images/background.jpg) no-repeat center center fixed;
   -webkit-background-size: cover;
   -moz-background-size: cover;
   -o-background-size: cover;
@@ -73,7 +73,7 @@ input[type=button]:hover, input[type=submit]:hover {
 
 
 img#fingerprint {
-	margin:0 15px 50px 10px;
+	margin:0 5px 50px 0px;
 	height:60px;
 	float:left;
 }
