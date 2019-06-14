@@ -6,25 +6,25 @@
   <meta name="description" content="Authentication">
   <meta name="author" content="Company">
 
-	<link rel="stylesheet" type="text/css" href="/public/css/main.css">
+  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
 
 </head>
 <body>
 
-	<div id="top-spacer"></div>
+  <div id="top-spacer"></div>
 
-	<div id="content-wrapper">
-		<img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />
-		<h1>Identity Provider</h1>
-		<form action="/authenticate" method="post">
-		  <input type="text" name="identity" placeholder="Username" />
-		  <input type="password" name="password" placeholder="Password" />
-		  <input type="submit" name="submit" value="Connect" />
-		</form>
+  <div id="content-wrapper">
+    <img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />
+    <h1>Identity Provider</h1>
+    <form action="/authenticate" method="post">
+      <input type="text" name="identity" placeholder="Username" />
+      <input type="password" name="password" placeholder="Password" />
+      <input type="submit" name="submit" value="Connect" />
+    </form>
 
-		<span class="info">Forgot your credentials? <a href="/recover">Recover</a></span>
-		<span class="info">Don't have an account yet? <a href="/register">Sign up</a></span>
-	</div>
+    <span class="info">Forgot your credentials? <a href="/recover">Recover</a></span>
+    <span class="info">Don't have an account yet? <a href="/register">Sign up</a></span>
+  </div>
 
-	<script type="text/javascript"></script>
+  <script type="text/javascript"></script>
 </body>
