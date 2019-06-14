@@ -26,7 +26,7 @@ func main() {
     r := gin.Default()
 
     r.Static("/public", "public")
-    
+
     r.LoadHTMLGlob("views/*")
 
     r.GET("/", getAuthenticationHandler)
@@ -66,9 +66,9 @@ func postRegistrationHandler(c *gin.Context) {
     var form registrationForm
     c.Bind(&form)
     c.JSON(200, gin.H{
-        "id": form.Identity, 
-        "email": form.Email, 
-        "password" : form.Password, 
+        "id": form.Identity,
+        "email": form.Email,
+        "password" : form.Password,
         "password_retyped" : form.PasswordRetyped })
 }
 
