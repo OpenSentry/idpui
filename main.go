@@ -39,7 +39,7 @@ func main() {
     r.GET("/recover", getRecoverHandler)
     r.POST("/recover", postRecoverHandler)
 
-    r.Run(":8080")
+    r.Run() // defaults to :8080, uses env PORT if set
 }
 
 func getAuthenticationHandler(c *gin.Context) {
