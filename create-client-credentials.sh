@@ -23,8 +23,8 @@ cmd=$(docker run --rm -it \
     --skip-tls-verify \
     --id $CLIENT_ID \
     --name $CLIENT_NAME \
-    --grant-types client_credentials \
-    --response-types token \
+    --grant-types authorization_code,client_credentials \
+    --response-types code,token \
     --callbacks http://127.0.0.1:8081/welcome \
     --scope openid,oauth.*,idp.*)
 
