@@ -17,6 +17,8 @@
     <img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />
     <h1>Identity Provider</h1>
     <form action="/authenticate" method="post">
+      {{ .csrfField }}
+      <input type="hidden" name="challenge" value="{{ .challenge }}" />
       <input type="text" name="identity" placeholder="Username" />
       <input type="password" name="password" placeholder="Password" />
       <input type="submit" name="submit" value="Connect" />
@@ -24,7 +26,12 @@
 
     <span class="info">Forgot your credentials? <a href="/recover">Recover</a></span>
     <span class="info">Don't have an account yet? <a href="/register">Sign up</a></span>
+
   </div>
+
+  <div id="debug-wrapper">
+    <span class="info">Login challenge: {{ .challenge }}</span>
+  <div>
 
   <script type="text/javascript"></script>
 </body>
