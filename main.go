@@ -8,6 +8,7 @@ import (
     "github.com/gorilla/csrf"
     "github.com/gwatts/gin-adapter"
     "fmt"
+    "net/url"
 )
 
 type authenticationForm struct {
@@ -105,8 +106,13 @@ func postAuthenticationHandler(c *gin.Context) {
 
     // Deny by default
     // Failed authentication, retry login challenge.
-    var retryLoginUrl = "/?login_challenge=" + form.Challenge + "&login_error=Authentication Failure";
-    c.Redirect(302, retryLoginUrl)
+    retryLoginUrl := "/?login_challenge=" + form.Challenge + "&login_error=Authentication Failure";
+    retryUrl, err := url.Parse(retryLoginUrl)
+    if err != nil {
+      c.JSON(400, gin.H{"error": err.Error()})
+      return
+    }
+    c.Redirect(302, retryUrl.String())
 }
 
 func postRegistrationHandler(c *gin.Context) {
