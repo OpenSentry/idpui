@@ -16,6 +16,11 @@
   <div id="content-wrapper">
     <img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />
     <h1>Identity Provider</h1>
+
+    <div id="login-error-wrapper">
+      <span class="error">{{ .login_error }}</span>
+    </div>
+
     <form action="/authenticate" method="post">
       {{ .csrfField }}
       <input type="hidden" name="challenge" value="{{ .challenge }}" />
