@@ -94,3 +94,10 @@ img#fingerprint {
 a, a:active, a:visited {
 	color:#FFF;
 }
+
+#debug-wrapper {
+	width: 300px;
+	height:auto;
+	margin:auto;
+	padding:30px 50px;
+}

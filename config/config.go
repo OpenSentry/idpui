@@ -26,8 +26,14 @@ type OAuth2ClientConfig struct {
   Endpoint        string
 }
 
+type IdpFeConfig struct {
+  CsrfAuthKey string
+  IdpBackendUrl string
+}
+
 var Hydra HydraConfig
 var OAuth2Client OAuth2ClientConfig
+var IdpFe IdpFeConfig
 
 func InitConfigurations() {
   Hydra.Url                   = getEnvStrict("HYDRA_URL")
@@ -38,6 +44,9 @@ func InitConfigurations() {
   OAuth2Client.Scopes         = strings.Split(getEnv("OAUTH2_CLIENT_SCOPES"), ",")
   OAuth2Client.RedirectURL    = getEnv("OAUTH2_CLIENT_REDIRECT_URL")
   OAuth2Client.Endpoint       = getEnv("OAUTH2_CLIENT_ENDPOINT")
+
+  IdpFe.CsrfAuthKey           = getEnv("CSRF_AUTH_KEY") // 32 byte long auth key. When you change this user session will break.
+  IdpFe.IdpBackendUrl         = getEnv("IDP_BACKEND_URL")
 }
 
 func getEnv(name string) string {
