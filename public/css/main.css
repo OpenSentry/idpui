@@ -101,3 +101,17 @@ a, a:active, a:visited {
 	margin:auto;
 	padding:30px 50px;
 }
+
+#error-wrapper-wrapper {
+	width: 300px;
+	height:auto;
+	margin:auto;
+	padding:30px 50px;
+}
+
+.error {
+	margin-top:10px;
+	font-size:12pt;
+	color:#FFF;
+	display:inline-block;
+}

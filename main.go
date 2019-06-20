@@ -59,9 +59,11 @@ func main() {
 
 func getAuthenticationHandler(c *gin.Context) {
     loginChallenge := c.Query("login_challenge")
+    loginError := c.Query("login_error")
     c.HTML(200, "authenticate.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
 			"challenge": loginChallenge,
+      "login_error": loginError,
 		})
 }
 
@@ -101,9 +103,10 @@ func postAuthenticationHandler(c *gin.Context) {
       return
     }
 
-    // Failed to authenticate redirect back to login controller with error to try again.
-    c.JSON(403, gin.H{"error": "Authentication failed"})
-    // idp-be:8081/authenticate?challenge=...&error=...
+    // Deny by default
+    // Failed authentication, retry login challenge.
+    var retryLoginUrl = "/?login_challenge=" + form.Challenge + "&login_error=Authentication Failure";
+    c.Redirect(302, retryLoginUrl)
 }
 
 func postRegistrationHandler(c *gin.Context) {
