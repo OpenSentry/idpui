@@ -1,10 +1,17 @@
 package main
 
 import (
+    "golang-idp-fe/config"
+    "golang-idp-fe/interfaces"
+    "golang-idp-fe/gateway/idpbe"
     "github.com/gin-gonic/gin"
+    "github.com/gorilla/csrf"
+    "github.com/gwatts/gin-adapter"
+    "fmt"
 )
 
 type authenticationForm struct {
+    Challenge string `form:"challenge"`
     Identity string `form:"identity"`
     Password string `form:"password"`
 }
@@ -21,29 +28,41 @@ type recoverForm struct {
     Password string `form:"password"`
 }
 
+func init() {
+  config.InitConfigurations()
+}
 
 func main() {
     r := gin.Default()
+
+    // Use CSRF on all our forms.
+    fmt.Println("Using insecure CSRF for devlopment. Do not do this in production")
+    adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.IdpFe.CsrfAuthKey), csrf.Secure(false)))
+    // r.Use(adapterCSRF) // Do not use this as it will make csrf tokens for public files aswell which is just extra data going over the wire, no need for that.
 
     r.Static("/public", "public")
 
     r.LoadHTMLGlob("views/*")
 
-    r.GET("/", getAuthenticationHandler)
-    r.GET("/authenticate", getAuthenticationHandler)
-    r.POST("/authenticate", postAuthenticationHandler)
+    r.GET("/", adapterCSRF, getAuthenticationHandler)
+    r.GET("/authenticate", adapterCSRF, getAuthenticationHandler)
+    r.POST("/authenticate", adapterCSRF, postAuthenticationHandler)
 
-    r.GET("/register", getRegisterHandler)
-    r.POST("/register", postRegistrationHandler)
+    r.GET("/register", adapterCSRF, getRegisterHandler)
+    r.POST("/register", adapterCSRF, postRegistrationHandler)
 
-    r.GET("/recover", getRecoverHandler)
-    r.POST("/recover", postRecoverHandler)
+    r.GET("/recover", adapterCSRF, getRecoverHandler)
+    r.POST("/recover",adapterCSRF, postRecoverHandler)
 
     r.Run() // defaults to :8080, uses env PORT if set
 }
 
 func getAuthenticationHandler(c *gin.Context) {
-    c.HTML(200, "authenticate.html", nil)
+    loginChallenge := c.Query("login_challenge")
+    c.HTML(200, "authenticate.html", gin.H{
+      csrf.TemplateTag: csrf.TemplateField(c.Request),
+			"challenge": loginChallenge,
+		})
 }
 
 func getRegisterHandler(c *gin.Context) {
@@ -56,10 +75,35 @@ func getRecoverHandler(c *gin.Context) {
 
 func postAuthenticationHandler(c *gin.Context) {
     var form authenticationForm
-    c.Bind(&form)
-    c.JSON(200, gin.H{
-        "id": form.Identity,
-        "password" : form.Password })
+    err := c.Bind(&form)
+
+    if err != nil {
+      // Do better error handling in the application.
+      c.JSON(400, gin.H{"error": err.Error()})
+      return
+    }
+
+    // Ask idp-be to authenticate the user
+    var authenticateRequest = interfaces.AuthenticateRequest{
+      Id: form.Identity,
+      Password: form.Password,
+      Challenge: form.Challenge,
+    }
+    authenticateResponse, err := idpbe.Authenticate(config.IdpFe.IdpBackendUrl, authenticateRequest)
+    if err != nil {
+      c.JSON(400, gin.H{"error": err.Error()})
+      return
+    }
+
+    // User authenticated, redirect
+    if authenticateResponse.Authenticated {
+      c.Redirect(302, authenticateResponse.RedirectTo)
+      return
+    }
+
+    // Failed to authenticate redirect back to login controller with error to try again.
+    c.JSON(403, gin.H{"error": "Authentication failed"})
+    // idp-be:8081/authenticate?challenge=...&error=...
 }
 
 func postRegistrationHandler(c *gin.Context) {
