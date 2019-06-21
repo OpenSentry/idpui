@@ -49,17 +49,72 @@ func main() {
     r.GET("/authenticate", adapterCSRF, getAuthenticationHandler)
     r.POST("/authenticate", adapterCSRF, postAuthenticationHandler)
 
+    r.GET("/logout", adapterCSRF, getLogoutHandler)
+    r.POST("/logout", adapterCSRF, postLogoutHandler)
+
     r.GET("/register", adapterCSRF, getRegisterHandler)
     r.POST("/register", adapterCSRF, postRegistrationHandler)
 
     r.GET("/recover", adapterCSRF, getRecoverHandler)
-    r.POST("/recover",adapterCSRF, postRecoverHandler)
+    r.POST("/recover", adapterCSRF, postRecoverHandler)
+
+    r.GET("/welcome", getProfileHandler)
 
     r.Run() // defaults to :8080, uses env PORT if set
 }
 
+func getProfileHandler(c *gin.Context) {
+
+  // TODO Secure it using hydra.
+
+  c.HTML(200, "profile.html", gin.H{
+  })
+}
+
+func getLogoutHandler(c *gin.Context) {
+  logoutChallenge := c.Query("logout_challenge")
+  if logoutChallenge == "" {
+    var url = config.Hydra.LogoutUrl
+    c.Redirect(302, url)
+    c.Abort()
+    return
+  }
+
+  logoutError := c.Query("logout_error")
+  c.HTML(200, "logout.html", gin.H{
+    csrf.TemplateTag: csrf.TemplateField(c.Request),
+    "challenge": logoutChallenge,
+    "logout_error": logoutError,
+  })
+}
+
 func getAuthenticationHandler(c *gin.Context) {
     loginChallenge := c.Query("login_challenge")
+
+    // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
+    // Idp-Fe should ask hydra for a challenge to login
+    if loginChallenge == "" {
+      var url = config.Hydra.AuthenticateUrl + "?client_id=idp-fe&scope=openid&response_type=code&state=youreallyneedtochangethis&redirect_uri=" + config.IdpFe.DefaultRedirectUrl
+      c.Redirect(302, url)
+      c.Abort()
+      return
+    }
+
+    var authenticateRequest = interfaces.AuthenticateRequest{
+      Challenge: loginChallenge,
+    }
+    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, authenticateRequest)
+    if err != nil {
+      c.JSON(400, gin.H{"error": err.Error()})
+      c.Abort()
+      return
+    }
+    if authenticateResponse.Authenticated {
+      c.Redirect(302, authenticateResponse.RedirectTo)
+      c.Abort()
+      return
+    }
+
     loginError := c.Query("login_error")
     c.HTML(200, "authenticate.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
@@ -76,6 +131,30 @@ func getRecoverHandler(c *gin.Context) {
     c.HTML(200, "recover.html", nil)
 }
 
+func postLogoutHandler(c *gin.Context) {
+  var form authenticationForm
+  err := c.Bind(&form)
+  if err != nil {
+    // Do better error handling in the application.
+    c.JSON(400, gin.H{"error": err.Error()})
+    c.Abort()
+    return
+  }
+
+  var logoutRequest = interfaces.LogoutRequest{
+    Challenge: form.Challenge,
+  }
+  logoutResponse, err := idpbe.Logout(config.IdpBe.LogoutUrl, logoutRequest)
+  if err != nil {
+    c.JSON(400, gin.H{"error": err.Error()})
+    c.Abort()
+    return
+  }
+
+  c.Redirect(302, logoutResponse.RedirectTo)
+  c.Abort()
+}
+
 func postAuthenticationHandler(c *gin.Context) {
     var form authenticationForm
     err := c.Bind(&form)
@@ -83,6 +162,7 @@ func postAuthenticationHandler(c *gin.Context) {
     if err != nil {
       // Do better error handling in the application.
       c.JSON(400, gin.H{"error": err.Error()})
+      c.Abort()
       return
     }
 
@@ -92,15 +172,17 @@ func postAuthenticationHandler(c *gin.Context) {
       Password: form.Password,
       Challenge: form.Challenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.IdpFe.IdpBackendUrl, authenticateRequest)
+    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
+      c.Abort()
       return
     }
 
     // User authenticated, redirect
     if authenticateResponse.Authenticated {
       c.Redirect(302, authenticateResponse.RedirectTo)
+      c.Abort()
       return
     }
 
@@ -110,9 +192,11 @@ func postAuthenticationHandler(c *gin.Context) {
     retryUrl, err := url.Parse(retryLoginUrl)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
+      c.Abort()
       return
     }
     c.Redirect(302, retryUrl.String())
+    c.Abort()
 }
 
 func postRegistrationHandler(c *gin.Context) {
