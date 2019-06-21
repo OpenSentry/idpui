@@ -16,17 +16,17 @@ func getDefaultHeaders() map[string][]string {
   }
 }
 
-func Authenticate(baseUrl string, authenticateRequest interfaces.AuthenticateRequest) (interfaces.AuthenticateResponse, error) {
+
+func Authenticate(authenticateUrl string, authenticateRequest interfaces.AuthenticateRequest) (interfaces.AuthenticateResponse, error) {
   var authenticateResponse interfaces.AuthenticateResponse
+
   client := &http.Client{} // replace with oauth2 client calling idp-be instead and use client credentials flow.
 
   body, _ := json.Marshal(authenticateRequest)
 
   var data = bytes.NewBuffer(body)
 
-  var url = baseUrl + "/v1/identities/authenticate"
-
-  request, _ := http.NewRequest("POST", url, data)
+  request, _ := http.NewRequest("POST", authenticateUrl, data)
   request.Header = getDefaultHeaders()
 
   response, err := client.Do(request)
@@ -42,4 +42,31 @@ func Authenticate(baseUrl string, authenticateRequest interfaces.AuthenticateReq
   }
 
   return authenticateResponse, nil
+}
+
+func Logout(logoutUrl string, logoutRequest interfaces.LogoutRequest) (interfaces.LogoutResponse, error) {
+  var logoutResponse interfaces.LogoutResponse
+
+  client := &http.Client{} // replace with oauth2 client calling idp-be instead and use client credentials flow.
+
+  body, _ := json.Marshal(logoutRequest)
+
+  var data = bytes.NewBuffer(body)
+
+  request, _ := http.NewRequest("POST", logoutUrl, data)
+  request.Header = getDefaultHeaders()
+
+  response, err := client.Do(request)
+  if err != nil {
+    return logoutResponse, err
+  }
+
+  responseData, _ := ioutil.ReadAll(response.Body)
+
+  err = json.Unmarshal(responseData, &logoutResponse)
+  if err != nil {
+    return logoutResponse, err
+  }
+
+  return logoutResponse, nil
 }

@@ -2,7 +2,6 @@ package config
 
 import (
   "os"
-  "strings"
 )
 
 /*
@@ -16,37 +15,47 @@ Endpoint:     oauth2 endpoint,
 type HydraConfig struct {
   Url             string
   AdminUrl        string
-}
-
-type OAuth2ClientConfig struct {
-  ClientId        string
-  ClientSecret    string
-  Scopes          []string
-  RedirectURL     string
-  Endpoint        string
+  PublicUrl       string
+  AuthenticateUrl string
+  LogoutUrl       string
 }
 
 type IdpFeConfig struct {
+  Url string
+  PublicUrl string
+  DefaultRedirectUrl string
   CsrfAuthKey string
-  IdpBackendUrl string
+  ClientId string
+  ClientSecret string
+}
+
+type IdpBeConfig struct {
+  Url string
+  AuthenticateUrl string
+  LogoutUrl string
 }
 
 var Hydra HydraConfig
-var OAuth2Client OAuth2ClientConfig
 var IdpFe IdpFeConfig
+var IdpBe IdpBeConfig
 
 func InitConfigurations() {
   Hydra.Url                   = getEnvStrict("HYDRA_URL")
   Hydra.AdminUrl              = getEnvStrict("HYDRA_ADMIN_URL")
+  Hydra.PublicUrl             = getEnvStrict("HYDRA_PUBLIC_URL")
+  Hydra.LogoutUrl             = Hydra.PublicUrl + "/oauth2/sessions/logout"
+  Hydra.AuthenticateUrl       = Hydra.PublicUrl + "/oauth2/auth"
 
-  OAuth2Client.ClientId       = getEnv("OAUTH2_CLIENT_CLIENT_ID")
-  OAuth2Client.ClientSecret   = getEnv("OAUTH2_CLIENT_ClIENT_SECRET")
-  OAuth2Client.Scopes         = strings.Split(getEnv("OAUTH2_CLIENT_SCOPES"), ",")
-  OAuth2Client.RedirectURL    = getEnv("OAUTH2_CLIENT_REDIRECT_URL")
-  OAuth2Client.Endpoint       = getEnv("OAUTH2_CLIENT_ENDPOINT")
+  IdpBe.Url                   = getEnvStrict("IDP_BACKEND_URL")
+  IdpBe.AuthenticateUrl       = IdpBe.Url + "/v1/identities/authenticate"
+  IdpBe.LogoutUrl             = IdpBe.Url + "/v1/identities/logout"
 
-  IdpFe.CsrfAuthKey           = getEnv("CSRF_AUTH_KEY") // 32 byte long auth key. When you change this user session will break.
-  IdpFe.IdpBackendUrl         = getEnv("IDP_BACKEND_URL")
+  IdpFe.Url                   = getEnvStrict("IDP_FRONTEND_URL")
+  IdpFe.PublicUrl             = getEnvStrict("IDP_FRONTEND_PUBLIC_URL")
+  IdpFe.DefaultRedirectUrl    = IdpFe.PublicUrl + "/welcome" // This needs to be part of the callback redirect uris of the client_id
+  IdpFe.CsrfAuthKey           = getEnvStrict("IDP_FRONTEND_CSRF_AUTH_KEY") // 32 byte long auth key. When you change this user session will break.
+  IdpFe.ClientId              = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_ID")
+  IdpFe.ClientSecret          = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_SECRET")
 }
 
 func getEnv(name string) string {
