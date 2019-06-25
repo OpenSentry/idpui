@@ -9,6 +9,9 @@ import (
     "github.com/gwatts/gin-adapter"
     "fmt"
     "net/url"
+    "net/http"
+	  "strings"
+    "golang.org/x/oauth2"
 )
 
 type authenticationForm struct {
@@ -29,9 +32,28 @@ type recoverForm struct {
     Password string `form:"password"`
 }
 
+var (
+	hydraOauthConfig *oauth2.Config
+)
+
 func init() {
   config.InitConfigurations()
+
+  var HydraEndpoint = oauth2.Endpoint{
+  	AuthURL:  config.Hydra.AuthenticateUrl,
+  	TokenURL: config.Hydra.TokenUrl,
+  }
+
+  hydraOauthConfig = &oauth2.Config{
+  	RedirectURL:  config.IdpFe.PublicUrl + "/welcome",
+  	ClientID:     config.IdpFe.ClientId,
+  	ClientSecret: config.IdpFe.ClientSecret,
+  	Scopes:       config.IdpFe.RequiredScopes,
+  	Endpoint:     HydraEndpoint,
+  }
+
 }
+
 
 func main() {
     r := gin.Default()
@@ -45,36 +67,157 @@ func main() {
 
     r.LoadHTMLGlob("views/*")
 
-    r.GET("/", adapterCSRF, getAuthenticationHandler)
-    r.GET("/authenticate", adapterCSRF, getAuthenticationHandler)
-    r.POST("/authenticate", adapterCSRF, postAuthenticationHandler)
+    bearer := r.Group("/")
+    bearer.Use(unmarshalBearerToken())
+    {
+      bearer.GET("/", adapterCSRF, getAuthenticationHandler)
+      bearer.GET("/authenticate", adapterCSRF, getAuthenticationHandler)
+      bearer.POST("/authenticate", adapterCSRF, postAuthenticationHandler)
 
-    r.GET("/logout", adapterCSRF, getLogoutHandler)
-    r.POST("/logout", adapterCSRF, postLogoutHandler)
+      bearer.GET("/logout", adapterCSRF, getLogoutHandler)
+      bearer.POST("/logout", adapterCSRF, postLogoutHandler)
 
-    r.GET("/register", adapterCSRF, getRegisterHandler)
-    r.POST("/register", adapterCSRF, postRegistrationHandler)
+      bearer.GET("/register", adapterCSRF, getRegisterHandler)
+      bearer.POST("/register", adapterCSRF, postRegistrationHandler)
 
-    r.GET("/recover", adapterCSRF, getRecoverHandler)
-    r.POST("/recover", adapterCSRF, postRecoverHandler)
+      bearer.GET("/recover", adapterCSRF, getRecoverHandler)
+      bearer.POST("/recover", adapterCSRF, postRecoverHandler)
 
-    r.GET("/welcome", getProfileHandler)
+      bearer.GET("/welcome", AuthenticationAndScopesRequired("openid"), getProfileHandler)
+
+    }
 
     r.Run() // defaults to :8080, uses env PORT if set
 }
 
+// Look for a bearer token and unmarshal it into the gin context for the request for later use.
+func unmarshalBearerToken() gin.HandlerFunc {
+  return func(c *gin.Context) {
+    auth := c.Request.Header.Get("Authorization")
+    split := strings.SplitN(auth, " ", 2)
+    if len(split) != 2 || !strings.EqualFold(split[0], "bearer") {
+      // No bearer token, so continue
+      c.Next()
+      return
+    }
+
+    token := &oauth2.Token{
+      AccessToken: split[1],
+      TokenType: split[0],
+    }
+    c.Set("bearer_token", token)
+    c.Next()
+  }
+}
+
+// Gin middleware to secure idp fe endpoints using oauth2
+func AuthenticationAndScopesRequired(scopes ...string) gin.HandlerFunc {
+  return func(c *gin.Context) {
+
+    // Authentication and authorization questions that need answering before granting access to resource.
+    // These need to live in idp-be?
+    isTokenValid := false
+    //isTokenRevoked := false
+    //isUserAuthenticated := false
+    //isUserAuthorized := false
+    //isRequiredScopesGranted := false
+    //isUserAllowedToUseGrantedScopes := false
+
+    bearerToken, tokenExists := c.Get("bearer_token")
+    if ( tokenExists ) {
+
+      // Found an bearer token use that if possible.
+      token := bearerToken.(*oauth2.Token)
+
+      isTokenValid = token.Valid()
+      if isTokenValid == true {
+        c.Set("access_token", token.AccessToken)
+        c.Next() // Grant access
+        return;
+      }
+    }
+
+    // No bearer token, look for code to exchange for token.
+    code := c.Query("code")
+    if code != "" {
+
+      // Found a code try and exchange it for access token.
+      token, err := hydraOauthConfig.Exchange(oauth2.NoContext, code)
+      if err != nil {
+        fmt.Println(err)
+        c.HTML(http.StatusUnauthorized, "unauthorized.html", gin.H{
+          "error": err.Error(),
+        })
+        c.Abort()
+        return
+      }
+
+      isTokenValid = token.Valid()
+      if isTokenValid == true {
+        // Maybe we need to find a way to let the idpfe app store the access token for use. (must be stored securely client side) - should it be in a session or a secure cookie?
+        //c.Header("Authorization", "Bearer " + token.AccessToken)
+
+        // Lookup who authenticated and store
+
+        c.Set("access_token", token.AccessToken)
+        //c.Set("identity", )
+        c.Next() // Grant access
+        return;
+      }
+	  }
+
+    // Deny by default - by requiring authentication
+    redirectUrl := config.IdpFe.PublicUrl + c.Request.URL.String()
+    var state = "youreallyneedtochangethis" // FIXME: This need to be calculated correctly. Maybe use CSRF token already present or new one?
+    var url = config.Hydra.PublicAuthenticateUrl + "?client_id=idp-fe&scope=openid&response_type=code&state="+state+"&redirect_uri=" + redirectUrl
+    c.Redirect(302, url)
+    c.Abort()
+  }
+}
+
 func getProfileHandler(c *gin.Context) {
 
-  // TODO Secure it using hydra.
+  token, accessTokenExists := c.Get("access_token")
+  if accessTokenExists != true {
+    c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing access token"})
+    c.Abort()
+    return
+  }
+
+  var accessToken string = token.(string)
+
+  identityResponse, err := idpbe.FetchIdentityFromAccessToken(config.Hydra.UserInfoUrl, accessToken)
+  if err != nil {
+    c.JSON(400, gin.H{"error": err.Error()})
+    c.Abort()
+    return
+  }
+
+  var id string = identityResponse.Sub
+
+  // Use token to call idp-be as idp-fe on behalf of the user to fetch profile information.
+  request := interfaces.IdentityRequest{
+    Id: id,
+  }
+  profileResponse, err := idpbe.FetchProfileForIdentity(config.IdpBe.IdentitiesUrl, accessToken, request)
+  if err != nil {
+    c.JSON(400, gin.H{"error": err.Error()})
+    c.Abort()
+    return
+  }
+
+  fmt.Println(profileResponse)
 
   c.HTML(200, "profile.html", gin.H{
+    "user": profileResponse.Id,
+    "email": profileResponse.Email,
   })
 }
 
 func getLogoutHandler(c *gin.Context) {
   logoutChallenge := c.Query("logout_challenge")
   if logoutChallenge == "" {
-    var url = config.Hydra.LogoutUrl
+    var url = config.Hydra.PublicLogoutUrl
     c.Redirect(302, url)
     c.Abort()
     return
@@ -94,7 +237,8 @@ func getAuthenticationHandler(c *gin.Context) {
     // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
     // Idp-Fe should ask hydra for a challenge to login
     if loginChallenge == "" {
-      var url = config.Hydra.AuthenticateUrl + "?client_id=idp-fe&scope=openid&response_type=code&state=youreallyneedtochangethis&redirect_uri=" + config.IdpFe.DefaultRedirectUrl
+      var state = "youreallyneedtochangethis" // FIXME: This need to be calculated correctly.
+      var url = config.Hydra.PublicAuthenticateUrl + "?client_id=idp-fe&scope=openid&response_type=code&state="+state+"&redirect_uri=" + config.IdpFe.DefaultRedirectUrl
       c.Redirect(302, url)
       c.Abort()
       return

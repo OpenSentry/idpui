@@ -3,7 +3,7 @@
   <meta charset="utf-8">
 
   <title>Profile</title>
-  <meta name="description" content="Profile">
+  <meta name="description" content="Unauthorized">
   <meta name="author" content="Company">
 
   <link rel="stylesheet" type="text/css" href="/public/css/main.css">
@@ -14,11 +14,17 @@
   <div id="top-spacer"></div>
 
   <div id="content-wrapper">
-    <h1>Profile</h1>
+    <h2>Unauthorized</h2>
+
     <p>
-      Hi {{ .user }} <br><br>
-      You are viewing your profile. You are registered with the email {{ .email }}
+      Access to requested resource was denied.
+    </o>
+
+    <h3>Error</h3>
+    <p>
+      {{ .error }}
     </p>
+
   </div>
 
   <script type="text/javascript"></script>

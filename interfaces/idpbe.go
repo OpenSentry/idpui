@@ -19,3 +19,17 @@ type LogoutRequest struct {
 type LogoutResponse struct {
   RedirectTo      string            `json:"redirect_to" binding:"required"`
 }
+
+type IdentityRequest struct {
+  Id              string            `json:"id"`
+}
+
+type IdentityResponse struct {
+  Id            string          `json:"id"`
+  Name          string          `json:"name"`
+  Email         string          `json:"email"`
+}
+
+type UserInfoResponse struct {
+  Sub       string      `json:"sub"`
+}
