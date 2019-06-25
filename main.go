@@ -208,7 +208,7 @@ func getProfileHandler(c *gin.Context) {
 
   fmt.Println(profileResponse)
 
-  c.HTML(200, "profile.html", gin.H{
+  c.HTML(200, "me.html", gin.H{
     "user": profileResponse.Id,
     "email": profileResponse.Email,
   })
