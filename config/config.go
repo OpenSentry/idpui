@@ -15,9 +15,14 @@ Endpoint:     oauth2 endpoint,
 type HydraConfig struct {
   Url             string
   AdminUrl        string
-  PublicUrl       string
   AuthenticateUrl string
-  LogoutUrl       string
+  TokenUrl        string
+  UserInfoUrl     string
+  PublicUrl             string
+  PublicAuthenticateUrl string
+  PublicTokenUrl        string
+  PublicLogoutUrl       string
+  PublicUserInfoUrl     string
 }
 
 type IdpFeConfig struct {
@@ -27,10 +32,12 @@ type IdpFeConfig struct {
   CsrfAuthKey string
   ClientId string
   ClientSecret string
+  RequiredScopes []string
 }
 
 type IdpBeConfig struct {
   Url string
+  IdentitiesUrl string
   AuthenticateUrl string
   LogoutUrl string
 }
@@ -42,13 +49,20 @@ var IdpBe IdpBeConfig
 func InitConfigurations() {
   Hydra.Url                   = getEnvStrict("HYDRA_URL")
   Hydra.AdminUrl              = getEnvStrict("HYDRA_ADMIN_URL")
+  Hydra.AuthenticateUrl       = Hydra.Url + "/oauth2/auth"
+  Hydra.TokenUrl              = Hydra.Url + "/oauth2/token"
+  Hydra.UserInfoUrl           = Hydra.Url + "/userinfo"
+
   Hydra.PublicUrl             = getEnvStrict("HYDRA_PUBLIC_URL")
-  Hydra.LogoutUrl             = Hydra.PublicUrl + "/oauth2/sessions/logout"
-  Hydra.AuthenticateUrl       = Hydra.PublicUrl + "/oauth2/auth"
+  Hydra.PublicLogoutUrl       = Hydra.PublicUrl + "/oauth2/sessions/logout"
+  Hydra.PublicAuthenticateUrl = Hydra.PublicUrl + "/oauth2/auth"
+  Hydra.PublicTokenUrl        = Hydra.PublicUrl + "/oauth2/token"
+  Hydra.PublicUserInfoUrl     = Hydra.PublicUrl + "/userinfo"
 
   IdpBe.Url                   = getEnvStrict("IDP_BACKEND_URL")
-  IdpBe.AuthenticateUrl       = IdpBe.Url + "/v1/identities/authenticate"
-  IdpBe.LogoutUrl             = IdpBe.Url + "/v1/identities/logout"
+  IdpBe.IdentitiesUrl         = IdpBe.Url + "/v1/identities"
+  IdpBe.AuthenticateUrl       = IdpBe.IdentitiesUrl + "/authenticate"
+  IdpBe.LogoutUrl             = IdpBe.IdentitiesUrl + "/logout"
 
   IdpFe.Url                   = getEnvStrict("IDP_FRONTEND_URL")
   IdpFe.PublicUrl             = getEnvStrict("IDP_FRONTEND_PUBLIC_URL")
@@ -56,6 +70,8 @@ func InitConfigurations() {
   IdpFe.CsrfAuthKey           = getEnvStrict("IDP_FRONTEND_CSRF_AUTH_KEY") // 32 byte long auth key. When you change this user session will break.
   IdpFe.ClientId              = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_ID")
   IdpFe.ClientSecret          = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_SECRET")
+  IdpFe.RequiredScopes        = []string{"openid"}
+
 }
 
 func getEnv(name string) string {
