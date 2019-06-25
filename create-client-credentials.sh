@@ -25,7 +25,7 @@ cmd=$(docker run --rm -it \
     --name $CLIENT_NAME \
     --grant-types authorization_code,client_credentials \
     --response-types code,token \
-    --callbacks http://127.0.0.1:8081/welcome \
+    --callbacks http://127.0.0.1:8081/me \
     --scope openid,oauth.*,idp.*)
 
 if [ "$?" -eq 0 ]
@@ -38,5 +38,3 @@ else
   echo "Error: $?"
   exit $?
 fi
-
-
