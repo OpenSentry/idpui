@@ -45,7 +45,7 @@ func init() {
   }
 
   hydraOauthConfig = &oauth2.Config{
-  	RedirectURL:  config.IdpFe.PublicUrl + "/welcome",
+  	RedirectURL:  config.IdpFe.DefaultRedirectUrl,
   	ClientID:     config.IdpFe.ClientId,
   	ClientSecret: config.IdpFe.ClientSecret,
   	Scopes:       config.IdpFe.RequiredScopes,
@@ -83,7 +83,7 @@ func main() {
       bearer.GET("/recover", adapterCSRF, getRecoverHandler)
       bearer.POST("/recover", adapterCSRF, postRecoverHandler)
 
-      bearer.GET("/welcome", AuthenticationAndScopesRequired("openid"), getProfileHandler)
+      bearer.GET("/me", AuthenticationAndScopesRequired("openid"), getProfileHandler)
 
     }
 
