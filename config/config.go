@@ -66,7 +66,7 @@ func InitConfigurations() {
 
   IdpFe.Url                   = getEnvStrict("IDP_FRONTEND_URL")
   IdpFe.PublicUrl             = getEnvStrict("IDP_FRONTEND_PUBLIC_URL")
-  IdpFe.DefaultRedirectUrl    = IdpFe.PublicUrl + "/welcome" // This needs to be part of the callback redirect uris of the client_id
+  IdpFe.DefaultRedirectUrl    = IdpFe.PublicUrl + "/me" // This needs to be part of the callback redirect uris of the client_id
   IdpFe.CsrfAuthKey           = getEnvStrict("IDP_FRONTEND_CSRF_AUTH_KEY") // 32 byte long auth key. When you change this user session will break.
   IdpFe.ClientId              = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_ID")
   IdpFe.ClientSecret          = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_SECRET")
