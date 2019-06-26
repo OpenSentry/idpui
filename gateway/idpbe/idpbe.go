@@ -2,7 +2,6 @@ package idpbe
 
 import (
   "golang-idp-fe/interfaces"
-  //"golang.org/x/oauth2"
   "net/http"
   "bytes"
   "encoding/json"
@@ -75,17 +74,15 @@ func FetchProfileForIdentity(url string, accessToken string, request interfaces.
   return response, nil
 }
 
-func Authenticate(authenticateUrl string, authenticateRequest interfaces.AuthenticateRequest) (interfaces.AuthenticateResponse, error) {
+func Authenticate(authenticateUrl string, client *http.Client, authenticateRequest interfaces.AuthenticateRequest) (interfaces.AuthenticateResponse, error) {
   var authenticateResponse interfaces.AuthenticateResponse
-
-  client := &http.Client{} // replace with oauth2 client calling idp-be instead and use client credentials flow.
 
   body, _ := json.Marshal(authenticateRequest)
 
   var data = bytes.NewBuffer(body)
 
   request, _ := http.NewRequest("POST", authenticateUrl, data)
-  request.Header = getDefaultHeaders()
+  //request.Header = getDefaultHeadersWithAuthentication(accessToken)
 
   response, err := client.Do(request)
   if err != nil {

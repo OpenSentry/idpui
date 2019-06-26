@@ -26,7 +26,8 @@ cmd=$(docker run --rm -it \
     --grant-types authorization_code,client_credentials \
     --response-types code,token \
     --callbacks http://127.0.0.1:8081/me \
-    --scope openid,oauth.*,idp.*)
+    --scope openid,idpbe.authenticate,idpbe.logout \
+    --audience idpbe)
 
 if [ "$?" -eq 0 ]
 then
