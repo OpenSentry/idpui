@@ -60,7 +60,7 @@ func InitConfigurations() {
   Hydra.PublicUserInfoUrl     = Hydra.PublicUrl + "/userinfo"
 
   IdpBe.Url                   = getEnvStrict("IDP_BACKEND_URL")
-  IdpBe.IdentitiesUrl         = IdpBe.Url + "/v1/identities"
+  IdpBe.IdentitiesUrl         = IdpBe.Url + "/identities"
   IdpBe.AuthenticateUrl       = IdpBe.IdentitiesUrl + "/authenticate"
   IdpBe.LogoutUrl             = IdpBe.IdentitiesUrl + "/logout"
 
