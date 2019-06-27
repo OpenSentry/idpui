@@ -5,11 +5,16 @@ import (
   "golang.org/x/oauth2/clientcredentials"
   "github.com/gin-gonic/gin"
   "golang-idp-fe/config"
-  "golang-idp-fe/interfaces"
   "golang-idp-fe/gateway/idpbe"
   "errors"
   _ "fmt"
 )
+
+type Profile struct {
+  Id              string
+  Name            string
+  Email           string
+}
 
 func RequestAccessTokenForIdpBe(provider *clientcredentials.Config) (*oauth2.Token, error) {
   var token *oauth2.Token
@@ -20,8 +25,8 @@ func RequestAccessTokenForIdpBe(provider *clientcredentials.Config) (*oauth2.Tok
   return token, nil
 }
 
-func FetchProfileForContext(c *gin.Context) (interfaces.Profile, error) {
-  var profile interfaces.Profile
+func FetchProfileForContext(c *gin.Context) (Profile, error) {
+  var profile Profile
 
   token, accessTokenExists := c.Get("access_token")
   if accessTokenExists != true {
@@ -31,7 +36,7 @@ func FetchProfileForContext(c *gin.Context) (interfaces.Profile, error) {
 
   // Check access token for identity
   // TODO: Can we get rid of this call and find the identity directly in the access token by setting IdToken in the context?
-  var userInfoResponse interfaces.UserInfoResponse
+  var userInfoResponse idpbe.UserInfoResponse
   var err error
   userInfoResponse, err = idpbe.FetchIdentityFromAccessToken(config.Hydra.UserInfoUrl, accessToken)
   if err != nil {
@@ -40,8 +45,8 @@ func FetchProfileForContext(c *gin.Context) (interfaces.Profile, error) {
   var id string = userInfoResponse.Sub;
 
   // Use token to call idp-be as idp-fe on behalf of the user to fetch profile information.
-  var identityResponse interfaces.IdentityResponse
-  request := interfaces.IdentityRequest{
+  var identityResponse idpbe.IdentityResponse
+  request := idpbe.IdentityRequest{
     Id: id,
   }
   identityResponse, err = idpbe.FetchProfileForIdentity(config.IdpBe.IdentitiesUrl, accessToken, request)
@@ -49,7 +54,7 @@ func FetchProfileForContext(c *gin.Context) (interfaces.Profile, error) {
     return profile, err
   }
 
-  profile = interfaces.Profile{
+  profile = Profile{
     Id: identityResponse.Id,
     Name: identityResponse.Name,
     Email: identityResponse.Email,
