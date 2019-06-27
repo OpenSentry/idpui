@@ -1,13 +1,47 @@
 package idpbe
 
 import (
-  "golang-idp-fe/interfaces"
   "net/http"
   "bytes"
   "encoding/json"
   "io/ioutil"
   _ "fmt"
 )
+
+type AuthenticateRequest struct {
+  Id              string            `json:"id"`
+  Password        string            `json:"password"`
+  Challenge       string            `json:"challenge" binding:"required"`
+}
+
+type AuthenticateResponse struct {
+  Id              string            `json:"id"`
+  Authenticated   bool              `json:"authenticated"`
+  RedirectTo      string            `json:"redirect_to,omitempty"`
+}
+
+type LogoutRequest struct {
+  Challenge       string            `json:"challenge" binding:"required"`
+}
+
+type LogoutResponse struct {
+  RedirectTo      string            `json:"redirect_to" binding:"required"`
+}
+
+type IdentityRequest struct {
+  Id              string            `json:"id"`
+}
+
+type IdentityResponse struct {
+  Id            string          `json:"id"`
+  Name          string          `json:"name"`
+  Email         string          `json:"email"`
+}
+
+type UserInfoResponse struct {
+  Sub       string      `json:"sub"`
+}
+
 
 func getDefaultHeaders() map[string][]string {
   return map[string][]string{
@@ -25,8 +59,8 @@ func getDefaultHeadersWithAuthentication(accessToken string) map[string][]string
 }
 
 // This probably needs to wrap a call to idpbe?
-func FetchIdentityFromAccessToken(url string, accessToken string) (interfaces.UserInfoResponse, error) {
-  var response interfaces.UserInfoResponse
+func FetchIdentityFromAccessToken(url string, accessToken string) (UserInfoResponse, error) {
+  var response UserInfoResponse
 
   client := &http.Client{}
 
@@ -47,8 +81,8 @@ func FetchIdentityFromAccessToken(url string, accessToken string) (interfaces.Us
   return response, nil
 }
 
-func FetchProfileForIdentity(url string, accessToken string, request interfaces.IdentityRequest) (interfaces.IdentityResponse, error) {
-  var response interfaces.IdentityResponse
+func FetchProfileForIdentity(url string, accessToken string, request IdentityRequest) (IdentityResponse, error) {
+  var response IdentityResponse
 
   client := &http.Client{} // replace with oauth2 client calling idp-be instead and use client credentials flow.
 
@@ -74,8 +108,8 @@ func FetchProfileForIdentity(url string, accessToken string, request interfaces.
   return response, nil
 }
 
-func Authenticate(authenticateUrl string, client *http.Client, authenticateRequest interfaces.AuthenticateRequest) (interfaces.AuthenticateResponse, error) {
-  var authenticateResponse interfaces.AuthenticateResponse
+func Authenticate(authenticateUrl string, client *http.Client, authenticateRequest AuthenticateRequest) (AuthenticateResponse, error) {
+  var authenticateResponse AuthenticateResponse
 
   body, _ := json.Marshal(authenticateRequest)
 
@@ -99,8 +133,8 @@ func Authenticate(authenticateUrl string, client *http.Client, authenticateReque
   return authenticateResponse, nil
 }
 
-func Logout(logoutUrl string, logoutRequest interfaces.LogoutRequest) (interfaces.LogoutResponse, error) {
-  var logoutResponse interfaces.LogoutResponse
+func Logout(logoutUrl string, logoutRequest LogoutRequest) (LogoutResponse, error) {
+  var logoutResponse LogoutResponse
 
   client := &http.Client{} // replace with oauth2 client calling idp-be instead and use client credentials flow.
 
