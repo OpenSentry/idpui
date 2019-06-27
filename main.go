@@ -5,11 +5,14 @@ import (
   "fmt"
   "net/url"
   "net/http"
+
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
+
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gwatts/gin-adapter"
+
   "golang-idp-fe/config"
   "golang-idp-fe/gateway/idpbe"
   "golang-idp-fe/gateway/idpfe"
@@ -86,6 +89,7 @@ func main() {
      fmt.Println("Unable to aquire idpbe access token. Error: " + err.Error())
      return
    }
+   fmt.Println("Logging access token to idp-be. Do not do this in production")
    fmt.Println(idpbeToken) // FIXME Do not log this!!
    idpbeClient = idpbeClientCredentialsConfig.Client(oauth2.NoContext)
 
@@ -173,6 +177,7 @@ func AuthenticationAndScopesRequired(scopes ...string) gin.HandlerFunc {
     code := c.Query("code")
     if code != "" {
 
+      // FIXME: Only exchange code if this client app requested the code!
       // Check that the state request originated from this app. ?!!
       /*state := c.Query("state")
       if state != "" {
@@ -204,17 +209,11 @@ func AuthenticationAndScopesRequired(scopes ...string) gin.HandlerFunc {
 
     // Deny by default - by requiring authentication
 
-    var state string = "pleasechangeme"
+    var state string = "pleasechangeme" // FIXME: This needs to be calculated correctly.
     url := oauth2HydraPublic.AuthCodeURL(state)
     c.Redirect(http.StatusTemporaryRedirect, url)
     c.Abort()
     return
-    // FIXME: We need to ask the app session state to store the initial state in a session, so we can check it after redirect chain is done. This requires a session, but hydra said we did not need it!
-    /*redirectUrl := config.IdpFe.PublicUrl + c.Request.URL.String()
-    var state = "pleasechangeme" // Calculate this
-    var url = config.Hydra.PublicAuthenticateUrl + "?client_id=idp-fe&scope=openid&response_type=code&state="+state+"&redirect_uri=" + redirectUrl
-    c.Redirect(302, url)
-    c.Abort()*/
   }
 }
 
@@ -315,7 +314,7 @@ func postLogoutHandler(c *gin.Context) {
   var logoutRequest = idpbe.LogoutRequest{
     Challenge: form.Challenge,
   }
-  logoutResponse, err := idpbe.Logout(config.IdpBe.LogoutUrl, logoutRequest)
+  logoutResponse, err := idpbe.Logout(config.IdpBe.LogoutUrl, idpbeClient, logoutRequest)
   if err != nil {
     c.JSON(400, gin.H{"error": err.Error()})
     c.Abort()

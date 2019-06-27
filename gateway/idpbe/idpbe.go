@@ -116,7 +116,6 @@ func Authenticate(authenticateUrl string, client *http.Client, authenticateReque
   var data = bytes.NewBuffer(body)
 
   request, _ := http.NewRequest("POST", authenticateUrl, data)
-  //request.Header = getDefaultHeadersWithAuthentication(accessToken)
 
   response, err := client.Do(request)
   if err != nil {
@@ -133,17 +132,14 @@ func Authenticate(authenticateUrl string, client *http.Client, authenticateReque
   return authenticateResponse, nil
 }
 
-func Logout(logoutUrl string, logoutRequest LogoutRequest) (LogoutResponse, error) {
+func Logout(logoutUrl string, client *http.Client, logoutRequest LogoutRequest) (LogoutResponse, error) {
   var logoutResponse LogoutResponse
-
-  client := &http.Client{} // replace with oauth2 client calling idp-be instead and use client credentials flow.
 
   body, _ := json.Marshal(logoutRequest)
 
   var data = bytes.NewBuffer(body)
 
   request, _ := http.NewRequest("POST", logoutUrl, data)
-  request.Header = getDefaultHeaders()
 
   response, err := client.Do(request)
   if err != nil {
