@@ -11,7 +11,6 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gwatts/gin-adapter"
   "golang-idp-fe/config"
-  "golang-idp-fe/interfaces"
   "golang-idp-fe/gateway/idpbe"
   "golang-idp-fe/gateway/idpfe"
 )
@@ -221,7 +220,7 @@ func AuthenticationAndScopesRequired(scopes ...string) gin.HandlerFunc {
 
 func getProfileHandler(c *gin.Context) {
   var err error
-  var profile interfaces.Profile
+  var profile idpfe.Profile
 
   profile, err = idpfe.FetchProfileForContext(c);
   if err == nil {
@@ -272,7 +271,7 @@ func getAuthenticationHandler(c *gin.Context) {
       return
     }
 
-    var authenticateRequest = interfaces.AuthenticateRequest{
+    var authenticateRequest = idpbe.AuthenticateRequest{
       Challenge: loginChallenge,
     }
     authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, idpbeClient, authenticateRequest)
@@ -313,7 +312,7 @@ func postLogoutHandler(c *gin.Context) {
     return
   }
 
-  var logoutRequest = interfaces.LogoutRequest{
+  var logoutRequest = idpbe.LogoutRequest{
     Challenge: form.Challenge,
   }
   logoutResponse, err := idpbe.Logout(config.IdpBe.LogoutUrl, logoutRequest)
@@ -339,7 +338,7 @@ func postAuthenticationHandler(c *gin.Context) {
     }
 
     // Ask idp-be to authenticate the user
-    var authenticateRequest = interfaces.AuthenticateRequest{
+    var authenticateRequest = idpbe.AuthenticateRequest{
       Id: form.Identity,
       Password: form.Password,
       Challenge: form.Challenge,
