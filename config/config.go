@@ -26,8 +26,10 @@ type HydraConfig struct {
 }
 
 type IdpFeConfig struct {
+  SessionAuthKey []byte
   Url string
   PublicUrl string
+  PublicCallbackUrl string
   DefaultRedirectUrl string
   CsrfAuthKey string
   ClientId string
@@ -64,9 +66,11 @@ func InitConfigurations() {
   IdpBe.AuthenticateUrl       = IdpBe.IdentitiesUrl + "/authenticate"
   IdpBe.LogoutUrl             = IdpBe.IdentitiesUrl + "/logout"
 
+  IdpFe.SessionAuthKey        = []byte(getEnvStrict("IDP_FRONTEND_SESSION_AUTH_KEY"))
   IdpFe.Url                   = getEnvStrict("IDP_FRONTEND_URL")
   IdpFe.PublicUrl             = getEnvStrict("IDP_FRONTEND_PUBLIC_URL")
-  IdpFe.DefaultRedirectUrl    = IdpFe.PublicUrl + "/me" // This needs to be part of the callback redirect uris of the client_id
+  IdpFe.PublicCallbackUrl     = IdpFe.PublicUrl + "/callback" // This needs to be part of the callback redirect uris of the client_id
+  IdpFe.DefaultRedirectUrl    = IdpFe.PublicUrl + "/me"
   IdpFe.CsrfAuthKey           = getEnvStrict("IDP_FRONTEND_CSRF_AUTH_KEY") // 32 byte long auth key. When you change this user session will break.
   IdpFe.ClientId              = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_ID")
   IdpFe.ClientSecret          = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_SECRET")

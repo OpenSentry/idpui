@@ -16,10 +16,7 @@ COPY . .
 
 # Download all the dependencies
 # https://stackoverflow.com/questions/28031603/what-do-three-dots-mean-in-go-command-line-invocations
-RUN go get github.com/gin-gonic/gin
-RUN go get github.com/gorilla/csrf
-RUN go get github.com/gwatts/gin-adapter
-RUN go get golang.org/x/oauth2
+RUN go get -d -v ./...
 
 # Install the package
 RUN go install -v ./...
