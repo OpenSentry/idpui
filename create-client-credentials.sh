@@ -25,7 +25,7 @@ cmd=$(docker run --rm -it \
     --name $CLIENT_NAME \
     --grant-types authorization_code,client_credentials \
     --response-types code,token \
-    --callbacks http://127.0.0.1:8081/me \
+    --callbacks http://127.0.0.1:8081/callback \
     --scope openid,idpbe.authenticate,idpbe.logout \
     --audience idpbe)
 

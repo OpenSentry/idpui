@@ -42,12 +42,10 @@ type UserInfoResponse struct {
   Sub       string      `json:"sub"`
 }
 
-
-func getDefaultHeaders() map[string][]string {
-  return map[string][]string{
-    "Content-Type": []string{"application/json"},
-    "Accept": []string{"application/json"},
-  }
+type Profile struct {
+  Id              string
+  Name            string
+  Email           string
 }
 
 func getDefaultHeadersWithAuthentication(accessToken string) map[string][]string {
@@ -56,6 +54,7 @@ func getDefaultHeadersWithAuthentication(accessToken string) map[string][]string
     "Accept": []string{"application/json"},
     "Authorization": []string{"Bearer " + accessToken},
   }
+
 }
 
 // This probably needs to wrap a call to idpbe?
@@ -81,13 +80,71 @@ func FetchIdentityFromAccessToken(url string, accessToken string) (UserInfoRespo
   return response, nil
 }
 
+func FetchProfile(url string, client *http.Client, identityRequest IdentityRequest) (Profile, error) {
+  var profile Profile
+  var identityResponse IdentityResponse
+  var userInfoResponse UserInfoResponse
+
+  id := identityRequest.Id
+  if id == "" {
+    // Ask hydra for user from access token in client.
+    userInfoRequest, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+      return profile, err
+    }
+
+    rawResponse, err := client.Do(userInfoRequest)
+    if err != nil {
+      return profile, err
+    }
+
+    responseData, err := ioutil.ReadAll(rawResponse.Body)
+    if err != nil {
+      return profile, err
+    }
+
+    json.Unmarshal(responseData, &userInfoResponse)
+    id = userInfoResponse.Sub
+  }
+
+  rawRequest, err := http.NewRequest("GET", url, nil)
+  if err != nil {
+    return profile, err
+  }
+
+  query := rawRequest.URL.Query()
+  query.Add("id", id)
+  rawRequest.URL.RawQuery = query.Encode()
+
+  rawResponse, err := client.Do(rawRequest)
+  if err != nil {
+    return profile, err
+  }
+
+  responseData, err := ioutil.ReadAll(rawResponse.Body)
+  if err != nil {
+    return profile, err
+  }
+
+  err = json.Unmarshal(responseData, &identityResponse)
+  if err != nil {
+    return profile, err
+  }
+
+  profile = Profile{
+    Id: identityResponse.Id,
+    Name: identityResponse.Name,
+    Email: identityResponse.Email,
+  }
+  return profile, nil
+}
+
 func FetchProfileForIdentity(url string, accessToken string, request IdentityRequest) (IdentityResponse, error) {
   var response IdentityResponse
 
-  client := &http.Client{} // replace with oauth2 client calling idp-be instead and use client credentials flow.
+  client := &http.Client{}
 
   rawRequest, _ := http.NewRequest("GET", url, nil)
-  rawRequest.Header = getDefaultHeadersWithAuthentication(accessToken)
 
   query := rawRequest.URL.Query()
   query.Add("id", request.Id)
