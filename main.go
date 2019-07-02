@@ -42,7 +42,7 @@ type recoverForm struct {
 }
 
 var (
-	idpfeHydra *oauth2.Config
+  idpfeHydra *oauth2.Config
   idpfeHydraPublic *oauth2.Config
   idpbeClient *http.Client
 )
@@ -57,16 +57,16 @@ func init() {
   gob.Register(&oauth2.Token{}) // This is required to make session in idp-fe able to persist tokens.
 
   var HydraEndpoint = oauth2.Endpoint{
-  	AuthURL:  config.Hydra.AuthenticateUrl,
-  	TokenURL: config.Hydra.TokenUrl,
+    AuthURL:  config.Hydra.AuthenticateUrl,
+    TokenURL: config.Hydra.TokenUrl,
   }
 
   idpfeHydra = &oauth2.Config{
-  	RedirectURL:  config.IdpFe.PublicCallbackUrl,
-  	ClientID:     config.IdpFe.ClientId,
-  	ClientSecret: config.IdpFe.ClientSecret,
-  	Scopes:       config.IdpFe.RequiredScopes,
-  	Endpoint:     HydraEndpoint,
+    RedirectURL:  config.IdpFe.PublicCallbackUrl,
+    ClientID:     config.IdpFe.ClientId,
+    ClientSecret: config.IdpFe.ClientSecret,
+    Scopes:       config.IdpFe.RequiredScopes,
+    Endpoint:     HydraEndpoint,
   }
 
   var HydraPublicEndpoint = oauth2.Endpoint{
@@ -113,7 +113,6 @@ func debugLog(app string, event string, msg string, requestId string) {
 }
 
 func main() {
-
    r := gin.Default()
    r.Use(ginrequestid.RequestId())
 
@@ -158,7 +157,8 @@ func main() {
      ep.GET("/me", AuthenticationAndScopesRequired("openid"), getProfileHandler)
    }
 
-   r.Run() // defaults to :8080, uses env PORT if set
+   r.RunTLS(":80", "/srv/certs/server.pem", "/srv/certs/server.key")
+   //r.Run() // defaults to :8080, uses env PORT if set
 }
 
 func logRequest() gin.HandlerFunc {
@@ -233,7 +233,6 @@ func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
         token = v.(*oauth2.Token)
         debugLog(logIdpFeApp, "AuthenticationAndScopesRequired", "Found access token in idp-fe session store for request.", "")
       }
-
     }
 
     // Allow access
@@ -444,10 +443,9 @@ func getAuthenticationHandler(c *gin.Context) {
     loginError := c.Query("login_error")
     c.HTML(200, "authenticate.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-			"challenge": loginChallenge,
+      "challenge": loginChallenge,
       "login_error": loginError,
-		})
-    c.Abort()
+    })
 }
 
 func getRegisterHandler(c *gin.Context) {
