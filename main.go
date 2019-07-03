@@ -121,7 +121,7 @@ func main() {
    store.Options(sessions.Options{
        MaxAge: 86400,
        Path: "/",
-       Secure: false, // FIXME: Set to secure when using HTTPS
+       Secure: true,
        HttpOnly: true,
    })
    r.Use(sessions.Sessions(sessionStoreKey, store))
@@ -129,8 +129,7 @@ func main() {
    //r.Use(logRequest())
 
    // Use CSRF on all idp-fe forms.
-   debugLog(logIdpFeApp, "main", "Using insecure CSRF for devlopment. Do not do this in production", "")
-   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.IdpFe.CsrfAuthKey), csrf.Secure(false)))
+   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.IdpFe.CsrfAuthKey), csrf.Secure(true)))
    // r.Use(adapterCSRF) // Do not use this as it will make csrf tokens for public files aswell which is just extra data going over the wire, no need for that.
 
    r.Static("/public", "public")
@@ -157,7 +156,7 @@ func main() {
      ep.GET("/me", AuthenticationAndScopesRequired("openid"), getProfileHandler)
    }
 
-   r.RunTLS(":80", "/srv/certs/server.pem", "/srv/certs/server.key")
+   r.RunTLS(":80", "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
    //r.Run() // defaults to :8080, uses env PORT if set
 }
 
