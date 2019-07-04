@@ -4,14 +4,6 @@ import (
   "os"
 )
 
-/*
-RedirectURL:  redirect url,
-ClientID:     "GOOGLE_CLIENT_ID",
-ClientSecret: "CLIENT_SECRET",
-Scopes:       []string{"scope1", "scope2"},
-Endpoint:     oauth2 endpoint,
-*/
-
 type HydraConfig struct {
   Url             string
   AdminUrl        string
