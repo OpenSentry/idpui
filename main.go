@@ -8,7 +8,9 @@ import (
   "encoding/base64"
   "encoding/gob"
   "crypto/rand"
+  "reflect"
 
+  "golang.org/x/net/context"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
 
@@ -18,6 +20,8 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gwatts/gin-adapter"
   "github.com/atarantini/ginrequestid"
+
+  oidc "github.com/coreos/go-oidc"
 
   "golang-idp-fe/config"
   "golang-idp-fe/gateway/idpbe"
@@ -41,21 +45,18 @@ type recoverForm struct {
     Password string `form:"password"`
 }
 
-var (
-  idpfeHydra *oauth2.Config
-  idpfeHydraPublic *oauth2.Config
-  idpbeClient *http.Client
-)
-
 const sessionStoreKey = "idpfe"
 const sessionTokenKey = "token"
+const sessionIdTokenKey = "idtoken"
 const sessionStateKey = "state"
 
 func init() {
   config.InitConfigurations()
 
   gob.Register(&oauth2.Token{}) // This is required to make session in idp-fe able to persist tokens.
+  gob.Register(&oidc.IDToken{})
 
+/*
   var HydraEndpoint = oauth2.Endpoint{
     AuthURL:  config.Hydra.AuthenticateUrl,
     TokenURL: config.Hydra.TokenUrl,
@@ -80,26 +81,7 @@ func init() {
     ClientSecret: config.IdpFe.ClientSecret,
     Scopes:       config.IdpFe.RequiredScopes,
     Endpoint:     HydraPublicEndpoint,
-  }
-
-  // Initialize the idp-be http client with client credentials token for use in the API.
-  var idpbeClientCredentialsConfig *clientcredentials.Config = &clientcredentials.Config{
-    ClientID:     config.IdpFe.ClientId,
-    ClientSecret: config.IdpFe.ClientSecret,
-    TokenURL:     config.Hydra.TokenUrl,
-    Scopes: []string{"openid", "idpbe.authenticate"},
-    EndpointParams: url.Values{"audience": {"idpbe"}},
-    AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
-  }
-
-  idpbeToken, err := idpbeClientCredentialsConfig.Token(oauth2.NoContext)
-  if err != nil {
-    debugLog(logIdpFeApp, "init", "Unable to aquire idpbe access token. Error: " + err.Error(), "")
-    return
-  }
-  debugLog(logIdpFeApp, "init", "Logging access token to idp-be. Do not do this in production", "")
-  fmt.Println(idpbeToken) // FIXME Do not log this!!
-  idpbeClient = idpbeClientCredentialsConfig.Client(oauth2.NoContext)
+  }*/
 
 }
 
@@ -112,7 +94,71 @@ func debugLog(app string, event string, msg string, requestId string) {
   fmt.Println(fmt.Sprintf("[app:%s][request-id:%s][event:%s] %s", app, requestId, event, msg))
 }
 
+var (
+  hydraConfig *oauth2.Config
+  idpbeClient *idpbe.IdpBeClient
+)
+
+
+type HydraClient struct {
+  *http.Client
+}
+
+type IdpFeEnv struct {
+  Provider *oidc.Provider
+  IdpBeClient *idpbe.IdpBeClient
+  HydraConfig *oauth2.Config
+}
+
+func NewHydraClient(config *oauth2.Config, token *oauth2.Token) *HydraClient {
+  ctx := context.Background()
+  client := config.Client(ctx, token)
+  return &HydraClient{client}
+}
+
 func main() {
+
+  provider, err := oidc.NewProvider(context.Background(), config.Hydra.Url + "/")
+  if err != nil {
+    fmt.Println(err)
+    return
+  }
+  fmt.Println(reflect.TypeOf(provider))
+
+  // Setup hydra config. Used for Authorization code flow. (should this go into idpbe?)
+  hydraConfig = &oauth2.Config{
+    ClientID:     config.IdpFe.ClientId,
+    ClientSecret: config.IdpFe.ClientSecret,
+    Endpoint:     provider.Endpoint(),
+    RedirectURL:  config.IdpFe.PublicCallbackUrl,
+    Scopes:       config.IdpFe.RequiredScopes,
+  }
+
+  // Initialize the idp-be http client with client credentials token for use in the API.
+  idpbeClient = idpbe.NewIdpBeClient(&clientcredentials.Config{
+    ClientID:  config.IdpFe.ClientId,
+    ClientSecret: config.IdpFe.ClientSecret,
+    TokenURL: provider.Endpoint().TokenURL,
+    Scopes: []string{"openid", "idpbe.authenticate"},
+    EndpointParams: url.Values{"audience": {"idpbe"}},
+    AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
+  })
+
+  // Setup app state variables. Can be used in handler functions by doing closures see exchangeAuthorizationCodeCallback
+  env := &IdpFeEnv{
+    Provider: provider,
+    IdpBeClient: idpbeClient,
+    HydraConfig: hydraConfig,
+  }
+
+  /*hydraClient := NewHydraClient(&oauth2.Config{
+    ClientID:     config.IdpFe.ClientId,
+    ClientSecret: config.IdpFe.ClientSecret,
+    Endpoint:     provider.Endpoint(),
+    RedirectURL:  config.IdpFe.PublicCallbackUrl,
+    Scopes:       config.IdpFe.RequiredScopes,
+  })*/
+
    r := gin.Default()
    r.Use(ginrequestid.RequestId())
 
@@ -121,7 +167,7 @@ func main() {
    store.Options(sessions.Options{
        MaxAge: 86400,
        Path: "/",
-       Secure: false, // FIXME: Set to secure when using HTTPS
+       Secure: true,
        HttpOnly: true,
    })
    r.Use(sessions.Sessions(sessionStoreKey, store))
@@ -129,8 +175,7 @@ func main() {
    //r.Use(logRequest())
 
    // Use CSRF on all idp-fe forms.
-   debugLog(logIdpFeApp, "main", "Using insecure CSRF for devlopment. Do not do this in production", "")
-   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.IdpFe.CsrfAuthKey), csrf.Secure(false)))
+   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.IdpFe.CsrfAuthKey), csrf.Secure(true)))
    // r.Use(adapterCSRF) // Do not use this as it will make csrf tokens for public files aswell which is just extra data going over the wire, no need for that.
 
    r.Static("/public", "public")
@@ -152,12 +197,12 @@ func main() {
      ep.GET("/recover", getRecoverHandler)
      ep.POST("/recover", postRecoverHandler)
 
-     ep.GET("/callback", getCallbackHandler) // token exhange endpoint.
+     ep.GET("/callback", exchangeAuthorizationCodeCallback(env)) //getCallbackHandler) // token exhange endpoint.
 
      ep.GET("/me", AuthenticationAndScopesRequired("openid"), getProfileHandler)
    }
 
-   r.RunTLS(":80", "/srv/certs/server.pem", "/srv/certs/server.key")
+   r.RunTLS(":80", "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
    //r.Run() // defaults to :8080, uses env PORT if set
 }
 
@@ -198,7 +243,7 @@ func StartAuthentication(c *gin.Context) (*url.URL, error) {
   }
 
   debugLog(logIdpFeApp, "StartAuthentication", "Using "+sessionStateKey+" param: " + state, "")
-  authUrl := idpfeHydraPublic.AuthCodeURL(state)
+  authUrl := hydraConfig.AuthCodeURL(state) //idpfeHydraPublic.AuthCodeURL(state)
   u, err := url.Parse(authUrl)
   return u, err
 }
@@ -252,7 +297,7 @@ func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
 
       c.Set("user.name", "Marc")
       c.Set("user.email", "marc@cybertron.dk")
-      c.Set("user.user", "wraix")
+      c.Set("user.user", "user-1")
       c.Next() // Grant access
       return;
     }
@@ -272,12 +317,106 @@ func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
   }
 }
 
+func exchangeAuthorizationCodeCallback(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+
+    debugLog(logIdpFeApp, "ExchangeAuthorizationCodeCallback", "", c.MustGet("RequestId").(string))
+    session := sessions.Default(c)
+    v := session.Get(sessionStateKey)
+    if v == nil {
+      c.JSON(http.StatusBadRequest, gin.H{"error": "Request not initiated by idp-fe app. Hint: Missing "+sessionStateKey+" in session"})
+      c.Abort()
+      return;
+    }
+    sessionState := v.(string)
+
+    requestState := c.Query("state")
+    if requestState == "" {
+      c.JSON(http.StatusBadRequest, gin.H{"error": "No state found. Hint: Missing state in query"})
+      c.Abort()
+      return;
+    }
+
+    if requestState != sessionState {
+      c.JSON(http.StatusBadRequest, gin.H{"error": "Request did not originate from app. Hint: session state and request state differs"})
+      c.Abort()
+      return;
+    }
+
+    code := c.Query("code")
+    if code == "" {
+      c.JSON(http.StatusBadRequest, gin.H{"error": "No code to exchange for an access token. Hint: Missing code in query"})
+      c.Abort()
+      return;
+    }
+
+    // Found a code try and exchange it for access token.
+    token, err := env.HydraConfig.Exchange(context.Background(), code)
+    if err != nil {
+      c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+      c.Abort()
+      return
+    }
+
+    if token.Valid() == true {
+
+      rawIdToken, ok := token.Extra("id_token").(string)
+      if !ok {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "No id_token found with access token"})
+        c.Abort()
+        return
+      }
+
+      oidcConfig := &oidc.Config{
+        ClientID: config.IdpFe.ClientId,
+      }
+      verifier := env.Provider.Verifier(oidcConfig)
+
+      idToken, err := verifier.Verify(context.Background(), rawIdToken)
+      if err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to verify id_token. Hint: " + err.Error()})
+        return
+      }
+
+      fmt.Println("The access token")
+      fmt.Println(token)
+      fmt.Println("The id token")
+      fmt.Println(idToken.Subject)
+      fmt.Println(reflect.TypeOf(idToken))
+
+      session := sessions.Default(c)
+      session.Set(sessionTokenKey, token)
+      session.Set(sessionIdTokenKey, idToken)
+      err = session.Save()
+      if err == nil {
+        var redirectTo = config.IdpFe.DefaultRedirectUrl // FIXME: Where to redirect to?
+        debugLog(logIdpFeApp, "ExchangeAuthorizationCodeCallback", "Redirecting to: " + redirectTo, c.MustGet("RequestId").(string))
+        c.Redirect(http.StatusFound, redirectTo)
+        c.Abort()
+        return;
+      }
+
+      debugLog(logIdpFeApp, "ExchangeAuthorizationCodeCallback", "Failed to save session data: " + err.Error(), c.MustGet("RequestId").(string))
+      c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to save session data"})
+      c.Abort()
+      return
+    }
+
+    // Deny by default.
+    c.JSON(http.StatusUnauthorized, gin.H{"error": "Exchanged token was invalid. Hint: The timeout on the token might be to short"})
+    c.Abort()
+    return
+  }
+  return gin.HandlerFunc(fn)
+}
+
+/*
 func getCallbackHandler(c *gin.Context) {
   debugLog(logIdpFeApp, "getCallbackHandler", "", c.MustGet("RequestId").(string))
   session := sessions.Default(c)
   v := session.Get(sessionStateKey)
   if v == nil {
-    c.JSON(http.StatusUnauthorized, gin.H{"error": "Request not initiated by idp-fe app. Hint: Missing "+sessionStateKey+" in session"})
+    c.JSON(http.StatusBadRequest, gin.H{"error": "Request not initiated by idp-fe app. Hint: Missing "+sessionStateKey+" in session"})
     c.Abort()
     return;
   }
@@ -285,26 +424,26 @@ func getCallbackHandler(c *gin.Context) {
 
   requestState := c.Query("state")
   if requestState == "" {
-    c.JSON(http.StatusUnauthorized, gin.H{"error": "No state found. Hint: Missing state in query"})
+    c.JSON(http.StatusBadRequest, gin.H{"error": "No state found. Hint: Missing state in query"})
     c.Abort()
     return;
   }
 
   if requestState != sessionState {
-    c.JSON(http.StatusUnauthorized, gin.H{"error": "Request did not originate from app. Hint: session state and request state differs"})
+    c.JSON(http.StatusBadRequest, gin.H{"error": "Request did not originate from app. Hint: session state and request state differs"})
     c.Abort()
     return;
   }
 
   code := c.Query("code")
   if code == "" {
-    c.JSON(http.StatusUnauthorized, gin.H{"error": "No code to exchange for an access token. Hint: Missing code in query"})
+    c.JSON(http.StatusBadRequest, gin.H{"error": "No code to exchange for an access token. Hint: Missing code in query"})
     c.Abort()
     return;
   }
 
   // Found a code try and exchange it for access token.
-  token, err := idpfeHydra.Exchange(oauth2.NoContext, code)
+  token, err := hydraConfig.Exchange(context.Background(), code)
   if err != nil {
     c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
     c.Abort()
@@ -313,9 +452,32 @@ func getCallbackHandler(c *gin.Context) {
 
   if token.Valid() == true {
 
+    rawIdToken, ok := token.Extra("id_token").(string)
+    if !ok {
+      c.JSON(http.StatusUnauthorized, gin.H{"error": "No id_token found with access token"})
+      c.Abort()
+      return
+    }
+
+    oidcConfig := &oidc.Config{
+      ClientID: config.IdpFe.ClientId,
+    }
+    verifier := provider.Verifier(oidcConfig)
+
+    idToken, err := verifier.Verify(context.Background(), rawIdToken)
+    if err != nil {
+      c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to verify id_token. Hint: " + err.Error()})
+      return
+    }
+
+    fmt.Println("The access token")
+    fmt.Println(token)
+    fmt.Println("The id token")
+    fmt.Println(idToken)
+
     session := sessions.Default(c)
     session.Set(sessionTokenKey, token)
-    err := session.Save()
+    err = session.Save()
     if err == nil {
       var redirectTo = config.IdpFe.DefaultRedirectUrl // FIXME: Where to redirect to?
       debugLog(logIdpFeApp, "getCallbackHandler", "Redirecting to: " + redirectTo, c.MustGet("RequestId").(string))
@@ -335,6 +497,7 @@ func getCallbackHandler(c *gin.Context) {
   c.Abort()
   return;
 }
+*/
 
 func getProfileHandler(c *gin.Context) {
   debugLog(logIdpFeApp, "getProfileHandler", "", c.MustGet("RequestId").(string))

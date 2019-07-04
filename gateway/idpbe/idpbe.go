@@ -6,6 +6,9 @@ import (
   "encoding/json"
   "io/ioutil"
   _ "fmt"
+
+  "golang.org/x/net/context"
+  "golang.org/x/oauth2/clientcredentials"
 )
 
 type AuthenticateRequest struct {
@@ -48,6 +51,16 @@ type Profile struct {
   Email           string
 }
 
+type IdpBeClient struct {
+  *http.Client
+}
+
+func NewIdpBeClient(config *clientcredentials.Config) *IdpBeClient {
+  ctx := context.Background()
+  client := config.Client(ctx)
+  return &IdpBeClient{client}
+}
+
 func getDefaultHeadersWithAuthentication(accessToken string) map[string][]string {
   return map[string][]string{
     "Content-Type": []string{"application/json"},
@@ -80,7 +93,7 @@ func FetchIdentityFromAccessToken(url string, accessToken string) (UserInfoRespo
   return response, nil
 }
 
-func FetchProfile(url string, client *http.Client, identityRequest IdentityRequest) (Profile, error) {
+func FetchProfile(url string, client *IdpBeClient, identityRequest IdentityRequest) (Profile, error) {
   var profile Profile
   var identityResponse IdentityResponse
   var userInfoResponse UserInfoResponse
@@ -165,7 +178,7 @@ func FetchProfileForIdentity(url string, accessToken string, request IdentityReq
   return response, nil
 }
 
-func Authenticate(authenticateUrl string, client *http.Client, authenticateRequest AuthenticateRequest) (AuthenticateResponse, error) {
+func Authenticate(authenticateUrl string, client *IdpBeClient, authenticateRequest AuthenticateRequest) (AuthenticateResponse, error) {
   var authenticateResponse AuthenticateResponse
 
   body, _ := json.Marshal(authenticateRequest)
@@ -189,7 +202,7 @@ func Authenticate(authenticateUrl string, client *http.Client, authenticateReque
   return authenticateResponse, nil
 }
 
-func Logout(logoutUrl string, client *http.Client, logoutRequest LogoutRequest) (LogoutResponse, error) {
+func Logout(logoutUrl string, client *IdpBeClient, logoutRequest LogoutRequest) (LogoutResponse, error) {
   var logoutResponse LogoutResponse
 
   body, _ := json.Marshal(logoutRequest)
