@@ -156,7 +156,7 @@ func main() {
      ep.GET("/me", AuthenticationAndScopesRequired("openid"), getProfileHandler)
    }
 
-   r.RunTLS(":80", "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
+   r.RunTLS(":" + config.Self.Port, "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
    //r.Run() // defaults to :8080, uses env PORT if set
 }
 
