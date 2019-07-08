@@ -12,6 +12,10 @@ Scopes:       []string{"scope1", "scope2"},
 Endpoint:     oauth2 endpoint,
 */
 
+type SelfConfig struct {
+  Port          string
+}
+
 type HydraConfig struct {
   Url             string
   AdminUrl        string
@@ -47,8 +51,11 @@ type IdpBeConfig struct {
 var Hydra HydraConfig
 var IdpFe IdpFeConfig
 var IdpBe IdpBeConfig
+var Self SelfConfig
 
 func InitConfigurations() {
+  Self.Port                   = getEnvStrict("PORT")
+
   Hydra.Url                   = getEnvStrict("HYDRA_URL")
   Hydra.AdminUrl              = getEnvStrict("HYDRA_ADMIN_URL")
   Hydra.AuthenticateUrl       = Hydra.Url + "/oauth2/auth"
