@@ -58,7 +58,7 @@ func init() {
 
 }
 
-const logIdpFeApp = "idp-fe"
+const app = "idp-fe"
 func debugLog(app string, event string, msg string, requestId string) {
   if requestId == "" {
     fmt.Println(fmt.Sprintf("[app:%s][event:%s] %s", app, event, msg))
@@ -69,24 +69,24 @@ func debugLog(app string, event string, msg string, requestId string) {
 
 var (
   hydraConfig *oauth2.Config
-  idpbeClient *idpbe.IdpBeClient
+  idpbeConfig *clientcredentials.Config
 )
 
-
+/*
 type HydraClient struct {
   *http.Client
 }
-
-type IdpFeEnv struct {
-  Provider *oidc.Provider
-  IdpBeClient *idpbe.IdpBeClient
-  HydraConfig *oauth2.Config
-}
-
 func NewHydraClient(config *oauth2.Config, token *oauth2.Token) *HydraClient {
   ctx := context.Background()
   client := config.Client(ctx, token)
   return &HydraClient{client}
+}
+*/
+
+type IdpFeEnv struct {
+  Provider *oidc.Provider
+  IdpBeConfig *clientcredentials.Config
+  HydraConfig *oauth2.Config
 }
 
 func main() {
@@ -96,41 +96,33 @@ func main() {
     fmt.Println(err)
     return
   }
-  fmt.Println(reflect.TypeOf(provider))
 
-  // Setup hydra config. Used for Authorization code flow. (should this go into idpbe?)
+  // IdpFe needs to be able to act as an App using its client_id to bootstrap Authorization Code flow
+  // Eg. Users accessing /me directly from browser.
   hydraConfig = &oauth2.Config{
     ClientID:     config.IdpFe.ClientId,
     ClientSecret: config.IdpFe.ClientSecret,
     Endpoint:     provider.Endpoint(),
     RedirectURL:  config.IdpFe.PublicCallbackUrl,
-    Scopes:       config.IdpFe.RequiredScopes,
+    Scopes:       []string{"openid"},
   }
 
-  // Initialize the idp-be http client with client credentials token for use in the API.
-  idpbeClient = idpbe.NewIdpBeClient(&clientcredentials.Config{
+  // IdpFe needs to be able as an App using client_id to access IdpBe endpoints. Using client credentials flow
+  idpbeConfig = &clientcredentials.Config{
     ClientID:  config.IdpFe.ClientId,
     ClientSecret: config.IdpFe.ClientSecret,
     TokenURL: provider.Endpoint().TokenURL,
-    Scopes: []string{"openid", "idpbe.authenticate"},
+    Scopes: config.IdpFe.RequiredScopes,
     EndpointParams: url.Values{"audience": {"idpbe"}},
     AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
-  })
+  }
 
   // Setup app state variables. Can be used in handler functions by doing closures see exchangeAuthorizationCodeCallback
   env := &IdpFeEnv{
     Provider: provider,
-    IdpBeClient: idpbeClient,
     HydraConfig: hydraConfig,
+    IdpBeConfig: idpbeConfig,
   }
-
-  /*hydraClient := NewHydraClient(&oauth2.Config{
-    ClientID:     config.IdpFe.ClientId,
-    ClientSecret: config.IdpFe.ClientSecret,
-    Endpoint:     provider.Endpoint(),
-    RedirectURL:  config.IdpFe.PublicCallbackUrl,
-    Scopes:       config.IdpFe.RequiredScopes,
-  })*/
 
    r := gin.Default()
    r.Use(ginrequestid.RequestId())
@@ -173,6 +165,9 @@ func main() {
      ep.GET("/callback", exchangeAuthorizationCodeCallback(env)) // token exhange endpoint.
 
      ep.GET("/me", AuthenticationAndScopesRequired("openid"), showProfile(env))
+
+     ep.GET("/consent", AuthenticationAndScopesRequired("openid"), showConsent(env))
+     ep.POST("/consent", AuthenticationAndScopesRequired("openid"), submitConsent(env))
    }
 
    r.RunTLS(":" + config.Self.Port, "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
@@ -192,12 +187,12 @@ func StartAuthentication(c *gin.Context) (*url.URL, error) {
     state = base64.StdEncoding.EncodeToString(st)
     session.Set(sessionStateKey, state)
 		session.Save()
-    debugLog(logIdpFeApp, "StartAuthentication", "Saved session "+sessionStateKey+": " + state, "")
+    debugLog(app, "StartAuthentication", "Saved session "+sessionStateKey+": " + state, "")
   } else {
     state = v.(string)
   }
 
-  debugLog(logIdpFeApp, "StartAuthentication", "Using "+sessionStateKey+" param: " + state, "")
+  debugLog(app, "StartAuthentication", "Using "+sessionStateKey+" param: " + state, "")
   authUrl := hydraConfig.AuthCodeURL(state) //idpfeHydraPublic.AuthCodeURL(state)
   u, err := url.Parse(authUrl)
   return u, err
@@ -207,7 +202,7 @@ func StartAuthentication(c *gin.Context) (*url.URL, error) {
 func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
   return func(c *gin.Context) {
 
-    debugLog(logIdpFeApp, "AuthenticationAndScopesRequired", "Checking request for bearer token", c.MustGet("RequestId").(string))
+    debugLog(app, "AuthenticationAndScopesRequired", "Checking request for bearer token", c.MustGet("RequestId").(string))
     var token *oauth2.Token
 
     auth := c.Request.Header.Get("Authorization")
@@ -217,27 +212,27 @@ func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
         AccessToken: split[1],
         TokenType: split[0],
       }
-      debugLog(logIdpFeApp, "AuthenticationAndScopesRequired", "Found access token in Authorization: Bearer for request.", "")
+      debugLog(app, "AuthenticationAndScopesRequired", "Found access token in Authorization: Bearer for request.", "")
     } else {
 
-      debugLog(logIdpFeApp, "AuthenticationAndScopesRequired", "Checking session for token", c.MustGet("RequestId").(string))
+      debugLog(app, "AuthenticationAndScopesRequired", "Checking session for token", c.MustGet("RequestId").(string))
 
       // 2. Check session for access token that is valid, since bearer did not yeild a result
       session := sessions.Default(c)
 
-      debugLog(logIdpFeApp, "AuthenticationAndScopesRequired", "Printing session... ", c.MustGet("RequestId").(string))
+      debugLog(app, "AuthenticationAndScopesRequired", "Printing session... ", c.MustGet("RequestId").(string))
       fmt.Println(session.Get(sessionTokenKey))
 
       v := session.Get(sessionTokenKey)
       if v != nil {
         token = v.(*oauth2.Token)
-        debugLog(logIdpFeApp, "AuthenticationAndScopesRequired", "Found access token in idp-fe session store for request.", "")
+        debugLog(app, "AuthenticationAndScopesRequired", "Found access token in idp-fe session store for request.", "")
       }
     }
 
     // Allow access
     if token.Valid() == true {
-      debugLog(logIdpFeApp, "AuthenticationAndScopesRequired", "Valid access token found", c.MustGet("RequestId").(string))
+      debugLog(app, "AuthenticationAndScopesRequired", "Valid access token found", c.MustGet("RequestId").(string))
 
       fmt.Println(token)
 
@@ -257,7 +252,7 @@ func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
       return;
     }
 
-    debugLog(logIdpFeApp, "AuthenticationAndScopesRequired", "No valid token found", c.MustGet("RequestId").(string))
+    debugLog(app, "AuthenticationAndScopesRequired", "No valid token found", c.MustGet("RequestId").(string))
 
     // Deny by default, by requiring authentication and authorization.
     initUrl, err := StartAuthentication(c)
@@ -275,7 +270,7 @@ func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
 func exchangeAuthorizationCodeCallback(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    debugLog(logIdpFeApp, "exchangeAuthorizationCodeCallback", "", c.MustGet("RequestId").(string))
+    debugLog(app, "exchangeAuthorizationCodeCallback", "", c.MustGet("RequestId").(string))
     session := sessions.Default(c)
     v := session.Get(sessionStateKey)
     if v == nil {
@@ -333,25 +328,19 @@ func exchangeAuthorizationCodeCallback(env *IdpFeEnv) gin.HandlerFunc {
         return
       }
 
-      fmt.Println("The access token")
-      fmt.Println(token)
-      fmt.Println("The id token")
-      fmt.Println(idToken.Subject)
-      fmt.Println(reflect.TypeOf(idToken))
-
       session := sessions.Default(c)
       session.Set(sessionTokenKey, token)
       session.Set(sessionIdTokenKey, idToken)
       err = session.Save()
       if err == nil {
         var redirectTo = config.IdpFe.DefaultRedirectUrl // FIXME: Where to redirect to?
-        debugLog(logIdpFeApp, "exchangeAuthorizationCodeCallback", "Redirecting to: " + redirectTo, c.MustGet("RequestId").(string))
+        debugLog(app, "exchangeAuthorizationCodeCallback", "Redirecting to: " + redirectTo, c.MustGet("RequestId").(string))
         c.Redirect(http.StatusFound, redirectTo)
         c.Abort()
         return;
       }
 
-      debugLog(logIdpFeApp, "exchangeAuthorizationCodeCallback", "Failed to save session data: " + err.Error(), c.MustGet("RequestId").(string))
+      debugLog(app, "exchangeAuthorizationCodeCallback", "Failed to save session data: " + err.Error(), c.MustGet("RequestId").(string))
       c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to save session data"})
       c.Abort()
       return
@@ -367,7 +356,7 @@ func exchangeAuthorizationCodeCallback(env *IdpFeEnv) gin.HandlerFunc {
 
 func showProfile(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "showProfile", "", c.MustGet("RequestId").(string))
+    debugLog(app, "showProfile", "", c.MustGet("RequestId").(string))
 
     var idToken *oidc.IDToken
     session := sessions.Default(c)
@@ -378,11 +367,13 @@ func showProfile(env *IdpFeEnv) gin.HandlerFunc {
       return
     }
 
+    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+
     // Look up profile information for user.
     request := idpbe.IdentityRequest{
       Id: idToken.Subject,
     }
-    profile, err := idpbe.FetchProfile(config.IdpBe.IdentitiesUrl, env.IdpBeClient, request)
+    profile, err := idpbe.FetchProfile(config.IdpBe.IdentitiesUrl, idpbeClient, request)
     if err != nil {
       c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -398,9 +389,49 @@ func showProfile(env *IdpFeEnv) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
+func showConsent(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(app, "showConsent", "", c.MustGet("RequestId").(string))
+    c.HTML(http.StatusOK, "consent.html", gin.H{
+      csrf.TemplateTag: csrf.TemplateField(c.Request),
+    })
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func submitConsent(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(app, "submitConsent", "", c.MustGet("RequestId").(string))
+
+    var idToken *oidc.IDToken
+    session := sessions.Default(c)
+    idToken = session.Get(sessionIdTokenKey).(*oidc.IDToken)
+    if idToken == nil {
+      c.HTML(http.StatusNotFound, "consent.html", gin.H{"error": "Identity not found"})
+      c.Abort()
+      return
+    }
+
+    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+
+    request := idpbe.RevokeConsentRequest{
+      Id: idToken.Subject,
+    }
+    r, err := idpbe.RevokeConsent("fixme", idpbeClient, request)
+    if err != nil {
+      c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+      c.Abort()
+      return
+    }
+    c.JSON(http.StatusOK, gin.H{"status": r})
+  }
+  return gin.HandlerFunc(fn)
+}
+
+
 func showLogout(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "showLogout", "", c.MustGet("RequestId").(string))
+    debugLog(app, "showLogout", "", c.MustGet("RequestId").(string))
     logoutChallenge := c.Query("logout_challenge")
     if logoutChallenge == "" {
       // No logout challenge ask hydra for one.
@@ -421,7 +452,7 @@ func showLogout(env *IdpFeEnv) gin.HandlerFunc {
 
 func submitLogout(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "submitLogout", "", c.MustGet("RequestId").(string))
+    debugLog(app, "submitLogout", "", c.MustGet("RequestId").(string))
     var form authenticationForm
     err := c.Bind(&form)
     if err != nil {
@@ -431,10 +462,12 @@ func submitLogout(env *IdpFeEnv) gin.HandlerFunc {
       return
     }
 
+    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+
     var request = idpbe.LogoutRequest{
       Challenge: form.Challenge,
     }
-    logout, err := idpbe.Logout(config.IdpBe.LogoutUrl, env.IdpBeClient, request)
+    logout, err := idpbe.Logout(config.IdpBe.LogoutUrl, idpbeClient, request)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
@@ -453,7 +486,7 @@ func submitLogout(env *IdpFeEnv) gin.HandlerFunc {
 
 func showLogoutSession(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "showLogoutSession", "", c.MustGet("RequestId").(string))
+    debugLog(app, "showLogoutSession", "", c.MustGet("RequestId").(string))
 
     c.HTML(200, "logout-session.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
@@ -464,7 +497,7 @@ func showLogoutSession(env *IdpFeEnv) gin.HandlerFunc {
 
 func submitLogoutSession(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "submitLogoutSession", "", c.MustGet("RequestId").(string))
+    debugLog(app, "submitLogoutSession", "", c.MustGet("RequestId").(string))
 
     session := sessions.Default(c)
     session.Clear()
@@ -477,7 +510,7 @@ func submitLogoutSession(env *IdpFeEnv) gin.HandlerFunc {
 
 func showAuthentication(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "showAuthentication", "", c.MustGet("RequestId").(string))
+    debugLog(app, "showAuthentication", "", c.MustGet("RequestId").(string))
 
     loginChallenge := c.Query("login_challenge")
     if loginChallenge == "" {
@@ -494,10 +527,12 @@ func showAuthentication(env *IdpFeEnv) gin.HandlerFunc {
       return
     }
 
+    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+
     var authenticateRequest = idpbe.AuthenticateRequest{
       Challenge: loginChallenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, env.IdpBeClient, authenticateRequest)
+    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, idpbeClient, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
@@ -520,7 +555,7 @@ func showAuthentication(env *IdpFeEnv) gin.HandlerFunc {
 
 func showRegistration(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "showRegistration", "", c.MustGet("RequestId").(string))
+    debugLog(app, "showRegistration", "", c.MustGet("RequestId").(string))
     c.HTML(200, "register.html", nil)
   }
   return gin.HandlerFunc(fn)
@@ -528,7 +563,7 @@ func showRegistration(env *IdpFeEnv) gin.HandlerFunc {
 
 func showRecover(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "showRecovery", "", c.MustGet("RequestId").(string))
+    debugLog(app, "showRecovery", "", c.MustGet("RequestId").(string))
     c.HTML(200, "recover.html", nil)
   }
   return gin.HandlerFunc(fn)
@@ -536,7 +571,7 @@ func showRecover(env *IdpFeEnv) gin.HandlerFunc {
 
 func submitAuthentication(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "submitAuthentication", "", c.MustGet("RequestId").(string))
+    debugLog(app, "submitAuthentication", "", c.MustGet("RequestId").(string))
     var form authenticationForm
     err := c.Bind(&form)
 
@@ -547,13 +582,15 @@ func submitAuthentication(env *IdpFeEnv) gin.HandlerFunc {
       return
     }
 
+    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+
     // Ask idp-be to authenticate the user
     var authenticateRequest = idpbe.AuthenticateRequest{
       Id: form.Identity,
       Password: form.Password,
       Challenge: form.Challenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, env.IdpBeClient, authenticateRequest)
+    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, idpbeClient, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
@@ -584,7 +621,7 @@ func submitAuthentication(env *IdpFeEnv) gin.HandlerFunc {
 
 func submitRegistration(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "submitRegistration", "", c.MustGet("RequestId").(string))
+    debugLog(app, "submitRegistration", "", c.MustGet("RequestId").(string))
     var form registrationForm
     c.Bind(&form)
     c.JSON(200, gin.H{
@@ -598,7 +635,7 @@ func submitRegistration(env *IdpFeEnv) gin.HandlerFunc {
 
 func submitRecover(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    debugLog(logIdpFeApp, "submitRecover", "", c.MustGet("RequestId").(string))
+    debugLog(app, "submitRecover", "", c.MustGet("RequestId").(string))
     var form recoverForm
     c.Bind(&form)
     c.JSON(200, gin.H{"id": form.Identity })

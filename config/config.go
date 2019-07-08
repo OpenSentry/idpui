@@ -73,7 +73,7 @@ func InitConfigurations() {
   IdpFe.CsrfAuthKey           = getEnvStrict("IDP_FRONTEND_CSRF_AUTH_KEY") // 32 byte long auth key. When you change this user session will break.
   IdpFe.ClientId              = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_ID")
   IdpFe.ClientSecret          = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_SECRET")
-  IdpFe.RequiredScopes        = []string{"openid"}
+  IdpFe.RequiredScopes        = []string{"openid", "idpbe.authenticate"}
 
 }
 

@@ -5,7 +5,7 @@ import (
   "bytes"
   "encoding/json"
   "io/ioutil"
-  _ "fmt"
+  "fmt"
 
   "golang.org/x/net/context"
   "golang.org/x/oauth2/clientcredentials"
@@ -41,6 +41,10 @@ type IdentityResponse struct {
   Email         string          `json:"email"`
 }
 
+type RevokeConsentRequest struct {
+  Id string `json:"id"`
+}
+
 type UserInfoResponse struct {
   Sub       string      `json:"sub"`
 }
@@ -67,7 +71,6 @@ func getDefaultHeadersWithAuthentication(accessToken string) map[string][]string
     "Accept": []string{"application/json"},
     "Authorization": []string{"Bearer " + accessToken},
   }
-
 }
 
 // This probably needs to wrap a call to idpbe?
@@ -91,6 +94,31 @@ func FetchIdentityFromAccessToken(url string, accessToken string) (UserInfoRespo
   json.Unmarshal(responseData, &response)
 
   return response, nil
+}
+
+func RevokeConsent(url string, client *IdpBeClient, revokeConsentRequest RevokeConsentRequest) (bool, error) {
+
+  // FIXME: Call hydra directly. This should not be allowed! (idpfe does not have hydra scope)
+  // It should call idpbe instead. But for testing this was faster.
+  u := "https://hydra:4445/oauth2/auth/sessions/consent?subject=" + revokeConsentRequest.Id
+  consentRequest, err := http.NewRequest("DELETE", u, nil)
+  if err != nil {
+    return false, err
+  }
+
+  rawResponse, err := client.Do(consentRequest)
+  if err != nil {
+    return false, err
+  }
+
+  responseData, err := ioutil.ReadAll(rawResponse.Body)
+  if err != nil {
+    return false, err
+  }
+
+  fmt.Println(responseData)
+
+  return true, nil
 }
 
 func FetchProfile(url string, client *IdpBeClient, identityRequest IdentityRequest) (Profile, error) {
