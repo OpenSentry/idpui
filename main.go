@@ -175,7 +175,7 @@ func main() {
      ep.GET("/me", AuthenticationAndScopesRequired("openid"), showProfile(env))
    }
 
-   r.RunTLS(":80", "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
+   r.RunTLS(":" + config.Self.Port, "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
 }
 
 func StartAuthentication(c *gin.Context) (*url.URL, error) {
