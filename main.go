@@ -56,33 +56,6 @@ func init() {
   gob.Register(&oauth2.Token{}) // This is required to make session in idp-fe able to persist tokens.
   gob.Register(&oidc.IDToken{})
 
-/*
-  var HydraEndpoint = oauth2.Endpoint{
-    AuthURL:  config.Hydra.AuthenticateUrl,
-    TokenURL: config.Hydra.TokenUrl,
-  }
-
-  idpfeHydra = &oauth2.Config{
-    RedirectURL:  config.IdpFe.PublicCallbackUrl,
-    ClientID:     config.IdpFe.ClientId,
-    ClientSecret: config.IdpFe.ClientSecret,
-    Scopes:       config.IdpFe.RequiredScopes,
-    Endpoint:     HydraEndpoint,
-  }
-
-  var HydraPublicEndpoint = oauth2.Endpoint{
-    AuthURL:  config.Hydra.PublicAuthenticateUrl,
-    TokenURL: config.Hydra.PublicTokenUrl,
-  }
-
-  idpfeHydraPublic = &oauth2.Config{
-    RedirectURL:  config.IdpFe.PublicCallbackUrl,
-    ClientID:     config.IdpFe.ClientId,
-    ClientSecret: config.IdpFe.ClientSecret,
-    Scopes:       config.IdpFe.RequiredScopes,
-    Endpoint:     HydraPublicEndpoint,
-  }*/
-
 }
 
 const logIdpFeApp = "idp-fe"
@@ -172,8 +145,6 @@ func main() {
    })
    r.Use(sessions.Sessions(sessionStoreKey, store))
 
-   //r.Use(logRequest())
-
    // Use CSRF on all idp-fe forms.
    adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.IdpFe.CsrfAuthKey), csrf.Secure(true)))
    // r.Use(adapterCSRF) // Do not use this as it will make csrf tokens for public files aswell which is just extra data going over the wire, no need for that.
@@ -184,44 +155,27 @@ func main() {
    ep := r.Group("/")
    ep.Use(adapterCSRF)
    {
-     ep.GET("/", getAuthenticationHandler)
-     ep.GET("/authenticate", getAuthenticationHandler)
-     ep.POST("/authenticate", postAuthenticationHandler)
+     ep.GET("/", showAuthentication(env))
+     ep.GET("/authenticate", showAuthentication(env))
+     ep.POST("/authenticate", submitAuthentication(env))
 
-     ep.GET("/logout", AuthenticationAndScopesRequired("openid"), getLogoutHandler)
-     ep.POST("/logout", AuthenticationAndScopesRequired("openid"), postLogoutHandler)
+     ep.GET("/logout", AuthenticationAndScopesRequired("openid"), showLogout(env))
+     ep.POST("/logout", AuthenticationAndScopesRequired("openid"), submitLogout(env))
+     ep.GET("/logout-session", showLogoutSession(env))
+     ep.POST("/logout-session", submitLogoutSession(env))
 
-     ep.GET("/register", getRegisterHandler)
-     ep.POST("/register", postRegistrationHandler)
+     ep.GET("/register", showRegistration(env))
+     ep.POST("/register", submitRegistration(env))
 
-     ep.GET("/recover", getRecoverHandler)
-     ep.POST("/recover", postRecoverHandler)
+     ep.GET("/recover", showRecover(env))
+     ep.POST("/recover", submitRecover(env))
 
-     ep.GET("/callback", exchangeAuthorizationCodeCallback(env)) //getCallbackHandler) // token exhange endpoint.
+     ep.GET("/callback", exchangeAuthorizationCodeCallback(env)) // token exhange endpoint.
 
-     ep.GET("/me", AuthenticationAndScopesRequired("openid"), getProfileHandler)
+     ep.GET("/me", AuthenticationAndScopesRequired("openid"), showProfile(env))
    }
 
    r.RunTLS(":80", "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
-   //r.Run() // defaults to :8080, uses env PORT if set
-}
-
-func logRequest() gin.HandlerFunc {
-  return func(c *gin.Context) {
-    debugLog(logIdpFeApp, "logRequest", "Logging all requests. Do not do this in production it will leak tokens", "")
-    fmt.Println(c.Request)
-    c.Next()
-  }
-}
-
-func GenerateRandomBytes(n int) ([]byte, error) {
-  b := make([]byte, n)
-  _, err := rand.Read(b)
-  // Note that err == nil only if we read len(b) bytes.
-  if err != nil {
-    return nil, err
-  }
-  return b, nil
 }
 
 func StartAuthentication(c *gin.Context) (*url.URL, error) {
@@ -230,7 +184,8 @@ func StartAuthentication(c *gin.Context) (*url.URL, error) {
   v := session.Get(sessionStateKey)
   if v == nil {
     // No state in session found, so calculate one.
-    st, err := GenerateRandomBytes(32)
+    st := make([]byte, 64) // 64 bytes
+    _, err := rand.Read(st)
     if err != nil {
       return &url.URL{}, err
     }
@@ -320,7 +275,7 @@ func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
 func exchangeAuthorizationCodeCallback(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    debugLog(logIdpFeApp, "ExchangeAuthorizationCodeCallback", "", c.MustGet("RequestId").(string))
+    debugLog(logIdpFeApp, "exchangeAuthorizationCodeCallback", "", c.MustGet("RequestId").(string))
     session := sessions.Default(c)
     v := session.Get(sessionStateKey)
     if v == nil {
@@ -390,13 +345,13 @@ func exchangeAuthorizationCodeCallback(env *IdpFeEnv) gin.HandlerFunc {
       err = session.Save()
       if err == nil {
         var redirectTo = config.IdpFe.DefaultRedirectUrl // FIXME: Where to redirect to?
-        debugLog(logIdpFeApp, "ExchangeAuthorizationCodeCallback", "Redirecting to: " + redirectTo, c.MustGet("RequestId").(string))
+        debugLog(logIdpFeApp, "exchangeAuthorizationCodeCallback", "Redirecting to: " + redirectTo, c.MustGet("RequestId").(string))
         c.Redirect(http.StatusFound, redirectTo)
         c.Abort()
         return;
       }
 
-      debugLog(logIdpFeApp, "ExchangeAuthorizationCodeCallback", "Failed to save session data: " + err.Error(), c.MustGet("RequestId").(string))
+      debugLog(logIdpFeApp, "exchangeAuthorizationCodeCallback", "Failed to save session data: " + err.Error(), c.MustGet("RequestId").(string))
       c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to save session data"})
       c.Abort()
       return
@@ -410,173 +365,124 @@ func exchangeAuthorizationCodeCallback(env *IdpFeEnv) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-/*
-func getCallbackHandler(c *gin.Context) {
-  debugLog(logIdpFeApp, "getCallbackHandler", "", c.MustGet("RequestId").(string))
-  session := sessions.Default(c)
-  v := session.Get(sessionStateKey)
-  if v == nil {
-    c.JSON(http.StatusBadRequest, gin.H{"error": "Request not initiated by idp-fe app. Hint: Missing "+sessionStateKey+" in session"})
-    c.Abort()
-    return;
-  }
-  sessionState := v.(string)
+func showProfile(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "showProfile", "", c.MustGet("RequestId").(string))
 
-  requestState := c.Query("state")
-  if requestState == "" {
-    c.JSON(http.StatusBadRequest, gin.H{"error": "No state found. Hint: Missing state in query"})
-    c.Abort()
-    return;
-  }
-
-  if requestState != sessionState {
-    c.JSON(http.StatusBadRequest, gin.H{"error": "Request did not originate from app. Hint: session state and request state differs"})
-    c.Abort()
-    return;
-  }
-
-  code := c.Query("code")
-  if code == "" {
-    c.JSON(http.StatusBadRequest, gin.H{"error": "No code to exchange for an access token. Hint: Missing code in query"})
-    c.Abort()
-    return;
-  }
-
-  // Found a code try and exchange it for access token.
-  token, err := hydraConfig.Exchange(context.Background(), code)
-  if err != nil {
-    c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-    c.Abort()
-    return
-  }
-
-  if token.Valid() == true {
-
-    rawIdToken, ok := token.Extra("id_token").(string)
-    if !ok {
-      c.JSON(http.StatusUnauthorized, gin.H{"error": "No id_token found with access token"})
-      c.Abort()
-      return
-    }
-
-    oidcConfig := &oidc.Config{
-      ClientID: config.IdpFe.ClientId,
-    }
-    verifier := provider.Verifier(oidcConfig)
-
-    idToken, err := verifier.Verify(context.Background(), rawIdToken)
-    if err != nil {
-      c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to verify id_token. Hint: " + err.Error()})
-      return
-    }
-
-    fmt.Println("The access token")
-    fmt.Println(token)
-    fmt.Println("The id token")
-    fmt.Println(idToken)
-
+    var idToken *oidc.IDToken
     session := sessions.Default(c)
-    session.Set(sessionTokenKey, token)
-    err = session.Save()
-    if err == nil {
-      var redirectTo = config.IdpFe.DefaultRedirectUrl // FIXME: Where to redirect to?
-      debugLog(logIdpFeApp, "getCallbackHandler", "Redirecting to: " + redirectTo, c.MustGet("RequestId").(string))
-      c.Redirect(http.StatusFound, redirectTo)
+    idToken = session.Get(sessionIdTokenKey).(*oidc.IDToken)
+    if idToken == nil {
+      c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
       c.Abort()
-      return;
+      return
     }
 
-    debugLog(logIdpFeApp, "getCallbackHandler", "Failed to save session data: " + err.Error(), c.MustGet("RequestId").(string))
-    c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to save session data"})
-    c.Abort()
-    return
-  }
+    // Look up profile information for user.
+    request := idpbe.IdentityRequest{
+      Id: idToken.Subject,
+    }
+    profile, err := idpbe.FetchProfile(config.IdpBe.IdentitiesUrl, env.IdpBeClient, request)
+    if err != nil {
+      c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
+      c.Abort()
+      return
+    }
 
-  // Deny by default.
-  c.JSON(http.StatusUnauthorized, gin.H{"error": "Exchanged token was invalid. Hint: The timeout on the token might be to short"})
-  c.Abort()
-  return;
-}
-*/
-
-func getProfileHandler(c *gin.Context) {
-  debugLog(logIdpFeApp, "getProfileHandler", "", c.MustGet("RequestId").(string))
-
-  user, userExists := c.Get("user.user")
-  if userExists == false {
-    c.HTML(http.StatusUnauthorized, "unauthorized.html", gin.H{
-      "error": "No user found",
-    })
-    c.Abort()
-    return
-  }
-
-  fmt.Println(user)
-
-/*
-  session := sessions.Default(c)
-  t := session.Get(sessionTokenKey)
-  if t == nil {
-    c.HTML(http.StatusUnauthorized, "unauthorized.html", gin.H{
-      "error": "Missing access token",
-    })
-    c.Abort()
-    return
-  }
-
-  debugLog(logIdpFeApp, "getProfileHandler", "Accessed profile using token:", c.MustGet("RequestId").(string))
-  fmt.Println(t)*/
-
-/*
-  userClient := token.Client()
-
-  request := idpbe.IdentityRequest{
-  }
-  profile, err = idpbe.FetchProfile(config.IdpBe.IdentitiesUrl, userClient, request);
-  if err == nil {
-    fmt.Println(profile)
-    c.HTML(200, "me.html", gin.H{
-      "user": profile.Id,
+    c.HTML(http.StatusOK, "me.html", gin.H{
+      "user": idToken.Subject,
       "name": profile.Name,
       "email": profile.Email,
     })
-    c.Abort()
-    return
-  }*/
-
-  c.HTML(http.StatusOK, "me.html", gin.H{
-    "user": user,
-  })
-}
-
-func getLogoutHandler(c *gin.Context) {
-  debugLog(logIdpFeApp, "getLogoutHandler", "", c.MustGet("RequestId").(string))
-
-  logoutChallenge := c.Query("logout_challenge")
-  if logoutChallenge == "" {
-    var url = config.Hydra.PublicLogoutUrl
-    c.Redirect(302, url)
-    c.Abort()
-    return
   }
-
-  logoutError := c.Query("logout_error")
-  c.HTML(200, "logout.html", gin.H{
-    csrf.TemplateTag: csrf.TemplateField(c.Request),
-    "challenge": logoutChallenge,
-    "logout_error": logoutError,
-  })
-  c.Abort()
+  return gin.HandlerFunc(fn)
 }
 
-func getAuthenticationHandler(c *gin.Context) {
-  debugLog(logIdpFeApp, "getAuthenticationHandler", "", c.MustGet("RequestId").(string))
+func showLogout(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "showLogout", "", c.MustGet("RequestId").(string))
+    logoutChallenge := c.Query("logout_challenge")
+    if logoutChallenge == "" {
+      // No logout challenge ask hydra for one.
+      c.Redirect(302, config.Hydra.PublicLogoutUrl)
+      c.Abort()
+      return
+    }
+
+    logoutError := c.Query("logout_error")
+    c.HTML(200, "logout.html", gin.H{
+      csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "challenge": logoutChallenge,
+      "logout_error": logoutError,
+    })
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func submitLogout(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "submitLogout", "", c.MustGet("RequestId").(string))
+    var form authenticationForm
+    err := c.Bind(&form)
+    if err != nil {
+      // Do better error handling in the application.
+      c.JSON(400, gin.H{"error": err.Error()})
+      c.Abort()
+      return
+    }
+
+    var request = idpbe.LogoutRequest{
+      Challenge: form.Challenge,
+    }
+    logout, err := idpbe.Logout(config.IdpBe.LogoutUrl, env.IdpBeClient, request)
+    if err != nil {
+      c.JSON(400, gin.H{"error": err.Error()})
+      c.Abort()
+      return
+    }
+
+    session := sessions.Default(c)
+    session.Clear()
+    session.Save()
+
+    c.Redirect(302, logout.RedirectTo)
+    c.Abort()
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func showLogoutSession(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "showLogoutSession", "", c.MustGet("RequestId").(string))
+
+    c.HTML(200, "logout-session.html", gin.H{
+      csrf.TemplateTag: csrf.TemplateField(c.Request),
+    })
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func submitLogoutSession(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "submitLogoutSession", "", c.MustGet("RequestId").(string))
+
+    session := sessions.Default(c)
+    session.Clear()
+    session.Save()
+    c.Redirect(302, "/me")
+    c.Abort()
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func showAuthentication(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "showAuthentication", "", c.MustGet("RequestId").(string))
 
     loginChallenge := c.Query("login_challenge")
-
-    // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
-    // Idp-Fe should ask hydra for a challenge to login
     if loginChallenge == "" {
+      // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
+      // Idp-Fe should ask hydra for a challenge to login
       initUrl, err := StartAuthentication(c)
       if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -591,7 +497,7 @@ func getAuthenticationHandler(c *gin.Context) {
     var authenticateRequest = idpbe.AuthenticateRequest{
       Challenge: loginChallenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, idpbeClient, authenticateRequest)
+    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, env.IdpBeClient, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
@@ -602,58 +508,35 @@ func getAuthenticationHandler(c *gin.Context) {
       c.Abort()
       return
     }
-
     loginError := c.Query("login_error")
     c.HTML(200, "authenticate.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "challenge": loginChallenge,
       "login_error": loginError,
     })
-}
-
-func getRegisterHandler(c *gin.Context) {
-  debugLog(logIdpFeApp, "getRegisterHandler", "", c.MustGet("RequestId").(string))
-  c.HTML(200, "register.html", nil)
-  c.Abort()
-}
-
-func getRecoverHandler(c *gin.Context) {
-  debugLog(logIdpFeApp, "getRecoverHandler", "", c.MustGet("RequestId").(string))
-  c.HTML(200, "recover.html", nil)
-  c.Abort()
-}
-
-func postLogoutHandler(c *gin.Context) {
-  debugLog(logIdpFeApp, "postLogoutHandler", "", c.MustGet("RequestId").(string))
-  var form authenticationForm
-  err := c.Bind(&form)
-  if err != nil {
-    // Do better error handling in the application.
-    c.JSON(400, gin.H{"error": err.Error()})
-    c.Abort()
-    return
   }
-
-  var logoutRequest = idpbe.LogoutRequest{
-    Challenge: form.Challenge,
-  }
-  logoutResponse, err := idpbe.Logout(config.IdpBe.LogoutUrl, idpbeClient, logoutRequest)
-  if err != nil {
-    c.JSON(400, gin.H{"error": err.Error()})
-    c.Abort()
-    return
-  }
-
-  session := sessions.Default(c)
-  session.Clear()
-  session.Save()
-
-  c.Redirect(302, logoutResponse.RedirectTo)
-  c.Abort()
+  return gin.HandlerFunc(fn)
 }
 
-func postAuthenticationHandler(c *gin.Context) {
-    debugLog(logIdpFeApp, "postAuthenticationHandler", "", c.MustGet("RequestId").(string))
+func showRegistration(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "showRegistration", "", c.MustGet("RequestId").(string))
+    c.HTML(200, "register.html", nil)
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func showRecover(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "showRecovery", "", c.MustGet("RequestId").(string))
+    c.HTML(200, "recover.html", nil)
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func submitAuthentication(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "submitAuthentication", "", c.MustGet("RequestId").(string))
     var form authenticationForm
     err := c.Bind(&form)
 
@@ -670,7 +553,7 @@ func postAuthenticationHandler(c *gin.Context) {
       Password: form.Password,
       Challenge: form.Challenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, idpbeClient, authenticateRequest)
+    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, env.IdpBeClient, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
@@ -689,16 +572,19 @@ func postAuthenticationHandler(c *gin.Context) {
     retryLoginUrl := "/?login_challenge=" + form.Challenge + "&login_error=Authentication Failure";
     retryUrl, err := url.Parse(retryLoginUrl)
     if err != nil {
-      c.JSON(400, gin.H{"error": err.Error()})
+      c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
     c.Redirect(302, retryUrl.String())
     c.Abort()
+  }
+  return gin.HandlerFunc(fn)
 }
 
-func postRegistrationHandler(c *gin.Context) {
-    debugLog(logIdpFeApp, "postRegistrationHandler", "", c.MustGet("RequestId").(string))
+func submitRegistration(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "submitRegistration", "", c.MustGet("RequestId").(string))
     var form registrationForm
     c.Bind(&form)
     c.JSON(200, gin.H{
@@ -706,13 +592,16 @@ func postRegistrationHandler(c *gin.Context) {
         "email": form.Email,
         "password" : form.Password,
         "password_retyped" : form.PasswordRetyped })
-    c.Abort()
+  }
+  return gin.HandlerFunc(fn)
 }
 
-func postRecoverHandler(c *gin.Context) {
-    debugLog(logIdpFeApp, "postRecoverHandler", "", c.MustGet("RequestId").(string))
+func submitRecover(env *IdpFeEnv) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    debugLog(logIdpFeApp, "submitRecover", "", c.MustGet("RequestId").(string))
     var form recoverForm
     c.Bind(&form)
     c.JSON(200, gin.H{"id": form.Identity })
-    c.Abort()
+  }
+  return gin.HandlerFunc(fn)
 }
