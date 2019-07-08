@@ -1,0 +1,27 @@
+<head>
+
+  <meta charset="utf-8">
+
+  <title>Logout session</title>
+  <meta name="description" content="Logout session">
+  <meta name="author" content="Company">
+
+  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
+
+</head>
+<body>
+
+  <div id="top-spacer"></div>
+
+  <div id="content-wrapper">
+    <h1>Logout session</h1>
+
+    <form action="/logout-session" method="post">
+      {{ .csrfField }}
+      <input type="submit" name="submit" value="Logout" />
+    </form>
+
+  </div>
+
+  <script type="text/javascript"></script>
+</body>
