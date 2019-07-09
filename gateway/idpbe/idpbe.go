@@ -65,41 +65,10 @@ func NewIdpBeClient(config *clientcredentials.Config) *IdpBeClient {
   return &IdpBeClient{client}
 }
 
-func getDefaultHeadersWithAuthentication(accessToken string) map[string][]string {
-  return map[string][]string{
-    "Content-Type": []string{"application/json"},
-    "Accept": []string{"application/json"},
-    "Authorization": []string{"Bearer " + accessToken},
-  }
-}
-
-// This probably needs to wrap a call to idpbe?
-func FetchIdentityFromAccessToken(url string, accessToken string) (UserInfoResponse, error) {
-  var response UserInfoResponse
-
-  client := &http.Client{}
-
-  request, _ := http.NewRequest("GET", url, nil)
-  request.Header = getDefaultHeadersWithAuthentication(accessToken)
-
-  rawResponse, err := client.Do(request)
-  if err != nil {
-    return response, err
-  }
-
-  responseData, err := ioutil.ReadAll(rawResponse.Body)
-  if err != nil {
-    return response, err
-  }
-  json.Unmarshal(responseData, &response)
-
-  return response, nil
-}
-
 func RevokeConsent(url string, client *IdpBeClient, revokeConsentRequest RevokeConsentRequest) (bool, error) {
 
   // FIXME: Call hydra directly. This should not be allowed! (idpfe does not have hydra scope)
-  // It should call idpbe instead. But for testing this was faster.
+  // It should call cpbe instead. But for testing this was faster.
   u := "https://hydra:4445/oauth2/auth/sessions/consent?subject=" + revokeConsentRequest.Id
   consentRequest, err := http.NewRequest("DELETE", u, nil)
   if err != nil {
@@ -178,32 +147,6 @@ func FetchProfile(url string, client *IdpBeClient, identityRequest IdentityReque
     Email: identityResponse.Email,
   }
   return profile, nil
-}
-
-func FetchProfileForIdentity(url string, accessToken string, request IdentityRequest) (IdentityResponse, error) {
-  var response IdentityResponse
-
-  client := &http.Client{}
-
-  rawRequest, _ := http.NewRequest("GET", url, nil)
-
-  query := rawRequest.URL.Query()
-  query.Add("id", request.Id)
-  rawRequest.URL.RawQuery = query.Encode()
-
-  rawResponse, err := client.Do(rawRequest)
-  if err != nil {
-    return response, err
-  }
-
-  responseData, _ := ioutil.ReadAll(rawResponse.Body)
-
-  err = json.Unmarshal(responseData, &response)
-  if err != nil {
-    return response, err
-  }
-
-  return response, nil
 }
 
 func Authenticate(authenticateUrl string, client *IdpBeClient, authenticateRequest AuthenticateRequest) (AuthenticateResponse, error) {
