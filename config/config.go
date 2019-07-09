@@ -40,9 +40,17 @@ type IdpBeConfig struct {
   LogoutUrl string
 }
 
+type CpBeConfig struct {
+  Url string
+  AuthorizationsUrl string
+  AuthorizationsAuthorizeUrl string
+  AuthorizationsRejectUrl string
+}
+
 var Hydra HydraConfig
 var IdpFe IdpFeConfig
 var IdpBe IdpBeConfig
+var CpBe CpBeConfig
 var Self SelfConfig
 
 func InitConfigurations() {
@@ -74,6 +82,11 @@ func InitConfigurations() {
   IdpFe.ClientId              = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_ID")
   IdpFe.ClientSecret          = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_SECRET")
   IdpFe.RequiredScopes        = []string{"openid", "idpbe.authenticate"}
+
+  CpBe.Url                         = getEnvStrict("CP_BACKEND_URL")
+  CpBe.AuthorizationsUrl           = CpBe.Url + "/authorizations"
+  CpBe.AuthorizationsAuthorizeUrl  = CpBe.AuthorizationsUrl + "/authorize"
+  CpBe.AuthorizationsRejectUrl     = CpBe.AuthorizationsUrl + "/reject"
 
 }
 
