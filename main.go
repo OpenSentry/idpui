@@ -1,6 +1,7 @@
 package main
 
 import (
+  "errors"
   "strings"
   "fmt"
   "net/url"
@@ -8,7 +9,7 @@ import (
   "encoding/base64"
   "encoding/gob"
   "crypto/rand"
-  "reflect"
+  _ "reflect"
 
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
@@ -25,6 +26,7 @@ import (
 
   "golang-idp-fe/config"
   "golang-idp-fe/gateway/idpbe"
+  "golang-idp-fe/gateway/cpbe"
 )
 
 type authenticationForm struct {
@@ -49,6 +51,7 @@ const sessionStoreKey = "idpfe"
 const sessionTokenKey = "token"
 const sessionIdTokenKey = "idtoken"
 const sessionStateKey = "state"
+const requestIdKey = "RequestId"
 
 func init() {
   config.InitConfigurations()
@@ -67,10 +70,10 @@ func debugLog(app string, event string, msg string, requestId string) {
   fmt.Println(fmt.Sprintf("[app:%s][request-id:%s][event:%s] %s", app, requestId, event, msg))
 }
 
-var (
+/*var (
   hydraConfig *oauth2.Config
   idpbeConfig *clientcredentials.Config
-)
+)*/
 
 /*
 type HydraClient struct {
@@ -86,6 +89,7 @@ func NewHydraClient(config *oauth2.Config, token *oauth2.Token) *HydraClient {
 type IdpFeEnv struct {
   Provider *oidc.Provider
   IdpBeConfig *clientcredentials.Config
+  CpBeConfig *clientcredentials.Config
   HydraConfig *oauth2.Config
 }
 
@@ -99,7 +103,7 @@ func main() {
 
   // IdpFe needs to be able to act as an App using its client_id to bootstrap Authorization Code flow
   // Eg. Users accessing /me directly from browser.
-  hydraConfig = &oauth2.Config{
+  hydraConfig := &oauth2.Config{
     ClientID:     config.IdpFe.ClientId,
     ClientSecret: config.IdpFe.ClientSecret,
     Endpoint:     provider.Endpoint(),
@@ -108,7 +112,7 @@ func main() {
   }
 
   // IdpFe needs to be able as an App using client_id to access IdpBe endpoints. Using client credentials flow
-  idpbeConfig = &clientcredentials.Config{
+  idpbeConfig := &clientcredentials.Config{
     ClientID:  config.IdpFe.ClientId,
     ClientSecret: config.IdpFe.ClientSecret,
     TokenURL: provider.Endpoint().TokenURL,
@@ -117,11 +121,21 @@ func main() {
     AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
   }
 
+  cpbeConfig := &clientcredentials.Config{
+    ClientID:  config.IdpFe.ClientId,
+    ClientSecret: config.IdpFe.ClientSecret,
+    TokenURL: provider.Endpoint().TokenURL,
+    Scopes: config.IdpFe.RequiredScopes,
+    EndpointParams: url.Values{"audience": {"cpbe"}},
+    AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
+  }
+
   // Setup app state variables. Can be used in handler functions by doing closures see exchangeAuthorizationCodeCallback
   env := &IdpFeEnv{
     Provider: provider,
     HydraConfig: hydraConfig,
     IdpBeConfig: idpbeConfig,
+    CpBeConfig: cpbeConfig,
   }
 
    r := gin.Default()
@@ -151,8 +165,8 @@ func main() {
      ep.GET("/authenticate", showAuthentication(env))
      ep.POST("/authenticate", submitAuthentication(env))
 
-     ep.GET("/logout", AuthenticationAndScopesRequired("openid"), showLogout(env))
-     ep.POST("/logout", AuthenticationAndScopesRequired("openid"), submitLogout(env))
+     ep.GET("/logout", AuthenticationAndAuthorizationRequired(env, "openid"), showLogout(env))
+     ep.POST("/logout", AuthenticationAndAuthorizationRequired(env, "openid"), submitLogout(env))
      ep.GET("/logout-session", showLogoutSession(env))
      ep.POST("/logout-session", submitLogoutSession(env))
 
@@ -164,16 +178,16 @@ func main() {
 
      ep.GET("/callback", exchangeAuthorizationCodeCallback(env)) // token exhange endpoint.
 
-     ep.GET("/me", AuthenticationAndScopesRequired("openid"), showProfile(env))
+     ep.GET("/me", AuthenticationAndAuthorizationRequired(env, "openid"), showProfile(env))
 
-     ep.GET("/consent", AuthenticationAndScopesRequired("openid"), showConsent(env))
-     ep.POST("/consent", AuthenticationAndScopesRequired("openid"), submitConsent(env))
+     ep.GET("/consent", AuthenticationAndAuthorizationRequired(env, "openid"), showConsent(env))
+     ep.POST("/consent", AuthenticationAndAuthorizationRequired(env, "openid"), submitConsent(env))
    }
 
    r.RunTLS(":" + config.Self.Port, "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
 }
 
-func StartAuthentication(c *gin.Context) (*url.URL, error) {
+func StartAuthentication(env *IdpFeEnv, c *gin.Context) (*url.URL, error) {
   var state string
   session := sessions.Default(c)
   v := session.Get(sessionStateKey)
@@ -193,78 +207,125 @@ func StartAuthentication(c *gin.Context) (*url.URL, error) {
   }
 
   debugLog(app, "StartAuthentication", "Using "+sessionStateKey+" param: " + state, "")
-  authUrl := hydraConfig.AuthCodeURL(state) //idpfeHydraPublic.AuthCodeURL(state)
+  authUrl := env.HydraConfig.AuthCodeURL(state) //idpfeHydraPublic.AuthCodeURL(state)
   u, err := url.Parse(authUrl)
   return u, err
 }
 
-// Gin middleware to secure idp fe endpoints using oauth2
-func AuthenticationAndScopesRequired(requiredScopes ...string) gin.HandlerFunc {
-  return func(c *gin.Context) {
+const accessTokenKey = "access_token"
+const idTokenKey = "id_token"
 
-    debugLog(app, "AuthenticationAndScopesRequired", "Checking request for bearer token", c.MustGet("RequestId").(string))
-    var token *oauth2.Token
+// # Authentication and Authorization
+// Gin middleware to secure idp fe endpoints using oauth2.
+//
+// ## QTNA - Questions that need answering before granting access to a protected resource
+// 1. Is the user or client authenticated? Answered by the process of obtaining an access token.
+// 2. Is the access token expired?
+// 3. Is the access token granted the required scopes?
+// 4. Is the user or client giving the grants in the access token authorized to operate the scopes granted?
+// 5. Is the access token revoked?
+func AuthenticationAndAuthorizationRequired(env *IdpFeEnv, requiredScopes ...string) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    var requestId string = c.MustGet(requestIdKey).(string)
+    debugLog(app, "AuthenticationAndAuthorizationRequired", "", requestId)
 
-    auth := c.Request.Header.Get("Authorization")
-    split := strings.SplitN(auth, " ", 2)
-    if len(split) == 2 || strings.EqualFold(split[0], "bearer") {
-      token = &oauth2.Token{
-        AccessToken: split[1],
-        TokenType: split[0],
-      }
-      debugLog(app, "AuthenticationAndScopesRequired", "Found access token in Authorization: Bearer for request.", "")
-    } else {
-
-      debugLog(app, "AuthenticationAndScopesRequired", "Checking session for token", c.MustGet("RequestId").(string))
-
-      // 2. Check session for access token that is valid, since bearer did not yeild a result
-      session := sessions.Default(c)
-
-      debugLog(app, "AuthenticationAndScopesRequired", "Printing session... ", c.MustGet("RequestId").(string))
-      fmt.Println(session.Get(sessionTokenKey))
-
-      v := session.Get(sessionTokenKey)
-      if v != nil {
-        token = v.(*oauth2.Token)
-        debugLog(app, "AuthenticationAndScopesRequired", "Found access token in idp-fe session store for request.", "")
-      }
-    }
-
-    // Allow access
-    if token.Valid() == true {
-      debugLog(app, "AuthenticationAndScopesRequired", "Valid access token found", c.MustGet("RequestId").(string))
-
-      fmt.Println(token)
-
-      // Questions that need answering before granting access to a protected resource:
-      // 1. Is the user or client authenticated? Answered by the process of obtaining an access token.
-      // 2. Is the access token expired? Answered by token.Valid(), https://godoc.org/golang.org/x/oauth2#Token.Valid
-      // 3. Is the access token granted the required scopes? FIXME: Use introspection or JWT to decide
-      // 4. Is the user or client giving the grants in the access token authorized to operate the scopes granted? FIXME: Ask cpbe to determine or use JWT
-      // 5. Is the access token revoked? Use idpbe.IsAccessTokenRevoked to decide.
-
-      // TODO: Set the http client to use for this request with the required access token.
-
-      c.Set("user.name", "Marc")
-      c.Set("user.email", "marc@cybertron.dk")
-      c.Set("user.user", "user-1")
-      c.Next() // Grant access
-      return;
-    }
-
-    debugLog(app, "AuthenticationAndScopesRequired", "No valid token found", c.MustGet("RequestId").(string))
-
-    // Deny by default, by requiring authentication and authorization.
-    initUrl, err := StartAuthentication(c)
+    // Authentication
+    token, err := authenticationRequired(env, c)
     if err != nil {
-      c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+      // Require authentication to access resources. Init oauth2 Authorization code flow with idpfe as the client.
+      debugLog(app, "AuthenticationAndAuthorizationRequired", "Error: " + err.Error(), requestId)
+      initUrl, err := StartAuthentication(env, c)
+      if err != nil {
+        debugLog(app, "AuthenticationAndAuthorizationRequired", "Error: " + err.Error(), requestId)
+        c.HTML(http.StatusInternalServerError, "", gin.H{"error": err.Error()})
+        c.Abort()
+        return
+      }
+      c.Redirect(http.StatusFound, initUrl.String())
       c.Abort()
       return
     }
-    c.Redirect(http.StatusFound, initUrl.String())
-    c.Abort()
+    c.Set(accessTokenKey, token) // Authenticated, so use it forward.
+
+    // Authorization
+    grantedScopes, err := authorizationRequired(env, c, requiredScopes)
+    if err != nil {
+      debugLog(app, "AuthenticationAndAuthorizationRequired", "Error: " + err.Error(), requestId)
+      c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+      c.Abort()
+      return
+    }
+    fmt.Println(grantedScopes)
+
+    // FIXME: Find IdToken for access token.
+    idToken := &oauth2.Token{}
+    c.Set(idTokenKey, idToken) // Authorized
+
+    c.Next() // Authentication and authorization successful, continue.
     return
   }
+  return gin.HandlerFunc(fn)
+}
+
+func authenticationRequired(env *IdpFeEnv, c *gin.Context) (*oauth2.Token, error) {
+  var requestId string = c.MustGet(requestIdKey).(string)
+  debugLog(app, "authenticationRequired", "Checking Authorization: Bearer <token> in request", requestId)
+
+  var token *oauth2.Token
+  auth := c.Request.Header.Get("Authorization")
+  split := strings.SplitN(auth, " ", 2)
+  if len(split) == 2 || strings.EqualFold(split[0], "bearer") {
+    debugLog(app, "authenticationRequired", "Authorization: Bearer <token> found for request.", requestId)
+    token = &oauth2.Token{
+      AccessToken: split[1],
+      TokenType: split[0],
+    }
+  } else {
+    debugLog(app, "authenticationRequired", "Checking Session <token> in request", requestId)
+    session := sessions.Default(c)
+    v := session.Get(sessionTokenKey)
+    if v != nil {
+      token = v.(*oauth2.Token)
+      debugLog(app, "authenticationRequired", "Session <token> found in request", requestId)
+    }
+  }
+
+  // See #2 of QTNA
+  // https://godoc.org/golang.org/x/oauth2#Token.Valid
+  if token.Valid() == true {
+    debugLog(app, "authenticationRequired", "Valid access token", requestId)
+
+    // See #5 of QTNA
+    // FIXME: Call token revoked list to check if token is revoked.
+    debugLog(app, "authenticationRequired", "Missing implementation of QTNA #5 - Is the access token revoked?", requestId)
+
+    return token, nil
+  }
+
+  // Deny by default
+  debugLog(app, "authenticationRequired", "Missing or invalid access token", requestId)
+  return &oauth2.Token{}, errors.New("Missing or invalid access token")
+}
+
+func authorizationRequired(env *IdpFeEnv, c *gin.Context, requiredScopes []string) ([]string, error) {
+  var requestId string = c.MustGet(requestIdKey).(string)
+  debugLog(app, "authorizationRequired", "Checking required scopes for request", requestId)
+
+  // See #3 of QTNA
+  debugLog(app, "authorizationRequired", "Missing implementation of QTNA #3 - Is the access token granted the required scopes?", requestId)
+  cpbeClient := cpbe.NewCpBeClient(env.CpBeConfig)
+  grantedScopes, err := cpbe.IsRequiredScopesGrantedForToken(config.CpBe.AuthorizationsUrl, cpbeClient, requiredScopes)
+  if err != nil {
+    return nil, err
+  }
+
+  // See #4 of QTNA
+  // FIXME: Is user who granted the scopes allow to use the scopes (check cpbe model for what user is allowed to do.)
+  debugLog(app, "authorizationRequired", "Missing implementation of QTNA #4 - Is the user or client giving the grants in the access token authorized to operate the scopes granted?", requestId)
+
+  strGrantedScopes := strings.Join(grantedScopes, ",")
+  debugLog(app, "authorizationRequired", "Valid scopes: " + strGrantedScopes, requestId)
+  return grantedScopes, nil
 }
 
 func exchangeAuthorizationCodeCallback(env *IdpFeEnv) gin.HandlerFunc {
@@ -358,6 +419,9 @@ func showProfile(env *IdpFeEnv) gin.HandlerFunc {
   fn := func(c *gin.Context) {
     debugLog(app, "showProfile", "", c.MustGet("RequestId").(string))
 
+    // NOTE: Maybe session is not a good way to do this.
+    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
+    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
     var idToken *oidc.IDToken
     session := sessions.Default(c)
     idToken = session.Get(sessionIdTokenKey).(*oidc.IDToken)
@@ -516,7 +580,7 @@ func showAuthentication(env *IdpFeEnv) gin.HandlerFunc {
     if loginChallenge == "" {
       // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
       // Idp-Fe should ask hydra for a challenge to login
-      initUrl, err := StartAuthentication(c)
+      initUrl, err := StartAuthentication(env, c)
       if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         c.Abort()
