@@ -1,6 +1,7 @@
 package idpbe
 
 import (
+  "errors"
   "net/http"
   "bytes"
   "encoding/json"
@@ -32,13 +33,17 @@ type LogoutResponse struct {
 }
 
 type IdentityRequest struct {
-  Id              string            `json:"id"`
+  Id            string          `json:"id" binding:"required"`
+  Name          string          `json:"name,omitempty"`
+  Email         string          `json:"email,omitempty"`
+  Password      string          `json:"password,omitempty"`
 }
 
 type IdentityResponse struct {
-  Id            string          `json:"id"`
-  Name          string          `json:"name"`
-  Email         string          `json:"email"`
+  Id            string          `json:"id" binding:"required"`
+  Name          string          `json:"name,omitempty"`
+  Email         string          `json:"email,omitempty"`
+  Password      string          `json:"password,omitempty" binding:"required"`
 }
 
 type RevokeConsentRequest struct {
@@ -53,6 +58,7 @@ type Profile struct {
   Id              string
   Name            string
   Email           string
+  Password        string
 }
 
 type IdpBeClient struct {
@@ -65,6 +71,7 @@ func NewIdpBeClient(config *clientcredentials.Config) *IdpBeClient {
   return &IdpBeClient{client}
 }
 
+// config.CpBe.AuthorizationsUrl
 func RevokeConsent(url string, client *IdpBeClient, revokeConsentRequest RevokeConsentRequest) (bool, error) {
 
   // FIXME: Call hydra directly. This should not be allowed! (idpfe does not have hydra scope)
@@ -90,6 +97,49 @@ func RevokeConsent(url string, client *IdpBeClient, revokeConsentRequest RevokeC
   return true, nil
 }
 
+// config.IdpBe.IdentitiesUrl
+func CreateProfile(identitiesUrl string, client *IdpBeClient, profile Profile) (Profile, error) {
+  var identityResponse IdentityResponse
+  var newProfile Profile
+
+  identityRequest := IdentityRequest{
+    Id: profile.Id,
+    Name: profile.Name,
+    Email: profile.Email,
+    Password: profile.Password,
+  }
+  body, _ := json.Marshal(identityRequest)
+
+  var data = bytes.NewBuffer(body)
+
+  request, _ := http.NewRequest("POST", identitiesUrl, data)
+
+  response, err := client.Do(request)
+  if err != nil {
+    return newProfile, err
+  }
+
+  responseData, _ := ioutil.ReadAll(response.Body)
+  if response.StatusCode != 200 {
+    fmt.Println(string(responseData))
+    return newProfile, errors.New("Idpbe return non 200 error")
+  }
+
+  err = json.Unmarshal(responseData, &identityResponse)
+  if err != nil {
+    return newProfile, err
+  }
+
+  newProfile = Profile{
+    Id: identityResponse.Id,
+    Name: identityResponse.Name,
+    Email: identityResponse.Email,
+    Password: identityResponse.Password,
+  }
+  return newProfile, nil
+}
+
+// config.IdpBe.IdentitiesUrl
 func FetchProfile(url string, client *IdpBeClient, identityRequest IdentityRequest) (Profile, error) {
   var profile Profile
   var identityResponse IdentityResponse
@@ -149,6 +199,7 @@ func FetchProfile(url string, client *IdpBeClient, identityRequest IdentityReque
   return profile, nil
 }
 
+// config.IdpBe.AuthenticateUrl
 func Authenticate(authenticateUrl string, client *IdpBeClient, authenticateRequest AuthenticateRequest) (AuthenticateResponse, error) {
   var authenticateResponse AuthenticateResponse
 
@@ -173,6 +224,7 @@ func Authenticate(authenticateUrl string, client *IdpBeClient, authenticateReque
   return authenticateResponse, nil
 }
 
+// config.IdpBe.LogoutUrl
 func Logout(logoutUrl string, client *IdpBeClient, logoutRequest LogoutRequest) (LogoutResponse, error) {
   var logoutResponse LogoutResponse
 

@@ -24,8 +24,10 @@
     <form action="/authenticate" method="post">
       {{ .csrfField }}
       <input type="hidden" name="challenge" value="{{ .challenge }}" />
-      <input type="text" name="identity" placeholder="Username" />
-      <input type="password" name="password" placeholder="Password" />
+
+      <input name="username" type="text" autocomplete="username" placeholder="Enter your username" required>
+      <input name="password" type="password" autocomplete="current-password" placeholder="Enter your secret password, sshhh..." required>
+
       <input type="submit" name="submit" value="Connect" />
     </form>
 

@@ -63,6 +63,11 @@ input[type=button]:hover, input[type=submit]:hover {
 	padding:30px 50px;
 }
 
+#content-wrapper .error {
+	color:#f00;
+	background:#000;
+}
+
 	#content-wrapper form input[type=text], #content-wrapper form input[type=password] {
 		margin-bottom: 20px;
 	}
