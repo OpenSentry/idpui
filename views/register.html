@@ -16,11 +16,25 @@
   <div id="content-wrapper">
     <img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />
     <h1>Identity Provider</h1>
+
     <form action="/register" method="post">
-      <input type="text" name="identity" placeholder="Username" />
-      <input type="text" name="email" placeholder="Email" />
-      <input type="password" name="password" placeholder="Password" />
-      <input type="password" name="password_retyped" placeholder="Repeat password" />
+      {{ .csrfField }}
+
+      <input name="username" type="text" autocomplete="username" placeholder="Enter your username" value="{{ .username }}" required>
+      <div class="error">{{ .errorUsername }}</div>
+
+      <input name="display-name" type="text" autocomplete="name" value="{{ .displayName }}" placeholder="Enter your full name">
+      <div class="error">{{ .errorDisplayName }}</div>
+
+      <input name="email" type="text" autocomplete="email" value="{{ .email }}" placeholder="Enter your email" />
+      <div class="error">{{ .errorEmail }}</div>
+
+      <input name="password" type="password" autocomplete="new-password" placeholder="Enter your secret password, sshhh..." required>
+      <div class="error">{{ .errorPassword }}</div>
+
+      <input name="password_retyped" type="password" autocomplete="new-password" placeholder="Enter your secret password again, sshhh..." required>
+      <div class="error">{{ .errorPasswordRetyped }}</div>
+
       <input type="submit" name="submit" value="Register" />
     </form>
 
