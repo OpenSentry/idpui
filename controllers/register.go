@@ -34,44 +34,42 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
     displayName := session.Get("register.display-name")
     email := session.Get("register.email")
 
+    success := session.Flashes("register.success")
+
     errors := session.Flashes("register.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       environment.DebugLog(route.LogId, "SubmitRegistration", err.Error(), c.MustGet(environment.RequestIdKey).(string))
     }
 
-    var errorUsername []string
-    var errorPassword []string
-    var errorPasswordRetyped []string
-    var errorEmail []string
-    var errorDisplayName []string
+    var errorUsername string
+    var errorPassword string
+    var errorPasswordRetyped string
+    var errorEmail string
+    var errorDisplayName string
 
     if len(errors) > 0 {
-
       errorsMap := errors[0].(map[string][]string)
-
       for k, v := range errorsMap {
-
-        if k == "errorUsername" {
-          errorUsername = v
+        if k == "errorUsername" && len(v) > 0 {
+          errorUsername = strings.Join(v, ", ")
         }
 
-        if k == "errorPassword" {
-          errorPassword = v
+        if k == "errorPassword" && len(v) > 0 {
+          errorPassword = strings.Join(v, ", ")
         }
 
-        if k == "errorPasswordRetyped" {
-          errorPasswordRetyped = v
+        if k == "errorPasswordRetyped" && len(v) > 0 {
+          errorPasswordRetyped = strings.Join(v, ", ")
         }
 
-        if k == "errorEmail" {
-          errorEmail = v
+        if k == "errorEmail" && len(v) > 0 {
+          errorEmail = strings.Join(v, ", ")
         }
 
-        if k == "errorDisplayName" {
-          errorDisplayName = v
+        if k == "errorDisplayName" && len(v) > 0 {
+          errorDisplayName = strings.Join(v, ", ")
         }
-
       }
     }
 
@@ -80,11 +78,12 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
       "username": username,
       "displayName": displayName,
       "email": email,
-      "errorUsername": strings.Join(errorUsername, ", "),
-      "errorPassword": strings.Join(errorPassword, ", "),
-      "errorPasswordRetyped": strings.Join(errorPasswordRetyped, ", "),
-      "errorEmail": strings.Join(errorEmail, ", "),
-      "errorDisplayName": strings.Join(errorDisplayName, ", "),
+      "success": success,
+      "errorUsername": errorUsername,
+      "errorPassword": errorPassword,
+      "errorPasswordRetyped": errorPasswordRetyped,
+      "errorEmail": errorEmail,
+      "errorDisplayName": errorDisplayName,
     })
   }
   return gin.HandlerFunc(fn)
@@ -174,13 +173,16 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       session.Delete("register.display-name")
       session.Delete("register.email")
 
+      // Register success message
+      session.AddFlash(1, "register.success")
+
       err = session.Save()
       if err != nil {
         environment.DebugLog(route.LogId, "SubmitRegistration", err.Error(), c.MustGet(environment.RequestIdKey).(string))
       }
 
-      // Registration successful, now go to login.
-      c.Redirect(http.StatusFound, "/me")
+      // Registration successful, return to create new ones, but with success message
+      c.Redirect(http.StatusFound, "/register")
       c.Abort()
       return
     }

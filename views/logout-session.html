@@ -16,7 +16,7 @@
   <div id="content-wrapper">
     <h1>Logout session</h1>
 
-    <form action="/logout-session" method="post">
+    <form action="/session/logout" method="post">
       {{ .csrfField }}
       <input type="submit" name="submit" value="Logout" />
     </form>

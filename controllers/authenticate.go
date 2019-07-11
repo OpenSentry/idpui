@@ -26,17 +26,6 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
   fn := func(c *gin.Context) {
     environment.DebugLog(route.LogId, "ShowAuthentication", "", c.MustGet(environment.RequestIdKey).(string))
 
-    // Look for flash session of a registering new profile event
-    session := sessions.Default(c)
-    v := session.Get(environment.SessionSubject)
-    fmt.Println("CHECKING FOR SESSION SUBJECT")
-    fmt.Println(v)
-    if v != nil {
-      fmt.Println("DELETING SUBJECT AGAIN")
-      session.Delete(environment.SessionSubject)
-      session.Save()
-    }
-
     loginChallenge := c.Query("login_challenge")
     if loginChallenge == "" {
       // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
@@ -50,6 +39,17 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
       c.Redirect(http.StatusFound, initUrl.String())
       c.Abort()
       return
+    }
+
+    // Look for flash session of a registering new profile event
+    session := sessions.Default(c)
+    v := session.Get(environment.SessionSubject)
+    fmt.Println("CHECKING FOR SESSION SUBJECT")
+    fmt.Println(v)
+    if v != nil {
+      fmt.Println("DELETING SUBJECT AGAIN")
+      session.Delete(environment.SessionSubject)
+      session.Save()
     }
 
     idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
