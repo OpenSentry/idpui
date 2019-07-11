@@ -216,6 +216,10 @@ func Authenticate(authenticateUrl string, client *IdpBeClient, authenticateReque
 
   responseData, _ := ioutil.ReadAll(response.Body)
 
+  if response.StatusCode != 200 {
+    return authenticateResponse, errors.New(string(responseData))
+  }
+
   err = json.Unmarshal(responseData, &authenticateResponse)
   if err != nil {
     return authenticateResponse, err
