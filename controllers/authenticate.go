@@ -1,7 +1,7 @@
 package controllers
 
 import (
-  "fmt"
+  //"fmt"
   "net/url"
   "net/http"
   "crypto/rand"
@@ -39,17 +39,6 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
       c.Redirect(http.StatusFound, initUrl.String())
       c.Abort()
       return
-    }
-
-    // Look for flash session of a registering new profile event
-    session := sessions.Default(c)
-    v := session.Get(environment.SessionSubject)
-    fmt.Println("CHECKING FOR SESSION SUBJECT")
-    fmt.Println(v)
-    if v != nil {
-      fmt.Println("DELETING SUBJECT AGAIN")
-      session.Delete(environment.SessionSubject)
-      session.Save()
     }
 
     idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
