@@ -68,6 +68,11 @@ input[type=button]:hover, input[type=submit]:hover {
 	background:#000;
 }
 
+#content-wrapper .success {
+	color:#0f0;
+	background:#000;
+}
+
 	#content-wrapper form input[type=text], #content-wrapper form input[type=password] {
 		margin-bottom: 20px;
 	}
