@@ -118,9 +118,9 @@ func main() {
        URL: "/logout",
        LogId: "idpfe://logout",
      },
-     "/logout-session": environment.Route{
-       URL: "/logout-session",
-       LogId: "idpfe://logout-session",
+     "/session/logout": environment.Route{
+       URL: "/session/logout",
+       LogId: "idpfe://session/logout",
      },
      "/register": environment.Route{
        URL: "/register",
@@ -153,8 +153,9 @@ func main() {
 
      ep.GET(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.ShowLogout(env, routes["/logout"]))
      ep.POST(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.SubmitLogout(env, routes["/logout"]))
-     ep.GET(routes["/logout-session"].URL, controllers.ShowLogoutSession(env, routes["/logout-session"])) // These does not require authentication as its like doing delete in browser on cookies.
-     ep.POST(routes["/logout-session"].URL, controllers.SubmitLogoutSession(env, routes["/logout-session"]))
+
+     ep.GET(routes["/session/logout"].URL, controllers.ShowLogoutSession(env, routes["/session/logout"])) // These does not require authentication as its like doing delete in browser on cookies.
+     ep.POST(routes["/session/logout"].URL, controllers.SubmitLogoutSession(env, routes["/session/logout"]))
 
      ep.GET(routes["/register"].URL, controllers.ShowRegistration(env, routes["/register"]))
      ep.POST(routes["/register"].URL, controllers.SubmitRegistration(env, routes["/register"]))
