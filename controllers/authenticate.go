@@ -124,29 +124,38 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
   return gin.HandlerFunc(fn)
 }
 
+func CreateRandomStringWithNumberOfBytes(numberOfBytes int) (string, error) {
+  st := make([]byte, numberOfBytes)
+  _, err := rand.Read(st)
+  if err != nil {
+    return "", err
+  }
+  return base64.StdEncoding.EncodeToString(st), nil
+}
+
 func StartAuthentication(env *environment.State, c *gin.Context, route environment.Route) (*url.URL, error) {
   var state string
-  session := sessions.Default(c)
-  v := session.Get(environment.SessionStateKey)
-  if v == nil {
-    // No state in session found, so calculate one.
-    st := make([]byte, 64) // 64 bytes
-    _, err := rand.Read(st)
-    if err != nil {
-      return &url.URL{}, err
-    }
-    state = base64.StdEncoding.EncodeToString(st)
-    session.Set(environment.SessionStateKey, state)
-		err = session.Save()
-    if err != nil {
-      environment.DebugLog(route.LogId, "StartAuthentication", err.Error(), c.MustGet(environment.RequestIdKey).(string))
-    }
-    environment.DebugLog(route.LogId, "StartAuthentication", "Saved session "+environment.SessionStateKey+": " + state, c.MustGet(environment.RequestIdKey).(string))
-  } else {
-    state = v.(string)
-  }
+  var err error
 
-  environment.DebugLog(route.LogId, "StartAuthentication", "Using "+environment.SessionStateKey+" param: " + state, c.MustGet(environment.RequestIdKey).(string))
+  requestId := c.MustGet(environment.RequestIdKey).(string)
+
+  // Always generate a new authentication session state
+  session := sessions.Default(c)
+
+  state, err = CreateRandomStringWithNumberOfBytes(64);
+  if err != nil {
+    environment.DebugLog(route.LogId, "StartAuthentication", err.Error(), requestId)
+    return nil, err
+  }
+  session.Set(environment.SessionStateKey, state)
+  err = session.Save()
+  if err != nil {
+    environment.DebugLog(route.LogId, "StartAuthentication", err.Error(), requestId)
+    return nil, err
+  }
+  environment.DebugLog(route.LogId, "StartAuthentication", "Saved session "+environment.SessionStateKey+": " + state, requestId)
+
+  environment.DebugLog(route.LogId, "StartAuthentication", "Using "+environment.SessionStateKey+" param: " + state, requestId)
   authUrl := env.HydraConfig.AuthCodeURL(state) //idpfeHydraPublic.AuthCodeURL(state)
   u, err := url.Parse(authUrl)
   return u, err
