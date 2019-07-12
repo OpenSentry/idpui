@@ -76,7 +76,7 @@ func RevokeConsent(url string, client *IdpBeClient, revokeConsentRequest RevokeC
 
   // FIXME: Call hydra directly. This should not be allowed! (idpfe does not have hydra scope)
   // It should call cpbe instead. But for testing this was faster.
-  u := "https://hydra:4445/oauth2/auth/sessions/consent?subject=" + revokeConsentRequest.Id
+  u := "https://admin.oauth.localhost/oauth2/auth/sessions/consent?subject=" + revokeConsentRequest.Id
   consentRequest, err := http.NewRequest("DELETE", u, nil)
   if err != nil {
     return false, err
