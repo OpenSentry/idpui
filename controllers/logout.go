@@ -72,7 +72,7 @@ func ShowLogoutSession(env *environment.State, route environment.Route) gin.Hand
   fn := func(c *gin.Context) {
     environment.DebugLog(route.LogId, "showLogoutSession", "", c.MustGet(environment.RequestIdKey).(string))
 
-    c.HTML(200, "logout-session.html", gin.H{
+    c.HTML(200, "session-logout.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
     })
   }
