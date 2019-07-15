@@ -6,29 +6,47 @@
   <meta name="description" content="Profile">
   <meta name="author" content="Company">
 
-  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
-
 </head>
 <body>
 
-  <div id="top-spacer"></div>
+  <h1>Greetings, {{ .name }}</h1>
+  <p>
+  This is where you can change your profile data, like email and name, or view which apps you consented access to your data.
+  </p>
 
-  <div id="content-wrapper">
-    <h1>Profile</h1>
-    <p>
-      Hi {{ .name }}, also known as {{ .user }} <br><br>
-      You are viewing your profile. You are registered with the email {{ .email }}
-    </p>
+  <h2>Profile</h2>
+  <p>
+  We have registered the following data on you:
+  <br>
+  Username: {{ .user }}
+  <br>
+  Name: {{ .name }}
+  <br>
+  Email: {{ .email }}
+  </p>
+  <a href="/logout">Logout</a>
 
-    <p>
-      <a href="/logout">Logout</a>
-    <p>
+  <h2>Managing</h2>
+  <p>
+  You manage the following people and systems:
+  <br><br>
+  n/a
+  </p>
 
-    <p>
-      <a href="/consent">Consent</a>
-    </p>
+  <h2>Permission</h2>
+  <p>
+  You are granted the following access to apps:
+  <br></br>
+  n/a
+  </p>
 
-  </div>
+  <h2>Consent</h2>
+  <p>
+  You have granted the following apps access to your data:
+  <br><br>
+  n/a
+  </p>
+  <a href="/consent">Revoke consent to all apps</a>
 
   <script type="text/javascript"></script>
 </body>
