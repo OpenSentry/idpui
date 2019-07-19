@@ -2,6 +2,7 @@ package controllers
 
 import (
   "net/http"
+  //"fmt"
 
   "golang.org/x/net/context"
 
@@ -42,6 +43,14 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
       return;
     }
 
+    error := c.Query("error");
+    if error != "" {
+      errorHint := c.Query("error_hint")
+      c.JSON(http.StatusNotFound, gin.H{"error": error, "hint": errorHint})
+      c.Abort()
+      return;
+    }
+
     code := c.Query("code")
     if code == "" {
       c.JSON(http.StatusBadRequest, gin.H{"error": "No code to exchange for an access token. Hint: Missing code in query"})
@@ -74,6 +83,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
       idToken, err := verifier.Verify(context.Background(), rawIdToken)
       if err != nil {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to verify id_token. Hint: " + err.Error()})
+        c.Abort()
         return
       }
 
@@ -96,7 +106,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
     }
 
     // Deny by default.
-    c.JSON(http.StatusUnauthorized, gin.H{"error": "Exchanged token was invalid. Hint: The timeout on the token might be to short"})
+    c.JSON(http.StatusUnauthorized, gin.H{"error": "Exchanged token was invalid. Hint: The timeout on the token might be to short?"})
     c.Abort()
     return
   }

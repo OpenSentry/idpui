@@ -2,15 +2,19 @@ package controllers
 
 import (
   "net/http"
+  "strings"
+  "fmt"
 
   "github.com/gin-gonic/gin"
   //"github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
+  "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
 
   "golang-idp-fe/config"
   "golang-idp-fe/environment"
   "golang-idp-fe/gateway/idpbe"
+  "golang-idp-fe/gateway/cpbe"
 )
 
 func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -29,7 +33,9 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
       return
     }
 
-    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+    var accessToken *oauth2.Token
+    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
+    idpbeClient := idpbe.NewIdpBeClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
     request := idpbe.IdentityRequest{
@@ -42,10 +48,31 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
       return
     }
 
+
+    cpbeClient := cpbe.NewCpBeClient(env.CpBeConfig)
+
+    var consents string = "n/a"
+    consentRequest := cpbe.ConsentRequest{
+      Subject: idToken.Subject,
+      App: "idpui", // FIXME: Formalize this. Remeber an app could have more than one identity (client_id) if we wanted to segment access within the app
+      ClientId: "idpui", //authorizeResponse.ClientId, // "idpui"
+      // RequestedScopes: requestedScopes, // Only look for permissions that was requested (query optimization)
+    }
+    grantedScopes, err := cpbe.FetchConsents(config.CpBe.AuthorizationsUrl, cpbeClient, consentRequest)
+    if err != nil {
+      fmt.Println(err)
+    } else {
+      consents = "app:" + consentRequest.App + ", client_id:"+consentRequest.ClientId+ ", scopes:" + strings.Join(grantedScopes, ",")
+    }
+
+    var permissions string = "n/a"
+
     c.HTML(http.StatusOK, "me.html", gin.H{
       "user": idToken.Subject,
       "name": profile.Name,
       "email": profile.Email,
+      "consents": consents,
+      "permissions": permissions,
     })
   }
   return gin.HandlerFunc(fn)

@@ -156,7 +156,7 @@ func StartAuthentication(env *environment.State, c *gin.Context, route environme
   environment.DebugLog(route.LogId, "StartAuthentication", "Saved session "+environment.SessionStateKey+": " + state, requestId)
 
   environment.DebugLog(route.LogId, "StartAuthentication", "Using "+environment.SessionStateKey+" param: " + state, requestId)
-  authUrl := env.HydraConfig.AuthCodeURL(state) //idpfeHydraPublic.AuthCodeURL(state)
+  authUrl := env.HydraConfig.AuthCodeURL(state)
   u, err := url.Parse(authUrl)
   return u, err
 }

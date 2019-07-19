@@ -28,7 +28,7 @@ import (
   "golang-idp-fe/environment"
   "golang-idp-fe/controllers"
   "golang-idp-fe/gateway/idpbe"
-  "golang-idp-fe/gateway/cpbe"
+  //"golang-idp-fe/gateway/cpbe"
 )
 
 func init() {
@@ -54,7 +54,7 @@ func main() {
     ClientSecret: config.IdpFe.ClientSecret,
     Endpoint:     provider.Endpoint(),
     RedirectURL:  config.IdpFe.PublicCallbackUrl,
-    Scopes:       []string{"openid"},
+    Scopes:       []string{"openid", "offline"},
   }
 
   // IdpFe needs to be able as an App using client_id to access IdpBe endpoints. Using client credentials flow
@@ -230,6 +230,8 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
   var requestId string = c.MustGet(environment.RequestIdKey).(string)
   environment.DebugLog(route.LogId, "authenticationRequired", "Checking Authorization: Bearer <token> in request", requestId)
 
+  session := sessions.Default(c)
+
   var token *oauth2.Token
   auth := c.Request.Header.Get("Authorization")
   split := strings.SplitN(auth, " ", 2)
@@ -241,13 +243,28 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
     }
   } else {
     environment.DebugLog(route.LogId, "authenticationRequired", "Checking Session <token> in request", requestId)
-    session := sessions.Default(c)
     v := session.Get(environment.SessionTokenKey)
     if v != nil {
       token = v.(*oauth2.Token)
       environment.DebugLog(route.LogId, "authenticationRequired", "Session <token> found in request", requestId)
     }
   }
+
+  tokenSource := env.HydraConfig.TokenSource(oauth2.NoContext, token)
+  newToken, err := tokenSource.Token()
+  if err != nil {
+    return nil, err
+  }
+
+  if newToken.AccessToken != token.AccessToken {
+    environment.DebugLog(route.LogId, "authenticationRequired", "Token was refresed. Updated session token to match new token", requestId)
+    session.Set(environment.SessionTokenKey, newToken)
+    session.Save()
+    token = newToken
+  }
+/*
+  client := oauth2.NewClient(oauth2.NoContext, tokenSource)
+  resp, err := client.Get(url)*/
 
   // See #2 of QTNA
   // https://godoc.org/golang.org/x/oauth2#Token.Valid
@@ -263,20 +280,22 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
 
   // Deny by default
   environment.DebugLog(route.LogId, "authenticationRequired", "Missing or invalid access token", requestId)
-  return &oauth2.Token{}, errors.New("Missing or invalid access token")
+  return nil, errors.New("Missing or invalid access token")
 }
 
 func authorizationRequired(env *environment.State, c *gin.Context, route environment.Route, requiredScopes []string) ([]string, error) {
   var requestId string = c.MustGet(environment.RequestIdKey).(string)
   environment.DebugLog(route.LogId, "authorizationRequired", "Checking required scopes for request", requestId)
 
+  var grantedScopes []string
+
   // See #3 of QTNA
   environment.DebugLog(route.LogId, "authorizationRequired", "Missing implementation of QTNA #3 - Is the access token granted the required scopes?", requestId)
-  cpbeClient := cpbe.NewCpBeClient(env.CpBeConfig)
+  /*cpbeClient := cpbe.NewCpBeClient(env.CpBeConfig)
   grantedScopes, err := cpbe.IsRequiredScopesGrantedForToken(config.CpBe.AuthorizationsUrl, cpbeClient, requiredScopes)
   if err != nil {
     return nil, err
-  }
+  }*/
 
   // See #4 of QTNA
   // FIXME: Is user who granted the scopes allow to use the scopes (check cpbe model for what user is allowed to do.)

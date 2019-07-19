@@ -9,6 +9,7 @@ import (
   "fmt"
 
   "golang.org/x/net/context"
+  "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
 )
 
@@ -68,6 +69,12 @@ type IdpBeClient struct {
 func NewIdpBeClient(config *clientcredentials.Config) *IdpBeClient {
   ctx := context.Background()
   client := config.Client(ctx)
+  return &IdpBeClient{client}
+}
+
+func NewIdpBeClientWithUserAccessToken(config *oauth2.Config, token *oauth2.Token) *IdpBeClient {
+  ctx := context.Background()
+  client := config.Client(ctx, token)
   return &IdpBeClient{client}
 }
 
