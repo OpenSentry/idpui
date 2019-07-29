@@ -1,105 +1,157 @@
 package config
 
 import (
-  "os"
+  "github.com/spf13/viper"
+  "fmt"
+  "strings"
 )
 
-type SelfConfig struct {
-  Port          string
+type DiscoveryConfig struct {
+  IdpUi struct {
+    Public struct {
+      Url  string
+      Port string
+      Endpoints struct {
+      }
+    }
+  }
+  IdpApi struct {
+    Public struct {
+      Url  string
+      Port string
+      Endpoints struct {
+        Authenticate string
+        Identities string
+        Logout string
+      }
+    }
+  }
+  AapUi struct {
+    Public struct {
+      Url  string
+      Port string
+      Endpoints struct {
+      }
+    }
+  }
+  AapApi struct {
+    Public struct {
+      Url  string
+      Port string
+      Endpoints struct {
+        Authorizations string
+        AuthorizationsAuthorize string
+        AuthorizationsReject string
+      }
+    }
+  }
+  Hydra struct {
+    Public struct {
+      Url  string
+      Port string
+      Endpoints struct {
+        Oauth2Token string
+        Oauth2Auth string
+        Userinfo string
+        HealthAlive string
+        HealthReady string
+        Logout string
+      }
+    }
+    Private struct {
+      Url  string
+      Port string
+      Endpoints struct {
+        Consent string
+        ConsentAccept string
+        ConsentReject string
+        Login string
+        LoginAccept string
+        LoginReject string
+        Logout string
+        LogoutAccept string
+        LogoutReject string
+      }
+    }
+  }
+}
+type AppConfig struct {
+  Serve struct {
+    Public struct {
+      Port string
+    }
+    Tls struct {
+      Key struct {
+        Path string
+      }
+      Cert struct {
+        Path string
+      }
+    }
+  }
+  Neo4j struct {
+    Uri string
+    Username string
+    Password string
+  }
+  Csrf struct {
+    AuthKey string
+  }
+  Session struct {
+    AuthKey string
+  }
+  Oauth2 struct {
+    Client struct {
+      Id string
+      Secret string
+    }
+    Callback string
+    Scopes struct {
+      Required []string
+    }
+  }
 }
 
-type HydraConfig struct {
-  Url             string
-  AdminUrl        string
-  AuthenticateUrl string
-  TokenUrl        string
-  UserInfoUrl     string
-  PublicUrl             string
-  PublicAuthenticateUrl string
-  PublicTokenUrl        string
-  PublicLogoutUrl       string
-  PublicUserInfoUrl     string
+func setDefaults() {
+  viper.SetDefault("config.discovery.path", "./discovery.yml")
+  viper.SetDefault("config.app.path", "./app.yml")
 }
 
-type IdpFeConfig struct {
-  SessionAuthKey []byte
-  Url string
-  PublicUrl string
-  PublicCallbackUrl string
-  DefaultRedirectUrl string
-  CsrfAuthKey string
-  ClientId string
-  ClientSecret string
-  RequiredScopes []string
-}
-
-type IdpBeConfig struct {
-  Url string
-  IdentitiesUrl string
-  AuthenticateUrl string
-  LogoutUrl string
-}
-
-type CpBeConfig struct {
-  Url string
-  AuthorizationsUrl string
-  AuthorizationsAuthorizeUrl string
-  AuthorizationsRejectUrl string
-}
-
-var Hydra HydraConfig
-var IdpFe IdpFeConfig
-var IdpBe IdpBeConfig
-var CpBe CpBeConfig
-var Self SelfConfig
+var Discovery DiscoveryConfig
+var App AppConfig
 
 func InitConfigurations() {
-  Self.Port                   = getEnvStrict("PORT")
+  var err error
 
-  Hydra.Url                   = getEnvStrict("HYDRA_URL")
-  Hydra.AdminUrl              = getEnvStrict("HYDRA_ADMIN_URL")
-  Hydra.AuthenticateUrl       = Hydra.Url + "/oauth2/auth"
-  Hydra.TokenUrl              = Hydra.Url + "/oauth2/token"
-  Hydra.UserInfoUrl           = Hydra.Url + "/userinfo"
+  // lets environment variable override config file
+  viper.AutomaticEnv()
+  viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-  Hydra.PublicUrl             = getEnvStrict("HYDRA_PUBLIC_URL")
-  Hydra.PublicLogoutUrl       = Hydra.PublicUrl + "/oauth2/sessions/logout"
-  Hydra.PublicAuthenticateUrl = Hydra.PublicUrl + "/oauth2/auth"
-  Hydra.PublicTokenUrl        = Hydra.PublicUrl + "/oauth2/token"
-  Hydra.PublicUserInfoUrl     = Hydra.PublicUrl + "/userinfo"
+  setDefaults()
 
-  IdpBe.Url                   = getEnvStrict("IDP_BACKEND_URL")
-  IdpBe.IdentitiesUrl         = IdpBe.Url + "/identities"
-  IdpBe.AuthenticateUrl       = IdpBe.IdentitiesUrl + "/authenticate"
-  IdpBe.LogoutUrl             = IdpBe.IdentitiesUrl + "/logout"
+  // Load discovery configurations
 
-  IdpFe.SessionAuthKey        = []byte(getEnvStrict("IDP_FRONTEND_SESSION_AUTH_KEY"))
-  IdpFe.Url                   = getEnvStrict("IDP_FRONTEND_URL")
-  IdpFe.PublicUrl             = getEnvStrict("IDP_FRONTEND_PUBLIC_URL")
-  IdpFe.PublicCallbackUrl     = IdpFe.PublicUrl + "/callback" // This needs to be part of the callback redirect uris of the client_id
-  IdpFe.DefaultRedirectUrl    = IdpFe.PublicUrl + "/me"
-  IdpFe.CsrfAuthKey           = getEnvStrict("IDP_FRONTEND_CSRF_AUTH_KEY") // 32 byte long auth key. When you change this user session will break.
-  IdpFe.ClientId              = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_ID")
-  IdpFe.ClientSecret          = getEnvStrict("IDP_FRONTEND_OAUTH2_CLIENT_SECRET")
-  IdpFe.RequiredScopes        = []string{"openid", "idpbe.authenticate"}
-
-  CpBe.Url                         = getEnvStrict("CP_BACKEND_URL")
-  CpBe.AuthorizationsUrl           = CpBe.Url + "/authorizations"
-  CpBe.AuthorizationsAuthorizeUrl  = CpBe.AuthorizationsUrl + "/authorize"
-  CpBe.AuthorizationsRejectUrl     = CpBe.AuthorizationsUrl + "/reject"
-
-}
-
-func getEnv(name string) string {
-  return os.Getenv(name)
-}
-
-func getEnvStrict(name string) string {
-  r := getEnv(name)
-
-  if r == "" {
-    panic("Missing environment variable: " + name)
+  viper.SetConfigFile(viper.GetString("config.discovery.path"))
+  err = viper.ReadInConfig() // Find and read the config file
+  if err != nil { // Handle errors reading the config file
+    panic(fmt.Errorf("Fatal error config file: %s \n", err))
   }
 
-  return r
+  err = viper.Unmarshal(&Discovery)
+  if err != nil {
+    fmt.Printf("unable to decode into config struct, %v", err)
+  }
+
+  // Load app configurations
+
+  viper.SetConfigFile(viper.GetString("config.app.path"))
+  err = viper.ReadInConfig() // Find and read the config file
+  if err != nil { // Handle errors reading the config file
+    panic(fmt.Errorf("Fatal error config file: %s \n", err))
+  }
+
+  err = viper.Unmarshal(&App)
+  if err != nil {
+    fmt.Printf("unable to decode into config struct, %v", err)
+  }
 }

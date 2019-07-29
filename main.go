@@ -41,7 +41,7 @@ func init() {
 
 func main() {
 
-  provider, err := oidc.NewProvider(context.Background(), config.Hydra.Url + "/")
+  provider, err := oidc.NewProvider(context.Background(), config.Discovery.Hydra.Public.Url + "/")
   if err != nil {
     fmt.Println(err)
     return
@@ -50,28 +50,28 @@ func main() {
   // IdpFe needs to be able to act as an App using its client_id to bootstrap Authorization Code flow
   // Eg. Users accessing /me directly from browser.
   hydraConfig := &oauth2.Config{
-    ClientID:     config.IdpFe.ClientId,
-    ClientSecret: config.IdpFe.ClientSecret,
+    ClientID:     config.App.Oauth2.Client.Id,
+    ClientSecret: config.App.Oauth2.Client.Secret,
     Endpoint:     provider.Endpoint(),
-    RedirectURL:  config.IdpFe.PublicCallbackUrl,
+    RedirectURL:  config.App.Oauth2.Callback,
     Scopes:       []string{"openid", "offline"},
   }
 
   // IdpFe needs to be able as an App using client_id to access IdpBe endpoints. Using client credentials flow
   idpbeConfig := &clientcredentials.Config{
-    ClientID:  config.IdpFe.ClientId,
-    ClientSecret: config.IdpFe.ClientSecret,
+    ClientID:  config.App.Oauth2.Client.Id,
+    ClientSecret: config.App.Oauth2.Client.Secret,
     TokenURL: provider.Endpoint().TokenURL,
-    Scopes: config.IdpFe.RequiredScopes,
+    Scopes: config.App.Oauth2.Scopes.Required,
     EndpointParams: url.Values{"audience": {"idpbe"}},
     AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
   }
 
   cpbeConfig := &clientcredentials.Config{
-    ClientID:  config.IdpFe.ClientId,
-    ClientSecret: config.IdpFe.ClientSecret,
+    ClientID:  config.App.Oauth2.Client.Id,
+    ClientSecret: config.App.Oauth2.Client.Secret,
     TokenURL: provider.Endpoint().TokenURL,
-    Scopes: config.IdpFe.RequiredScopes,
+    Scopes: config.App.Oauth2.Scopes.Required,
     EndpointParams: url.Values{"audience": {"cpbe"}},
     AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
   }
@@ -87,7 +87,7 @@ func main() {
    r := gin.Default()
    r.Use(ginrequestid.RequestId())
 
-   store := cookie.NewStore(config.IdpFe.SessionAuthKey)
+   store := cookie.NewStore([]byte(config.App.Session.AuthKey))
    // Ref: https://godoc.org/github.com/gin-gonic/contrib/sessions#Options
    store.Options(sessions.Options{
        MaxAge: 86400,
@@ -98,7 +98,7 @@ func main() {
    r.Use(sessions.Sessions(environment.SessionStoreKey, store))
 
    // Use CSRF on all idp-fe forms.
-   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.IdpFe.CsrfAuthKey), csrf.Secure(true)))
+   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.App.Csrf.AuthKey), csrf.Secure(true)))
    // r.Use(adapterCSRF) // Do not use this as it will make csrf tokens for public files aswell which is just extra data going over the wire, no need for that.
 
    r.Static("/public", "public")
@@ -171,7 +171,7 @@ func main() {
      ep.POST(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.SubmitConsent(env, routes["/consent"]))
    }
 
-   r.RunTLS(":" + config.Self.Port, "/srv/certs/idpfe-cert.pem", "/srv/certs/idpfe-key.pem")
+   r.RunTLS(":" + config.App.Serve.Public.Port, config.App.Serve.Tls.Cert.Path, config.App.Serve.Tls.Key.Path)
 }
 
 // # Authentication and Authorization
