@@ -157,7 +157,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
         Name: form.Name,
       }
       fmt.Println(profileRequest)
-      profile, err := idpbe.CreateProfile(config.IdpBe.IdentitiesUrl, idpbeClient, profileRequest)
+      profile, err := idpbe.CreateProfile(config.Discovery.IdpApi.Public.Url + config.Discovery.IdpApi.Public.Endpoints.Identities, idpbeClient, profileRequest)
       if err != nil {
         fmt.Println(err)
         c.JSON(400, gin.H{"error": err.Error()})
