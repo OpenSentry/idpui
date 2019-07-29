@@ -46,7 +46,7 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
     var authenticateRequest = idpbe.AuthenticateRequest{
       Challenge: loginChallenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, idpbeClient, authenticateRequest)
+    authenticateResponse, err := idpbe.Authenticate(config.Discovery.IdpApi.Public.Url + config.Discovery.IdpApi.Public.Endpoints.Authenticate, idpbeClient, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
@@ -95,7 +95,7 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       Password: form.Password,
       Challenge: form.Challenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.IdpBe.AuthenticateUrl, idpbeClient, authenticateRequest)
+    authenticateResponse, err := idpbe.Authenticate(config.Discovery.IdpApi.Public.Url + config.Discovery.IdpApi.Public.Endpoints.Authenticate, idpbeClient, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
