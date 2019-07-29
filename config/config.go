@@ -75,6 +75,7 @@ type DiscoveryConfig struct {
     }
   }
 }
+
 type AppConfig struct {
   Serve struct {
     Public struct {
@@ -106,6 +107,7 @@ type AppConfig struct {
       Secret string
     }
     Callback string
+    DefaultRedirect string
     Scopes struct {
       Required []string
     }
