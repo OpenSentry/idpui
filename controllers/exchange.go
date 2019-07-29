@@ -92,7 +92,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
       session.Set(environment.SessionIdTokenKey, idToken)
       err = session.Save()
       if err == nil {
-        var redirectTo = config.App.Oauth2.Callback // FIXME: Where to redirect to?
+        var redirectTo = config.App.Oauth2.DefaultRedirect // FIXME: Where to redirect to?
         environment.DebugLog(route.LogId, "exchangeAuthorizationCodeCallback", "Redirecting to: " + redirectTo, c.MustGet(environment.RequestIdKey).(string))
         c.Redirect(http.StatusFound, redirectTo)
         c.Abort()
