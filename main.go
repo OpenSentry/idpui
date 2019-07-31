@@ -10,6 +10,7 @@ import (
   "encoding/gob"
   //"crypto/rand"
   //"reflect"
+  "os"
 
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
@@ -29,6 +30,8 @@ import (
   "golang-idp-fe/controllers"
   "golang-idp-fe/gateway/idpbe"
   //"golang-idp-fe/gateway/cpbe"
+
+  "github.com/pborman/getopt"
 )
 
 func init() {
@@ -84,94 +87,113 @@ func main() {
     CpBeConfig: cpbeConfig,
   }
 
-   r := gin.Default()
-   r.Use(ginrequestid.RequestId())
+  optServe := getopt.BoolLong("serve", 0, "Serve application")
+  optHelp := getopt.BoolLong("help", 0, "Help")
+  getopt.Parse()
 
-   store := cookie.NewStore([]byte(config.App.Session.AuthKey))
-   // Ref: https://godoc.org/github.com/gin-gonic/contrib/sessions#Options
-   store.Options(sessions.Options{
-       MaxAge: 86400,
-       Path: "/",
-       Secure: true,
-       HttpOnly: true,
-   })
-   r.Use(sessions.Sessions(environment.SessionStoreKey, store))
+  if *optHelp {
+    getopt.Usage()
+    os.Exit(0)
+  }
 
-   // Use CSRF on all idp-fe forms.
-   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.App.Csrf.AuthKey), csrf.Secure(true)))
-   // r.Use(adapterCSRF) // Do not use this as it will make csrf tokens for public files aswell which is just extra data going over the wire, no need for that.
+  if *optServe {
+    serve(env)
+  } else {
+    getopt.Usage()
+    os.Exit(0)
+  }
 
-   r.Static("/public", "public")
-   r.LoadHTMLGlob("views/*")
+}
 
-   // Setup routes to use, this defines log for debug log
-   routes := map[string]environment.Route{
-     "/": environment.Route{
-        URL: "/",
-        LogId: "idpfe://",
-     },
-     "/authenticate": environment.Route{
-       URL: "/authenticate",
-       LogId: "idpfe://authenticate",
-     },
-     "/logout": environment.Route{
-       URL: "/logout",
-       LogId: "idpfe://logout",
-     },
-     "/session/logout": environment.Route{
-       URL: "/session/logout",
-       LogId: "idpfe://session/logout",
-     },
-     "/register": environment.Route{
-       URL: "/register",
-       LogId: "idpfe://register",
-     },
-     "/recover": environment.Route{
-       URL: "/recover",
-       LogId: "idpfe://recover",
-     },
-     "/callback": environment.Route{
-       URL: "/callback",
-       LogId: "idpfe://callback",
-     },
-     "/me": environment.Route{
-       URL: "/me",
-       LogId: "idpfe://me",
-     },
-     "/consent": environment.Route{
-       URL: "/consent",
-       LogId: "idpfe://consent",
-     },
-   }
+func serve(env *environment.State) {
+  r := gin.Default()
+  r.Use(ginrequestid.RequestId())
 
-   ep := r.Group("/")
-   ep.Use(adapterCSRF)
-   {
-     ep.GET(routes["/"].URL, controllers.ShowAuthentication(env, routes["/"]))
-     ep.GET(routes["/authenticate"].URL, controllers.ShowAuthentication(env, routes["/authenticate"]))
-     ep.POST(routes["/authenticate"].URL, controllers.SubmitAuthentication(env, routes["/authenticate"]))
+  store := cookie.NewStore([]byte(config.App.Session.AuthKey))
+  // Ref: https://godoc.org/github.com/gin-gonic/contrib/sessions#Options
+  store.Options(sessions.Options{
+    MaxAge: 86400,
+    Path: "/",
+    Secure: true,
+    HttpOnly: true,
+  })
+  r.Use(sessions.Sessions(environment.SessionStoreKey, store))
 
-     ep.GET(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.ShowLogout(env, routes["/logout"]))
-     ep.POST(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.SubmitLogout(env, routes["/logout"]))
+  // Use CSRF on all idp-fe forms.
+  adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.App.Csrf.AuthKey), csrf.Secure(true)))
+  // r.Use(adapterCSRF) // Do not use this as it will make csrf tokens for public files aswell which is just extra data going over the wire, no need for that.
 
-     ep.GET(routes["/session/logout"].URL, controllers.ShowLogoutSession(env, routes["/session/logout"])) // These does not require authentication as its like doing delete in browser on cookies.
-     ep.POST(routes["/session/logout"].URL, controllers.SubmitLogoutSession(env, routes["/session/logout"]))
+  r.Static("/public", "public")
+  r.LoadHTMLGlob("views/*")
 
-     ep.GET(routes["/register"].URL, controllers.ShowRegistration(env, routes["/register"]))
-     ep.POST(routes["/register"].URL, controllers.SubmitRegistration(env, routes["/register"]))
+  // Setup routes to use, this defines log for debug log
+  routes := map[string]environment.Route{
+    "/": environment.Route{
+      URL: "/",
+      LogId: "idpfe://",
+    },
+    "/authenticate": environment.Route{
+      URL: "/authenticate",
+      LogId: "idpfe://authenticate",
+    },
+    "/logout": environment.Route{
+      URL: "/logout",
+      LogId: "idpfe://logout",
+    },
+    "/session/logout": environment.Route{
+      URL: "/session/logout",
+      LogId: "idpfe://session/logout",
+    },
+    "/register": environment.Route{
+      URL: "/register",
+      LogId: "idpfe://register",
+    },
+    "/recover": environment.Route{
+      URL: "/recover",
+      LogId: "idpfe://recover",
+    },
+    "/callback": environment.Route{
+      URL: "/callback",
+      LogId: "idpfe://callback",
+    },
+    "/me": environment.Route{
+      URL: "/me",
+      LogId: "idpfe://me",
+    },
+    "/consent": environment.Route{
+      URL: "/consent",
+      LogId: "idpfe://consent",
+    },
+  }
 
-     ep.GET(routes["/recover"].URL, controllers.ShowRecover(env, routes["/recover"]))
-     ep.POST(routes["/recover"].URL, controllers.SubmitRecover(env, routes["/recover"]))
+  ep := r.Group("/")
+  ep.Use(adapterCSRF)
+  {
+    ep.GET(routes["/"].URL, controllers.ShowAuthentication(env, routes["/"]))
+    ep.GET(routes["/authenticate"].URL, controllers.ShowAuthentication(env, routes["/authenticate"]))
+    ep.POST(routes["/authenticate"].URL, controllers.SubmitAuthentication(env, routes["/authenticate"]))
 
-     ep.GET(routes["/callback"].URL, controllers.ExchangeAuthorizationCodeCallback(env, routes["/callback"])) // token exhange endpoint.
+    ep.GET(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.ShowLogout(env, routes["/logout"]))
+    ep.POST(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.SubmitLogout(env, routes["/logout"]))
 
-     ep.GET(routes["/me"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me"], "openid"), controllers.ShowProfile(env, routes["/me"]))
+    ep.GET(routes["/session/logout"].URL, controllers.ShowLogoutSession(env, routes["/session/logout"])) // These does not require authentication as its like doing delete in browser on cookies.
+    ep.POST(routes["/session/logout"].URL, controllers.SubmitLogoutSession(env, routes["/session/logout"]))
 
-     ep.GET(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.ShowConsent(env, routes["/consent"]))
-     ep.POST(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.SubmitConsent(env, routes["/consent"]))
-   }
+    ep.GET(routes["/register"].URL, controllers.ShowRegistration(env, routes["/register"]))
+    ep.POST(routes["/register"].URL, controllers.SubmitRegistration(env, routes["/register"]))
 
-   r.RunTLS(":" + config.App.Serve.Public.Port, config.App.Serve.Tls.Cert.Path, config.App.Serve.Tls.Key.Path)
+    ep.GET(routes["/recover"].URL, controllers.ShowRecover(env, routes["/recover"]))
+    ep.POST(routes["/recover"].URL, controllers.SubmitRecover(env, routes["/recover"]))
+
+    ep.GET(routes["/callback"].URL, controllers.ExchangeAuthorizationCodeCallback(env, routes["/callback"])) // token exhange endpoint.
+
+    ep.GET(routes["/me"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me"], "openid"), controllers.ShowProfile(env, routes["/me"]))
+
+    ep.GET(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.ShowConsent(env, routes["/consent"]))
+    ep.POST(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.SubmitConsent(env, routes["/consent"]))
+  }
+
+  r.RunTLS(":" + config.App.Serve.Public.Port, config.App.Serve.Tls.Cert.Path, config.App.Serve.Tls.Key.Path)
 }
 
 // # Authentication and Authorization
