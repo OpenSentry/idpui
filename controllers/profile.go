@@ -41,7 +41,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     request := idpbe.IdentityRequest{
       Id: idToken.Subject,
     }
-    profile, err := idpbe.FetchProfile(config.Discovery.IdpApi.Public.Url + config.Discovery.IdpApi.Public.Endpoints.Identities, idpbeClient, request)
+    profile, err := idpbe.FetchProfile(config.GetString("idpApi.public.url") + config.GetString("idpApi.public.endpoints.identities"), idpbeClient, request)
     if err != nil {
       c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -58,7 +58,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
       ClientId: "idpui", //authorizeResponse.ClientId, // "idpui"
       // RequestedScopes: requestedScopes, // Only look for permissions that was requested (query optimization)
     }
-    grantedScopes, err := cpbe.FetchConsents(config.Discovery.AapApi.Public.Url + config.Discovery.AapApi.Public.Endpoints.Authorizations, cpbeClient, consentRequest)
+    grantedScopes, err := cpbe.FetchConsents(config.GetString("aapApi.public.url") + config.GetString("aapApi.public.endpoints.authorizations"), cpbeClient, consentRequest)
     if err != nil {
       fmt.Println(err)
     } else {

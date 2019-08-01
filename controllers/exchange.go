@@ -76,7 +76,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
       }
 
       oidcConfig := &oidc.Config{
-        ClientID: config.App.Oauth2.Client.Id,
+        ClientID: config.GetString("oauth2.client.id"),
       }
       verifier := env.Provider.Verifier(oidcConfig)
 
@@ -92,7 +92,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
       session.Set(environment.SessionIdTokenKey, idToken)
       err = session.Save()
       if err == nil {
-        var redirectTo = config.App.Oauth2.DefaultRedirect // FIXME: Where to redirect to?
+        var redirectTo = config.GetString("oauth2.defaultRedirect") // FIXME: Where to redirect to?
         environment.DebugLog(route.LogId, "exchangeAuthorizationCodeCallback", "Redirecting to: " + redirectTo, c.MustGet(environment.RequestIdKey).(string))
         c.Redirect(http.StatusFound, redirectTo)
         c.Abort()
