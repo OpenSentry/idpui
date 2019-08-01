@@ -18,7 +18,7 @@ func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc
     logoutChallenge := c.Query("logout_challenge")
     if logoutChallenge == "" {
       // No logout challenge ask hydra for one.
-      c.Redirect(http.StatusFound, config.Discovery.Hydra.Public.Url + config.Discovery.Hydra.Public.Endpoints.Logout)
+      c.Redirect(http.StatusFound, config.GetString("hydra.public.url") + config.GetString("hydra.public.endpoints.logout"))
       c.Abort()
       return
     }
@@ -51,7 +51,7 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
     var request = idpbe.LogoutRequest{
       Challenge: form.Challenge,
     }
-    logout, err := idpbe.Logout(config.Discovery.IdpApi.Public.Url + config.Discovery.IdpApi.Public.Endpoints.Logout, idpbeClient, request)
+    logout, err := idpbe.Logout(config.GetString("idpApi.public.url") + config.GetString("idpApi.public.endpoints.logout"), idpbeClient, request)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
