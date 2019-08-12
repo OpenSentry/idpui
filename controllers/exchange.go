@@ -6,6 +6,7 @@ import (
 
   "golang.org/x/net/context"
 
+  "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
   oidc "github.com/coreos/go-oidc"
@@ -18,7 +19,14 @@ import (
 func ExchangeAuthorizationCodeCallback(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    environment.DebugLog(route.LogId, "exchangeAuthorizationCodeCallback", "", c.MustGet(environment.RequestIdKey).(string))
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "ExchangeAuthorizationCodeCallback",
+    })
+    log.Debug("Received exchange request")
+
     session := sessions.Default(c)
     v := session.Get(environment.SessionStateKey)
     if v == nil {
@@ -93,13 +101,13 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
       err = session.Save()
       if err == nil {
         var redirectTo = config.GetString("oauth2.defaultRedirect") // FIXME: Where to redirect to?
-        environment.DebugLog(route.LogId, "exchangeAuthorizationCodeCallback", "Redirecting to: " + redirectTo, c.MustGet(environment.RequestIdKey).(string))
+        log.Debug("Redirecting to: " + redirectTo)
         c.Redirect(http.StatusFound, redirectTo)
         c.Abort()
         return;
       }
 
-      environment.DebugLog(route.LogId, "exchangeAuthorizationCodeCallback", "Failed to save session data: " + err.Error(), c.MustGet("RequestId").(string))
+      log.Debug("Failed to save session data: " + err.Error())
       c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to save session data"})
       c.Abort()
       return

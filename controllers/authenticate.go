@@ -7,6 +7,7 @@ import (
   "crypto/rand"
   "encoding/base64"
 
+  "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
@@ -24,13 +25,21 @@ type authenticationForm struct {
 
 func ShowAuthentication(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "ShowAuthentication", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "ShowAuthentication",
+    })
+
+    log.Debug("Received authentication request")
 
     loginChallenge := c.Query("login_challenge")
     if loginChallenge == "" {
       // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
       // Idp-Fe should ask hydra for a challenge to login
-      initUrl, err := StartAuthentication(env, c, route)
+      initUrl, err := StartAuthentication(env, c, route, log)
       if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         c.Abort()
@@ -69,7 +78,15 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
 
 func SubmitAuthentication(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "SubmitAuthentication", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "SubmitAuthentication",
+    })
+
+    log.Debug("Received authentication request")
 
     var form authenticationForm
     err := c.Bind(&form)
@@ -82,9 +99,11 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
 
     if form.Username == "" {
       // FIXME: session flash missing username
+      log.Warn("Session flash missing username")
     }
     if form.Password == "" {
-      // FIXME: session flash missing username
+      // FIXME: session flash missing password
+      log.Warn("Session flash missing password")
     }
 
     idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
@@ -133,29 +152,32 @@ func CreateRandomStringWithNumberOfBytes(numberOfBytes int) (string, error) {
   return base64.StdEncoding.EncodeToString(st), nil
 }
 
-func StartAuthentication(env *environment.State, c *gin.Context, route environment.Route) (*url.URL, error) {
+func StartAuthentication(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry) (*url.URL, error) {
   var state string
   var err error
 
-  requestId := c.MustGet(environment.RequestIdKey).(string)
+  log = log.WithFields(logrus.Fields{
+    "func": "StartAuthentication",
+  })
 
   // Always generate a new authentication session state
   session := sessions.Default(c)
 
   state, err = CreateRandomStringWithNumberOfBytes(64);
   if err != nil {
-    environment.DebugLog(route.LogId, "StartAuthentication", err.Error(), requestId)
+    log.Debug(err.Error())
     return nil, err
   }
   session.Set(environment.SessionStateKey, state)
   err = session.Save()
   if err != nil {
-    environment.DebugLog(route.LogId, "StartAuthentication", err.Error(), requestId)
+    log.Debug(err.Error())
     return nil, err
   }
-  environment.DebugLog(route.LogId, "StartAuthentication", "Saved session "+environment.SessionStateKey+": " + state, requestId)
 
-  environment.DebugLog(route.LogId, "StartAuthentication", "Using "+environment.SessionStateKey+" param: " + state, requestId)
+  log.Debug("Saved session "+environment.SessionStateKey+": " + state)
+
+  log.Debug("Using "+environment.SessionStateKey+" param: " + state)
   authUrl := env.HydraConfig.AuthCodeURL(state)
   u, err := url.Parse(authUrl)
   return u, err
