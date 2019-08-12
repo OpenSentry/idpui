@@ -3,6 +3,7 @@ package controllers
 import (
   "net/http"
 
+  "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
@@ -14,7 +15,15 @@ import (
 
 func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "showLogout", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "ShowLogout",
+    })
+    log.Debug("Received logout request")
+
     logoutChallenge := c.Query("logout_challenge")
     if logoutChallenge == "" {
       // No logout challenge ask hydra for one.
@@ -36,7 +45,15 @@ func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc
 
 func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "submitLogout", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "SubmitLogout",
+    })
+    log.Debug("Received logout request")
+
     var form authenticationForm
     err := c.Bind(&form)
     if err != nil {
@@ -70,7 +87,14 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
 
 func ShowLogoutSession(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "showLogoutSession", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "ShowLogoutSession",
+    })
+    log.Debug("Received session logout request")
 
     c.HTML(200, "session-logout.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
@@ -81,7 +105,14 @@ func ShowLogoutSession(env *environment.State, route environment.Route) gin.Hand
 
 func SubmitLogoutSession(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "submitLogoutSession", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "SubmitLogoutSession",
+    })
+    log.Debug("Received session logout request")
 
     session := sessions.Default(c)
     session.Clear()

@@ -6,6 +6,7 @@ import (
   //"net/url"
   "net/http"
 
+  "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
@@ -25,7 +26,14 @@ type registrationForm struct {
 
 func ShowRegistration(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "showRegistration", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "ShowRegistration",
+    })
+    log.Debug("Received registration request")
 
     session := sessions.Default(c)
 
@@ -39,7 +47,7 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
     errors := session.Flashes("register.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
-      environment.DebugLog(route.LogId, "SubmitRegistration", err.Error(), c.MustGet(environment.RequestIdKey).(string))
+      log.Fatal(err.Error())
     }
 
     var errorUsername string
@@ -91,7 +99,14 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
 
 func SubmitRegistration(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "SubmitRegistration", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "SubmitRegistration",
+    })
+    log.Debug("Received registration request")
 
     var form registrationForm
     err := c.Bind(&form)
@@ -110,7 +125,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
     session.Set("register.email", form.Email)
     err = session.Save()
     if err != nil {
-      environment.DebugLog(route.LogId, "SubmitRegistration", err.Error(), c.MustGet(environment.RequestIdKey).(string))
+      log.Fatal(err.Error())
     }
 
     errors := make(map[string][]string)
@@ -139,7 +154,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       session.AddFlash(errors, "register.errors")
       err = session.Save()
       if err != nil {
-        environment.DebugLog(route.LogId, "SubmitRegistration", err.Error(), c.MustGet(environment.RequestIdKey).(string))
+        log.Fatal(err.Error())
       }
       c.Redirect(http.StatusFound, route.URL)
       c.Abort();
@@ -159,7 +174,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       fmt.Println(profileRequest)
       profile, err := idpbe.CreateProfile(config.GetString("idpApi.public.url") + config.GetString("idpApi.public.endpoints.identities"), idpbeClient, profileRequest)
       if err != nil {
-        fmt.Println(err)
+        log.Fatal(err.Error())
         c.JSON(400, gin.H{"error": err.Error()})
         c.Abort()
         return
@@ -178,7 +193,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
 
       err = session.Save()
       if err != nil {
-        environment.DebugLog(route.LogId, "SubmitRegistration", err.Error(), c.MustGet(environment.RequestIdKey).(string))
+        log.Fatal(err.Error())
       }
 
       // Registration successful, return to create new ones, but with success message
