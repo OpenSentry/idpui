@@ -5,6 +5,7 @@ import (
   "strings"
   "fmt"
 
+  "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   //"github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
@@ -19,7 +20,14 @@ import (
 
 func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "showProfile", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "ShowProfile",
+    })
+    log.Debug("Received profile request")
 
     // NOTE: Maybe session is not a good way to do this.
     // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>

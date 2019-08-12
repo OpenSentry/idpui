@@ -3,6 +3,7 @@ package controllers
 import (
   "net/http"
 
+  "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
@@ -15,7 +16,15 @@ import (
 
 func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "showConsent", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "ShowConsent",
+    })
+    log.Debug("Received consent request");
+
     c.HTML(http.StatusOK, "consent.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
     })
@@ -25,7 +34,14 @@ func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFun
 
 func SubmitConsent(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    environment.DebugLog(route.LogId, "submitConsent", "", c.MustGet(environment.RequestIdKey).(string))
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui",
+      "func": "SubmitConsent",
+    })
+    log.Debug("Received consent request");
 
     var idToken *oidc.IDToken
     session := sessions.Default(c)

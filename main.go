@@ -16,6 +16,7 @@ import (
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
 
+  "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
   "github.com/gin-contrib/sessions/cookie"
@@ -35,6 +36,7 @@ import (
 )
 
 func init() {
+  logrus.SetFormatter(&logrus.JSONFormatter{})
   config.InitConfigurations()
   gob.Register(&oauth2.Token{}) // This is required to make session in idp-fe able to persist tokens.
   gob.Register(&oidc.IDToken{})
@@ -42,11 +44,19 @@ func init() {
   gob.Register(make(map[string][]string))
 }
 
+const app = "idpfe"
+
 func main() {
+
+  // The app log
+  appFields := logrus.Fields{
+    "appname": app,
+    "func": "main",
+  }
 
   provider, err := oidc.NewProvider(context.Background(), config.GetString("hydra.public.url") + "/")
   if err != nil {
-    fmt.Println(err)
+    logrus.WithFields(appFields).WithFields(logrus.Fields{"component": "Hydra Provider"}).Fatal("oidc.NewProvider" + err.Error())
     return
   }
 
@@ -81,6 +91,7 @@ func main() {
 
   // Setup app state variables. Can be used in handler functions by doing closures see exchangeAuthorizationCodeCallback
   env := &environment.State{
+    AppName: app,
     Provider: provider,
     HydraConfig: hydraConfig,
     IdpBeConfig: idpbeConfig,
@@ -108,6 +119,7 @@ func main() {
 func serve(env *environment.State) {
   r := gin.Default()
   r.Use(ginrequestid.RequestId())
+  r.Use(logger(env))
 
   store := cookie.NewStore([]byte(config.GetString("session.authKey")))
   // Ref: https://godoc.org/github.com/gin-gonic/contrib/sessions#Options
@@ -196,6 +208,21 @@ func serve(env *environment.State) {
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))
 }
 
+func logger(env *environment.State) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    var requestId string = c.MustGet(environment.RequestIdKey).(string)
+    logger := logrus.New() // Use this to direct request log somewhere else than app log
+    logger.SetFormatter(&logrus.JSONFormatter{})
+    requestLog := logger.WithFields(logrus.Fields{
+      "appname": env.AppName,
+      "requestid": requestId,
+    })
+    c.Set(environment.LogKey, requestLog)
+    c.Next()
+  }
+  return gin.HandlerFunc(fn)
+}
+
 // # Authentication and Authorization
 // Gin middleware to secure idp fe endpoints using oauth2.
 //
@@ -207,17 +234,23 @@ func serve(env *environment.State) {
 // 5. Is the access token revoked?
 func AuthenticationAndAuthorizationRequired(env *environment.State, route environment.Route, requiredScopes ...string) gin.HandlerFunc {
   fn := func(c *gin.Context) {
-    var requestId string = c.MustGet(environment.RequestIdKey).(string)
-    environment.DebugLog(route.LogId, "AuthenticationAndAuthorizationRequired", "", requestId)
+
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "route.logid": route.LogId,
+      "component": "idpui.Authentication",
+      "func": "main.AuthenticationAndAuthorizationRequired",
+    })
 
     // Authentication
-    token, err := authenticationRequired(env, c, route)
+    token, err := authenticationRequired(env, c, route, log)
     if err != nil {
       // Require authentication to access resources. Init oauth2 Authorization code flow with idpfe as the client.
-      environment.DebugLog(route.LogId, "AuthenticationAndAuthorizationRequired", "Error: " + err.Error(), requestId)
-      initUrl, err := controllers.StartAuthentication(env, c, route)
+      log.Debug("Error: " + err.Error())
+
+      initUrl, err := controllers.StartAuthentication(env, c, route, log)
       if err != nil {
-        environment.DebugLog(route.LogId, "AuthenticationAndAuthorizationRequired", "Error: " + err.Error(), requestId)
+        log.Debug("Error: " + err.Error())
         c.HTML(http.StatusInternalServerError, "", gin.H{"error": err.Error()})
         c.Abort()
         return
@@ -229,9 +262,9 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
     c.Set(environment.AccessTokenKey, token) // Authenticated, so use it forward.
 
     // Authorization
-    grantedScopes, err := authorizationRequired(env, c, route, requiredScopes)
+    grantedScopes, err := authorizationRequired(env, c, route, log, requiredScopes)
     if err != nil {
-      environment.DebugLog(route.LogId, "AuthenticationAndAuthorizationRequired", "Error: " + err.Error(), requestId)
+      log.Debug("Error: " + err.Error())
       c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
       c.Abort()
       return
@@ -239,6 +272,7 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
     fmt.Println(grantedScopes)
 
     // FIXME: Find IdToken for access token.
+    log.Warn("Missing id token for access token needs to be implemented")
     idToken := &oauth2.Token{}
     c.Set(environment.IdTokenKey, idToken) // Authorized
 
@@ -248,9 +282,13 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
   return gin.HandlerFunc(fn)
 }
 
-func authenticationRequired(env *environment.State, c *gin.Context, route environment.Route) (*oauth2.Token, error) {
-  var requestId string = c.MustGet(environment.RequestIdKey).(string)
-  environment.DebugLog(route.LogId, "authenticationRequired", "Checking Authorization: Bearer <token> in request", requestId)
+func authenticationRequired(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry) (*oauth2.Token, error) {
+
+  log = log.WithFields(logrus.Fields{
+    "func": "main.AuthenticationAndAuthorizationRequired.authenticationRequired",
+  })
+
+  log.Debug("Checking Authorization: Bearer <token> in request")
 
   session := sessions.Default(c)
 
@@ -258,17 +296,17 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
   auth := c.Request.Header.Get("Authorization")
   split := strings.SplitN(auth, " ", 2)
   if len(split) == 2 || strings.EqualFold(split[0], "bearer") {
-    environment.DebugLog(route.LogId, "authenticationRequired", "Authorization: Bearer <token> found for request.", requestId)
+    log.Debug("Authorization: Bearer <token> found for request")
     token = &oauth2.Token{
       AccessToken: split[1],
       TokenType: split[0],
     }
   } else {
-    environment.DebugLog(route.LogId, "authenticationRequired", "Checking Session <token> in request", requestId)
+    log.Debug("Checking Session <token> in request")
     v := session.Get(environment.SessionTokenKey)
     if v != nil {
       token = v.(*oauth2.Token)
-      environment.DebugLog(route.LogId, "authenticationRequired", "Session <token> found in request", requestId)
+      log.Debug("Session <token> found in request")
     }
   }
 
@@ -279,7 +317,7 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
   }
 
   if newToken.AccessToken != token.AccessToken {
-    environment.DebugLog(route.LogId, "authenticationRequired", "Token was refresed. Updated session token to match new token", requestId)
+    log.Debug("Token was refresed. Updated session token to match new token")
     session.Set(environment.SessionTokenKey, newToken)
     session.Save()
     token = newToken
@@ -291,28 +329,32 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
   // See #2 of QTNA
   // https://godoc.org/golang.org/x/oauth2#Token.Valid
   if token.Valid() == true {
-    environment.DebugLog(route.LogId, "authenticationRequired", "Valid access token", requestId)
+    log.Debug("Valid access token")
 
     // See #5 of QTNA
     // FIXME: Call token revoked list to check if token is revoked.
-    environment.DebugLog(route.LogId, "authenticationRequired", "Missing implementation of QTNA #5 - Is the access token revoked?", requestId)
+    log.Warn("Missing implementation of QTNA #5 - Is the access token revoked?")
 
     return token, nil
   }
 
   // Deny by default
-  environment.DebugLog(route.LogId, "authenticationRequired", "Missing or invalid access token", requestId)
+  log.Debug("Missing or invalid access token")
   return nil, errors.New("Missing or invalid access token")
 }
 
-func authorizationRequired(env *environment.State, c *gin.Context, route environment.Route, requiredScopes []string) ([]string, error) {
-  var requestId string = c.MustGet(environment.RequestIdKey).(string)
-  environment.DebugLog(route.LogId, "authorizationRequired", "Checking required scopes for request", requestId)
+func authorizationRequired(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry, requiredScopes []string) ([]string, error) {
+
+  log = log.WithFields(logrus.Fields{
+    "func": "main.AuthenticationAndAuthorizationRequired.authorizationRequired",
+  })
+
+  log.Debug("Checking required scopes for request")
 
   var grantedScopes []string
 
   // See #3 of QTNA
-  environment.DebugLog(route.LogId, "authorizationRequired", "Missing implementation of QTNA #3 - Is the access token granted the required scopes?", requestId)
+  log.Warn("Missing implementation of QTNA #3 - Is the access token granted the required scopes?")
   /*cpbeClient := cpbe.NewCpBeClient(env.CpBeConfig)
   grantedScopes, err := cpbe.IsRequiredScopesGrantedForToken(config.CpBe.AuthorizationsUrl, cpbeClient, requiredScopes)
   if err != nil {
@@ -321,9 +363,9 @@ func authorizationRequired(env *environment.State, c *gin.Context, route environ
 
   // See #4 of QTNA
   // FIXME: Is user who granted the scopes allow to use the scopes (check cpbe model for what user is allowed to do.)
-  environment.DebugLog(route.LogId, "authorizationRequired", "Missing implementation of QTNA #4 - Is the user or client giving the grants in the access token authorized to operate the scopes granted?", requestId)
+  log.Warn("Missing implementation of QTNA #4 - Is the user or client giving the grants in the access token authorized to operate the scopes granted?")
 
   strGrantedScopes := strings.Join(grantedScopes, ",")
-  environment.DebugLog(route.LogId, "authorizationRequired", "Valid scopes: " + strGrantedScopes, requestId)
+  log.Debug("Valid scopes: " + strGrantedScopes)
   return grantedScopes, nil
 }
