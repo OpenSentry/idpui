@@ -56,12 +56,13 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
 
     log.Debug("Please remove App it is not part of the graph model no more")
+    log.Warn("Missing client id from correct source please implement it")
 
     var consents string = "n/a"
     consentRequest := aapapi.ConsentRequest{
       Subject: idToken.Subject,
-      App: authorizeResponse.ClientId,
-      ClientId: authorizeResponse.ClientId,
+      App: "idpapi", //authorizeResponse.ClientId,
+      ClientId: "idpapi", //authorizeResponse.ClientId,
       // RequestedScopes: requestedScopes, // Only look for permissions that was requested (query optimization)
     }
     grantedScopes, err := aapapi.FetchConsents(config.GetString("aapapi.public.url") + config.GetString("aapapi.public.endpoints.authorizations"), aapapiClient, consentRequest)
