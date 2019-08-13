@@ -1,20 +1,17 @@
 package controllers
 
 import (
-  //"fmt"
   "net/url"
   "net/http"
   "crypto/rand"
   "encoding/base64"
-
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-
   "golang-idp-fe/config"
   "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpbe"
+  "golang-idp-fe/gateway/idpapi"
 )
 
 type authenticationForm struct {
@@ -29,7 +26,7 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "ShowAuthentication",
     })
 
@@ -50,12 +47,12 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
       return
     }
 
-    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
-    var authenticateRequest = idpbe.AuthenticateRequest{
+    var authenticateRequest = idpapi.AuthenticateRequest{
       Challenge: loginChallenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.GetString("idpApi.public.url") + config.GetString("idpApi.public.endpoints.authenticate"), idpbeClient, authenticateRequest)
+    authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
@@ -106,15 +103,15 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       log.Warn("Session flash missing password")
     }
 
-    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
     // Ask idp-be to authenticate the user
-    var authenticateRequest = idpbe.AuthenticateRequest{
+    var authenticateRequest = idpapi.AuthenticateRequest{
       Id: form.Username,
       Password: form.Password,
       Challenge: form.Challenge,
     }
-    authenticateResponse, err := idpbe.Authenticate(config.GetString("idpApi.public.url") + config.GetString("idpApi.public.endpoints.authenticate"), idpbeClient, authenticateRequest)
+    authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()

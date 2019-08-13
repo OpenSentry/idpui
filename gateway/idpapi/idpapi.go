@@ -1,4 +1,4 @@
-package idpbe
+package idpapi
 
 import (
   "errors"
@@ -7,7 +7,6 @@ import (
   "encoding/json"
   "io/ioutil"
   "fmt"
-
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
@@ -62,27 +61,27 @@ type Profile struct {
   Password        string
 }
 
-type IdpBeClient struct {
+type IdpApiClient struct {
   *http.Client
 }
 
-func NewIdpBeClient(config *clientcredentials.Config) *IdpBeClient {
+func NewIdpApiClient(config *clientcredentials.Config) *IdpApiClient {
   ctx := context.Background()
   client := config.Client(ctx)
-  return &IdpBeClient{client}
+  return &IdpApiClient{client}
 }
 
-func NewIdpBeClientWithUserAccessToken(config *oauth2.Config, token *oauth2.Token) *IdpBeClient {
+func NewIdpApiClientWithUserAccessToken(config *oauth2.Config, token *oauth2.Token) *IdpApiClient {
   ctx := context.Background()
   client := config.Client(ctx, token)
-  return &IdpBeClient{client}
+  return &IdpApiClient{client}
 }
 
-// config.CpBe.AuthorizationsUrl
-func RevokeConsent(url string, client *IdpBeClient, revokeConsentRequest RevokeConsentRequest) (bool, error) {
+// config.AapApi.AuthorizationsUrl
+func RevokeConsent(url string, client *IdpApiClient, revokeConsentRequest RevokeConsentRequest) (bool, error) {
 
-  // FIXME: Call hydra directly. This should not be allowed! (idpfe does not have hydra scope)
-  // It should call cpbe instead. But for testing this was faster.
+  // FIXME: Call hydra directly. This should not be allowed! (idpui does not have hydra scope)
+  // It should call aapapi instead. But for testing this was faster.
   u := "https://admin.oauth.localhost/oauth2/auth/sessions/consent?subject=" + revokeConsentRequest.Id
   consentRequest, err := http.NewRequest("DELETE", u, nil)
   if err != nil {
@@ -104,8 +103,8 @@ func RevokeConsent(url string, client *IdpBeClient, revokeConsentRequest RevokeC
   return true, nil
 }
 
-// config.IdpBe.IdentitiesUrl
-func CreateProfile(identitiesUrl string, client *IdpBeClient, profile Profile) (Profile, error) {
+// config.IdpApi.IdentitiesUrl
+func CreateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) (Profile, error) {
   var identityResponse IdentityResponse
   var newProfile Profile
 
@@ -146,8 +145,8 @@ func CreateProfile(identitiesUrl string, client *IdpBeClient, profile Profile) (
   return newProfile, nil
 }
 
-// config.IdpBe.IdentitiesUrl
-func FetchProfile(url string, client *IdpBeClient, identityRequest IdentityRequest) (Profile, error) {
+// config.IdpApi.IdentitiesUrl
+func FetchProfile(url string, client *IdpApiClient, identityRequest IdentityRequest) (Profile, error) {
   var profile Profile
   var identityResponse IdentityResponse
   var userInfoResponse UserInfoResponse
@@ -206,8 +205,8 @@ func FetchProfile(url string, client *IdpBeClient, identityRequest IdentityReque
   return profile, nil
 }
 
-// config.IdpBe.AuthenticateUrl
-func Authenticate(authenticateUrl string, client *IdpBeClient, authenticateRequest AuthenticateRequest) (AuthenticateResponse, error) {
+// config.IdpApi.AuthenticateUrl
+func Authenticate(authenticateUrl string, client *IdpApiClient, authenticateRequest AuthenticateRequest) (AuthenticateResponse, error) {
   var authenticateResponse AuthenticateResponse
 
   body, _ := json.Marshal(authenticateRequest)
@@ -235,8 +234,8 @@ func Authenticate(authenticateUrl string, client *IdpBeClient, authenticateReque
   return authenticateResponse, nil
 }
 
-// config.IdpBe.LogoutUrl
-func Logout(logoutUrl string, client *IdpBeClient, logoutRequest LogoutRequest) (LogoutResponse, error) {
+// config.IdpApi.LogoutUrl
+func Logout(logoutUrl string, client *IdpApiClient, logoutRequest LogoutRequest) (LogoutResponse, error) {
   var logoutResponse LogoutResponse
 
   body, _ := json.Marshal(logoutRequest)

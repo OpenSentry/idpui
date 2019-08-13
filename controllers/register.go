@@ -3,17 +3,14 @@ package controllers
 import (
   "fmt"
   "strings"
-  //"net/url"
   "net/http"
-
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-
   "golang-idp-fe/config"
   "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpbe"
+  "golang-idp-fe/gateway/idpapi"
 )
 
 type registrationForm struct {
@@ -30,7 +27,7 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "ShowRegistration",
     })
     log.Debug("Received registration request")
@@ -103,7 +100,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "SubmitRegistration",
     })
     log.Debug("Received registration request")
@@ -163,16 +160,16 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
 
     if password == retypedPassword { // Just for safety is caught in the input error detection.
 
-      idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+      idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
-      var profileRequest = idpbe.Profile{
+      var profileRequest = idpapi.Profile{
         Id: form.Username,
         Email: form.Email,
         Password: form.Password,
         Name: form.Name,
       }
       fmt.Println(profileRequest)
-      profile, err := idpbe.CreateProfile(config.GetString("idpApi.public.url") + config.GetString("idpApi.public.endpoints.identities"), idpbeClient, profileRequest)
+      profile, err := idpapi.CreateProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, profileRequest)
       if err != nil {
         log.Fatal(err.Error())
         c.JSON(400, gin.H{"error": err.Error()})

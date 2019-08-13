@@ -2,18 +2,13 @@ package controllers
 
 import (
   "net/http"
-  //"fmt"
-
   "golang.org/x/net/context"
-
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
   oidc "github.com/coreos/go-oidc"
-
   "golang-idp-fe/config"
   "golang-idp-fe/environment"
-  //"golang-idp-fe/gateway/idpbe"
 )
 
 func ExchangeAuthorizationCodeCallback(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -22,7 +17,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "ExchangeAuthorizationCodeCallback",
     })
     log.Debug("Received exchange request")

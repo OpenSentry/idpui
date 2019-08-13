@@ -1,4 +1,4 @@
-package cpbe
+package aapapi
 
 import (
   "net/http"
@@ -6,7 +6,6 @@ import (
   "io/ioutil"
   "strings"
   "errors"
-
   "golang.org/x/net/context"
   "golang.org/x/oauth2/clientcredentials"
 )
@@ -18,17 +17,17 @@ type ConsentRequest struct {
   RequestedScopes []string `json:"requested_scopes,omitempty"`
 }
 
-type CpBeClient struct {
+type AapApiClient struct {
   *http.Client
 }
 
-func NewCpBeClient(config *clientcredentials.Config) *CpBeClient {
+func NewAapApiClient(config *clientcredentials.Config) *AapApiClient {
   ctx := context.Background()
   client := config.Client(ctx)
-  return &CpBeClient{client}
+  return &AapApiClient{client}
 }
 
-func FetchConsents(authorizationsUrl string, client *CpBeClient, consentRequest ConsentRequest) ([]string, error) {
+func FetchConsents(authorizationsUrl string, client *AapApiClient, consentRequest ConsentRequest) ([]string, error) {
 
   rawRequest, err := http.NewRequest("GET", authorizationsUrl, nil)
   if err != nil {
