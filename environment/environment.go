@@ -1,14 +1,13 @@
 package environment
 
 import (
-  //"fmt"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
   oidc "github.com/coreos/go-oidc"
 )
 
 const (
-  SessionStoreKey string = "idpfe"
+  SessionStoreKey string = "idpui"
   SessionStateKey string = "state"
   SessionTokenKey string = "token"
   SessionSubject string = "sub"
@@ -22,8 +21,8 @@ const (
 type State struct {
   AppName string
   Provider *oidc.Provider
-  IdpBeConfig *clientcredentials.Config
-  CpBeConfig *clientcredentials.Config
+  IdpApiConfig *clientcredentials.Config
+  AapApiConfig *clientcredentials.Config
   HydraConfig *oauth2.Config
 }
 

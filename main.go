@@ -6,16 +6,11 @@ import (
   "fmt"
   "net/url"
   "net/http"
-  //"encoding/base64"
   "encoding/gob"
-  //"crypto/rand"
-  //"reflect"
   "os"
-
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
-
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
@@ -23,28 +18,24 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gwatts/gin-adapter"
   "github.com/atarantini/ginrequestid"
-
   oidc "github.com/coreos/go-oidc"
-
   "golang-idp-fe/config"
   "golang-idp-fe/environment"
   "golang-idp-fe/controllers"
-  "golang-idp-fe/gateway/idpbe"
-  //"golang-idp-fe/gateway/cpbe"
-
+  "golang-idp-fe/gateway/idpapi"
   "github.com/pborman/getopt"
 )
 
 func init() {
-  logrus.SetFormatter(&logrus.JSONFormatter{})
+  //logrus.SetFormatter(&logrus.JSONFormatter{})
   config.InitConfigurations()
-  gob.Register(&oauth2.Token{}) // This is required to make session in idp-fe able to persist tokens.
+  gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
   gob.Register(&oidc.IDToken{})
-  gob.Register(&idpbe.Profile{})
+  gob.Register(&idpapi.Profile{})
   gob.Register(make(map[string][]string))
 }
 
-const app = "idpfe"
+const app = "idpui"
 
 func main() {
 
@@ -70,22 +61,22 @@ func main() {
     Scopes:       config.GetStringSlice("oauth2.scopes.required"),
   }
 
-  // IdpFe needs to be able as an App using client_id to access IdpBe endpoints. Using client credentials flow
-  idpbeConfig := &clientcredentials.Config{
+  // IdpFe needs to be able as an App using client_id to access idpapi endpoints. Using client credentials flow
+  idpapiConfig := &clientcredentials.Config{
     ClientID:  config.GetString("oauth2.client.id"),
     ClientSecret: config.GetString("oauth2.client.secret"),
     TokenURL: provider.Endpoint().TokenURL,
     Scopes: config.GetStringSlice("oauth2.scopes.required"),
-    EndpointParams: url.Values{"audience": {"idpbe"}},
+    EndpointParams: url.Values{"audience": {"idpapi"}},
     AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
   }
 
-  cpbeConfig := &clientcredentials.Config{
+  aapapiConfig := &clientcredentials.Config{
     ClientID:  config.GetString("oauth2.client.id"),
     ClientSecret: config.GetString("oauth2.client.secret"),
     TokenURL: provider.Endpoint().TokenURL,
     Scopes: config.GetStringSlice("oauth2.scopes.required"),
-    EndpointParams: url.Values{"audience": {"cpbe"}},
+    EndpointParams: url.Values{"audience": {"aapapi"}},
     AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
   }
 
@@ -94,8 +85,8 @@ func main() {
     AppName: app,
     Provider: provider,
     HydraConfig: hydraConfig,
-    IdpBeConfig: idpbeConfig,
-    CpBeConfig: cpbeConfig,
+    IdpApiConfig: idpapiConfig,
+    AapApiConfig: aapapiConfig,
   }
 
   optServe := getopt.BoolLong("serve", 0, "Serve application")
@@ -131,7 +122,7 @@ func serve(env *environment.State) {
   })
   r.Use(sessions.Sessions(environment.SessionStoreKey, store))
 
-  // Use CSRF on all idp-fe forms.
+  // Use CSRF on all idpui forms.
   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.GetString("csrf.authKey")), csrf.Secure(true)))
   // r.Use(adapterCSRF) // Do not use this as it will make csrf tokens for public files aswell which is just extra data going over the wire, no need for that.
 
@@ -142,39 +133,39 @@ func serve(env *environment.State) {
   routes := map[string]environment.Route{
     "/": environment.Route{
       URL: "/",
-      LogId: "idpfe://",
+      LogId: "idpui://",
     },
     "/authenticate": environment.Route{
       URL: "/authenticate",
-      LogId: "idpfe://authenticate",
+      LogId: "idpui://authenticate",
     },
     "/logout": environment.Route{
       URL: "/logout",
-      LogId: "idpfe://logout",
+      LogId: "idpui://logout",
     },
     "/session/logout": environment.Route{
       URL: "/session/logout",
-      LogId: "idpfe://session/logout",
+      LogId: "idpui://session/logout",
     },
     "/register": environment.Route{
       URL: "/register",
-      LogId: "idpfe://register",
+      LogId: "idpui://register",
     },
     "/recover": environment.Route{
       URL: "/recover",
-      LogId: "idpfe://recover",
+      LogId: "idpui://recover",
     },
     "/callback": environment.Route{
       URL: "/callback",
-      LogId: "idpfe://callback",
+      LogId: "idpui://callback",
     },
     "/me": environment.Route{
       URL: "/me",
-      LogId: "idpfe://me",
+      LogId: "idpui://me",
     },
     "/consent": environment.Route{
       URL: "/consent",
-      LogId: "idpfe://consent",
+      LogId: "idpui://consent",
     },
   }
 
@@ -212,7 +203,7 @@ func logger(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
     var requestId string = c.MustGet(environment.RequestIdKey).(string)
     logger := logrus.New() // Use this to direct request log somewhere else than app log
-    logger.SetFormatter(&logrus.JSONFormatter{})
+    //logger.SetFormatter(&logrus.JSONFormatter{})
     requestLog := logger.WithFields(logrus.Fields{
       "appname": env.AppName,
       "requestid": requestId,
@@ -245,7 +236,7 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
     // Authentication
     token, err := authenticationRequired(env, c, route, log)
     if err != nil {
-      // Require authentication to access resources. Init oauth2 Authorization code flow with idpfe as the client.
+      // Require authentication to access resources. Init oauth2 Authorization code flow with idpui as the client.
       log.Debug("Error: " + err.Error())
 
       initUrl, err := controllers.StartAuthentication(env, c, route, log)
@@ -355,14 +346,14 @@ func authorizationRequired(env *environment.State, c *gin.Context, route environ
 
   // See #3 of QTNA
   log.Warn("Missing implementation of QTNA #3 - Is the access token granted the required scopes?")
-  /*cpbeClient := cpbe.NewCpBeClient(env.CpBeConfig)
-  grantedScopes, err := cpbe.IsRequiredScopesGrantedForToken(config.CpBe.AuthorizationsUrl, cpbeClient, requiredScopes)
+  /*aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
+  grantedScopes, err := aapapi.IsRequiredScopesGrantedForToken(config.aapapi.AuthorizationsUrl, aapapiClient, requiredScopes)
   if err != nil {
     return nil, err
   }*/
 
   // See #4 of QTNA
-  // FIXME: Is user who granted the scopes allow to use the scopes (check cpbe model for what user is allowed to do.)
+  // FIXME: Is user who granted the scopes allow to use the scopes (check aapapi model for what user is allowed to do.)
   log.Warn("Missing implementation of QTNA #4 - Is the user or client giving the grants in the access token authorized to operate the scopes granted?")
 
   strGrantedScopes := strings.Join(grantedScopes, ",")

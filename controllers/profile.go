@@ -4,18 +4,15 @@ import (
   "net/http"
   "strings"
   "fmt"
-
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
-  //"github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-
   "golang-idp-fe/config"
   "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpbe"
-  "golang-idp-fe/gateway/cpbe"
+  "golang-idp-fe/gateway/idpapi"
+  "golang-idp-fe/gateway/aapapi"
 )
 
 func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -24,7 +21,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "ShowProfile",
     })
     log.Debug("Received profile request")
@@ -43,30 +40,31 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
 
     var accessToken *oauth2.Token
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpbeClient := idpbe.NewIdpBeClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    request := idpbe.IdentityRequest{
+    request := idpapi.IdentityRequest{
       Id: idToken.Subject,
     }
-    profile, err := idpbe.FetchProfile(config.GetString("idpApi.public.url") + config.GetString("idpApi.public.endpoints.identities"), idpbeClient, request)
+    profile, err := idpapi.FetchProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, request)
     if err != nil {
       c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
 
+    aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
 
-    cpbeClient := cpbe.NewCpBeClient(env.CpBeConfig)
+    log.Debug("Please remove App it is not part of the graph model no more")
 
     var consents string = "n/a"
-    consentRequest := cpbe.ConsentRequest{
+    consentRequest := aapapi.ConsentRequest{
       Subject: idToken.Subject,
-      App: "idpui", // FIXME: Formalize this. Remeber an app could have more than one identity (client_id) if we wanted to segment access within the app
-      ClientId: "idpui", //authorizeResponse.ClientId, // "idpui"
+      App: authorizeResponse.ClientId,
+      ClientId: authorizeResponse.ClientId,
       // RequestedScopes: requestedScopes, // Only look for permissions that was requested (query optimization)
     }
-    grantedScopes, err := cpbe.FetchConsents(config.GetString("aapApi.public.url") + config.GetString("aapApi.public.endpoints.authorizations"), cpbeClient, consentRequest)
+    grantedScopes, err := aapapi.FetchConsents(config.GetString("aapapi.public.url") + config.GetString("aapapi.public.endpoints.authorizations"), aapapiClient, consentRequest)
     if err != nil {
       fmt.Println(err)
     } else {

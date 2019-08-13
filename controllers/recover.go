@@ -2,15 +2,9 @@ package controllers
 
 import (
   "net/http"
-
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
-  //"github.com/gorilla/csrf"
-  //"github.com/gin-contrib/sessions"
-
-  //"golang-idp-fe/config"
   "golang-idp-fe/environment"
-  //"golang-idp-fe/gateway/idpbe"
 )
 
 type recoverForm struct {
@@ -24,7 +18,7 @@ func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFun
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "ShowRecover",
     })
     log.Debug("Received recover request")
@@ -40,7 +34,7 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "SubmitRecover",
     })
     log.Debug("Received recover request")

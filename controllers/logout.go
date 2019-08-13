@@ -2,15 +2,13 @@ package controllers
 
 import (
   "net/http"
-
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-
   "golang-idp-fe/config"
   "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpbe"
+  "golang-idp-fe/gateway/idpapi"
 )
 
 func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -19,7 +17,7 @@ func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "ShowLogout",
     })
     log.Debug("Received logout request")
@@ -49,7 +47,7 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "SubmitLogout",
     })
     log.Debug("Received logout request")
@@ -63,12 +61,12 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
       return
     }
 
-    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
-    var request = idpbe.LogoutRequest{
+    var request = idpapi.LogoutRequest{
       Challenge: form.Challenge,
     }
-    logout, err := idpbe.Logout(config.GetString("idpApi.public.url") + config.GetString("idpApi.public.endpoints.logout"), idpbeClient, request)
+    logout, err := idpapi.Logout(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.logout"), idpapiClient, request)
     if err != nil {
       c.JSON(400, gin.H{"error": err.Error()})
       c.Abort()
@@ -91,7 +89,7 @@ func ShowLogoutSession(env *environment.State, route environment.Route) gin.Hand
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "ShowLogoutSession",
     })
     log.Debug("Received session logout request")
@@ -109,7 +107,7 @@ func SubmitLogoutSession(env *environment.State, route environment.Route) gin.Ha
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "SubmitLogoutSession",
     })
     log.Debug("Received session logout request")

@@ -2,16 +2,13 @@ package controllers
 
 import (
   "net/http"
-
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   oidc "github.com/coreos/go-oidc"
-
-  //"golang-idp-fe/config"
   "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpbe"
+  "golang-idp-fe/gateway/idpapi"
 )
 
 func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -20,7 +17,7 @@ func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFun
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "ShowConsent",
     })
     log.Debug("Received consent request");
@@ -38,7 +35,7 @@ func SubmitConsent(env *environment.State, route environment.Route) gin.HandlerF
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "route.logid": route.LogId,
-      "component": "idpui",
+      "component": "controller",
       "func": "SubmitConsent",
     })
     log.Debug("Received consent request");
@@ -52,12 +49,12 @@ func SubmitConsent(env *environment.State, route environment.Route) gin.HandlerF
       return
     }
 
-    idpbeClient := idpbe.NewIdpBeClient(env.IdpBeConfig)
+    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
-    request := idpbe.RevokeConsentRequest{
+    request := idpapi.RevokeConsentRequest{
       Id: idToken.Subject,
     }
-    r, err := idpbe.RevokeConsent("fixme", idpbeClient, request)
+    r, err := idpapi.RevokeConsent("fixme", idpapiClient, request)
     if err != nil {
       c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
       c.Abort()
