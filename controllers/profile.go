@@ -61,15 +61,14 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     var consents string = "n/a"
     consentRequest := aapapi.ConsentRequest{
       Subject: idToken.Subject,
-      App: "idpapi", //authorizeResponse.ClientId,
-      ClientId: "idpapi", //authorizeResponse.ClientId,
+      ClientId: env.AapApiConfig.ClientID,
       // RequestedScopes: requestedScopes, // Only look for permissions that was requested (query optimization)
     }
     grantedScopes, err := aapapi.FetchConsents(config.GetString("aapapi.public.url") + config.GetString("aapapi.public.endpoints.authorizations"), aapapiClient, consentRequest)
     if err != nil {
       fmt.Println(err)
     } else {
-      consents = "app:" + consentRequest.App + ", client_id:"+consentRequest.ClientId+ ", scopes:" + strings.Join(grantedScopes, ",")
+      consents = "client_id:"+consentRequest.ClientId+ ", scopes:" + strings.Join(grantedScopes, ",")
     }
 
     var permissions string = "n/a"

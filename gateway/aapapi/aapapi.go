@@ -12,7 +12,6 @@ import (
 
 type ConsentRequest struct {
   Subject string `json:"sub" binding:"required"`
-  App string `json:"app" binding:"required"`
   ClientId string `json:"client_id,omitempty"`
   RequestedScopes []string `json:"requested_scopes,omitempty"`
 }
@@ -36,7 +35,6 @@ func FetchConsents(authorizationsUrl string, client *AapApiClient, consentReques
 
   query := rawRequest.URL.Query()
   query.Add("id", consentRequest.Subject)
-  query.Add("app", consentRequest.App)
   if consentRequest.ClientId != "" {
     query.Add("client_id", consentRequest.ClientId)
   }
