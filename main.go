@@ -3,7 +3,6 @@ package main
 import (
   "errors"
   "strings"
-  "fmt"
   "net/url"
   "net/http"
   "encoding/gob"
@@ -39,7 +38,6 @@ const app = "idpui"
 
 func main() {
 
-  // The app log
   appFields := logrus.Fields{
     "appname": app,
     "func": "main",
@@ -47,7 +45,7 @@ func main() {
 
   provider, err := oidc.NewProvider(context.Background(), config.GetString("hydra.public.url") + "/")
   if err != nil {
-    logrus.WithFields(appFields).WithFields(logrus.Fields{"component": "Hydra Provider"}).Fatal("oidc.NewProvider" + err.Error())
+    logrus.WithFields(appFields).WithFields(logrus.Fields{"component": "Hydra Provider"}).Info("oidc.NewProvider" + err.Error())
     return
   }
 
@@ -89,7 +87,7 @@ func main() {
     AapApiConfig: aapapiConfig,
   }
 
-  optServe := getopt.BoolLong("serve", 0, "Serve application")
+  //optServe := getopt.BoolLong("serve", 0, "Serve application")
   optHelp := getopt.BoolLong("help", 0, "Help")
   getopt.Parse()
 
@@ -98,12 +96,12 @@ func main() {
     os.Exit(0)
   }
 
-  if *optServe {
+  //if *optServe {
     serve(env)
-  } else {
+  /*} else {
     getopt.Usage()
     os.Exit(0)
-  }
+  }*/
 
 }
 
@@ -131,42 +129,16 @@ func serve(env *environment.State) {
 
   // Setup routes to use, this defines log for debug log
   routes := map[string]environment.Route{
-    "/": environment.Route{
-      URL: "/",
-      LogId: "idpui://",
-    },
-    "/authenticate": environment.Route{
-      URL: "/authenticate",
-      LogId: "idpui://authenticate",
-    },
-    "/logout": environment.Route{
-      URL: "/logout",
-      LogId: "idpui://logout",
-    },
-    "/session/logout": environment.Route{
-      URL: "/session/logout",
-      LogId: "idpui://session/logout",
-    },
-    "/register": environment.Route{
-      URL: "/register",
-      LogId: "idpui://register",
-    },
-    "/recover": environment.Route{
-      URL: "/recover",
-      LogId: "idpui://recover",
-    },
-    "/callback": environment.Route{
-      URL: "/callback",
-      LogId: "idpui://callback",
-    },
-    "/me": environment.Route{
-      URL: "/me",
-      LogId: "idpui://me",
-    },
-    "/consent": environment.Route{
-      URL: "/consent",
-      LogId: "idpui://consent",
-    },
+    "/":               environment.Route{URL: "/", LogId: "idpui://"},
+    "/authenticate":   environment.Route{URL: "/authenticate",LogId: "idpui://authenticate"},
+    "/logout":         environment.Route{URL: "/logout",LogId: "idpui://logout"},
+    "/session/logout": environment.Route{URL: "/session/logout",LogId: "idpui://session/logout"},
+    "/register":       environment.Route{URL: "/register",LogId: "idpui://register"},
+    "/recover":        environment.Route{URL: "/recover",LogId: "idpui://recover"},
+    "/callback":       environment.Route{URL: "/callback",LogId: "idpui://callback"},
+    "/me":             environment.Route{URL: "/me",LogId: "idpui://me"},
+    "/password":       environment.Route{URL: "/password",LogId: "idpui//password"},
+    "/consent":        environment.Route{URL: "/consent",LogId: "idpui://consent"},
   }
 
   ep := r.Group("/")
@@ -191,6 +163,9 @@ func serve(env *environment.State) {
     ep.GET(routes["/callback"].URL, controllers.ExchangeAuthorizationCodeCallback(env, routes["/callback"])) // token exhange endpoint.
 
     ep.GET(routes["/me"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me"], "openid"), controllers.ShowProfile(env, routes["/me"]))
+
+    ep.GET(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.ShowPassword(env, routes["/password"]))
+    ep.POST(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.SubmitPassword(env, routes["/password"]))
 
     ep.GET(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.ShowConsent(env, routes["/consent"]))
     ep.POST(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.SubmitConsent(env, routes["/consent"]))
@@ -260,10 +235,9 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
       c.Abort()
       return
     }
-    fmt.Println(grantedScopes)
+    log.Debug(grantedScopes)
 
-    // FIXME: Find IdToken for access token.
-    log.Warn("Missing id token for access token needs to be implemented")
+    log.WithFields(logrus.Fields{"fixme":1}).Debug("Find IdToken for access token")
     idToken := &oauth2.Token{}
     c.Set(environment.IdTokenKey, idToken) // Authorized
 
@@ -323,8 +297,7 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
     log.Debug("Valid access token")
 
     // See #5 of QTNA
-    // FIXME: Call token revoked list to check if token is revoked.
-    log.Warn("Missing implementation of QTNA #5 - Is the access token revoked?")
+    log.WithFields(logrus.Fields{"fixme":1}).Debug("Missing implementation of QTNA #5 - Is the access token revoked?") // Call token revoked list to check if token is revoked.
 
     return token, nil
   }
@@ -345,7 +318,7 @@ func authorizationRequired(env *environment.State, c *gin.Context, route environ
   var grantedScopes []string
 
   // See #3 of QTNA
-  log.Warn("Missing implementation of QTNA #3 - Is the access token granted the required scopes?")
+  log.Debug("Missing implementation of QTNA #3 - Is the access token granted the required scopes?")
   /*aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
   grantedScopes, err := aapapi.IsRequiredScopesGrantedForToken(config.aapapi.AuthorizationsUrl, aapapiClient, requiredScopes)
   if err != nil {
@@ -354,7 +327,7 @@ func authorizationRequired(env *environment.State, c *gin.Context, route environ
 
   // See #4 of QTNA
   // FIXME: Is user who granted the scopes allow to use the scopes (check aapapi model for what user is allowed to do.)
-  log.Warn("Missing implementation of QTNA #4 - Is the user or client giving the grants in the access token authorized to operate the scopes granted?")
+  log.Debug("Missing implementation of QTNA #4 - Is the user or client giving the grants in the access token authorized to operate the scopes granted?")
 
   strGrantedScopes := strings.Join(grantedScopes, ",")
   log.Debug("Valid scopes: " + strGrantedScopes)

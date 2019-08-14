@@ -31,10 +31,10 @@
       <input name="email" type="text" autocomplete="email" value="{{ .email }}" placeholder="Enter your email" />
       {{if .errorEmail}} <div class="error">{{ .errorEmail }}</div> {{end}}
 
-      <input name="password" type="password" autocomplete="new-password" placeholder="Enter your secret password, sshhh..." required>
+      <input name="password" type="password" autocomplete="new-password" placeholder="Enter your password, sshhh..." required>
       {{if .errorPassword}} <div class="error">{{ .errorPassword }}</div> {{end}}
 
-      <input name="password_retyped" type="password" autocomplete="new-password" placeholder="Enter your secret password again, sshhh..." required>
+      <input name="password_retyped" type="password" autocomplete="new-password" placeholder="Enter your password again, just checking..." required>
       {{if .errorPasswordRetyped}} <div class="error">{{ .errorPasswordRetyped }}</div> {{end}}
 
       <input type="submit" name="submit" value="Register" />

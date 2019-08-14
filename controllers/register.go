@@ -1,7 +1,6 @@
 package controllers
 
 import (
-  "fmt"
   "strings"
   "net/http"
   "github.com/sirupsen/logrus"
@@ -168,7 +167,6 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
         Password: form.Password,
         Name: form.Name,
       }
-      fmt.Println(profileRequest)
       profile, err := idpapi.CreateProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, profileRequest)
       if err != nil {
         log.Fatal(err.Error())
@@ -200,7 +198,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
     }
 
     // Deny by default. Failed to fill in the form correctly.
-    c.Redirect(302, route.URL)
+    c.Redirect(http.StatusFound, route.URL)
     c.Abort()
   }
   return gin.HandlerFunc(fn)
