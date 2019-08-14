@@ -3,7 +3,6 @@ package controllers
 import (
   "net/http"
   "strings"
-  "fmt"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
@@ -24,7 +23,6 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
       "component": "controller",
       "func": "ShowProfile",
     })
-    log.Debug("Received profile request")
 
     // NOTE: Maybe session is not a good way to do this.
     // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
@@ -55,8 +53,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
 
     aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
 
-    log.Debug("Please remove App it is not part of the graph model no more")
-    log.Warn("Missing client id from correct source please implement it")
+    log.Debug("Please change idp fe to only have one client credential that is allowed to call idpapi and aapapi")
 
     var consents string = "n/a"
     consentRequest := aapapi.ConsentRequest{
@@ -66,7 +63,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     }
     grantedScopes, err := aapapi.FetchConsents(config.GetString("aapapi.public.url") + config.GetString("aapapi.public.endpoints.authorizations"), aapapiClient, consentRequest)
     if err != nil {
-      fmt.Println(err)
+      log.Debug(err)
     } else {
       consents = "client_id:"+consentRequest.ClientId+ ", scopes:" + strings.Join(grantedScopes, ",")
     }
