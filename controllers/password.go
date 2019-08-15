@@ -42,7 +42,7 @@ func ShowPassword(env *environment.State, route environment.Route) gin.HandlerFu
     errors := session.Flashes("password.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
-      log.Fatal(err.Error())
+      log.Debug(err.Error())
     }
 
     var errorPassword string
@@ -85,7 +85,7 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
     err := c.Bind(&form)
     if err != nil {
       // Do better error handling in the application.
-      c.JSON(400, gin.H{"error": err.Error()})
+      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
@@ -113,8 +113,9 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
       session.AddFlash(errors, "password.errors")
       err = session.Save()
       if err != nil {
-        log.Fatal(err.Error())
+        log.Debug(err.Error())
       }
+      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
       c.Redirect(http.StatusFound, route.URL)
       c.Abort();
       return
@@ -130,7 +131,7 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
         return
       }
 
-      log.Debug("Figure out if we are to use client credentials to communicate from ui to api or we wanna use the user authorized access token in ui to access api")
+      log.WithFields(logrus.Fields{"fixme": 1}).Debug("Figure out if we are to use client credentials to communicate from ui to api or we wanna use the user authorized access token in ui to access api")
 
       var accessToken *oauth2.Token
       accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
@@ -146,7 +147,7 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
       profile, err := idpapi.UpdatePassword(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.password"), idpapiClient, profileRequest)
       if err != nil {
         log.Debug(err.Error())
-        c.JSON(400, gin.H{"error": err.Error()})
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         c.Abort()
         return
       }
@@ -154,6 +155,7 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
       log.Debug(profile)
 
       log.WithFields(logrus.Fields{"fixme":1}).Debug("Redirect to where we came from")
+      log.WithFields(logrus.Fields{"redirect_to": "/me"}).Debug("Redirecting")
       c.Redirect(http.StatusFound, "/me")
       c.Abort()
       return

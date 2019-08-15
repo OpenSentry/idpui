@@ -111,7 +111,6 @@ func main() {
 
   // Setup app state variables. Can be used in handler functions by doing closures see exchangeAuthorizationCodeCallback
   env := &environment.State{
-    AppName: app,
     Provider: provider,
     HydraConfig: hydraConfig,
     IdpApiConfig: idpapiConfig,

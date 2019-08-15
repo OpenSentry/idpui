@@ -27,7 +27,6 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
     log = log.WithFields(logrus.Fields{
       "func": "ShowRegistration",
     })
-    log.Debug("Received registration request")
 
     session := sessions.Default(c)
 
@@ -41,7 +40,7 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
     errors := session.Flashes("register.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
-      log.Fatal(err.Error())
+      log.Debug(err.Error())
     }
 
     var errorUsername string
@@ -103,7 +102,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
     err := c.Bind(&form)
     if err != nil {
       // Do better error handling in the application.
-      c.JSON(400, gin.H{"error": err.Error()})
+      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
@@ -116,7 +115,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
     session.Set("register.email", form.Email)
     err = session.Save()
     if err != nil {
-      log.Fatal(err.Error())
+      log.Debug(err.Error())
     }
 
     errors := make(map[string][]string)
@@ -147,6 +146,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       if err != nil {
         log.Fatal(err.Error())
       }
+      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
       c.Redirect(http.StatusFound, route.URL)
       c.Abort();
       return
@@ -164,8 +164,8 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       }
       profile, err := idpapi.CreateProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, profileRequest)
       if err != nil {
-        log.Fatal(err.Error())
-        c.JSON(400, gin.H{"error": err.Error()})
+        log.Debug(err.Error())
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         c.Abort()
         return
       }
@@ -183,10 +183,11 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
 
       err = session.Save()
       if err != nil {
-        log.Fatal(err.Error())
+        log.Debug(err.Error())
       }
 
       // Registration successful, return to create new ones, but with success message
+      log.WithFields(logrus.Fields{"redirect_to": "/register"}).Debug("Redirecting")
       c.Redirect(http.StatusFound, "/register")
       c.Abort()
       return
