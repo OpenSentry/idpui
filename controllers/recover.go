@@ -17,11 +17,8 @@ func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFun
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "ShowRecover",
-    })
-    log.Debug("Received recover request")
+    })    
 
     c.HTML(http.StatusOK, "recover.html", nil)
   }
@@ -33,8 +30,6 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "SubmitRecover",
     })
     log.Debug("Received recover request")

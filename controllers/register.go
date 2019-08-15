@@ -25,8 +25,6 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "ShowRegistration",
     })
     log.Debug("Received registration request")
@@ -98,11 +96,8 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "SubmitRegistration",
     })
-    log.Debug("Received registration request")
 
     var form registrationForm
     err := c.Bind(&form)

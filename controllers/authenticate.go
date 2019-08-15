@@ -25,12 +25,8 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "ShowAuthentication",
-    })
-
-    log.Debug("Received authentication request")
+    })    
 
     loginChallenge := c.Query("login_challenge")
     if loginChallenge == "" {

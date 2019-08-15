@@ -16,12 +16,9 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "ExchangeAuthorizationCodeCallback",
     })
-    log.Debug("Received exchange request")
-
+    
     session := sessions.Default(c)
     v := session.Get(environment.SessionStateKey)
     if v == nil {

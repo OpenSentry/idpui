@@ -24,8 +24,6 @@ func ShowPassword(env *environment.State, route environment.Route) gin.HandlerFu
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "ShowPassword",
     })
 
@@ -80,8 +78,6 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "SubmitPassword",
     })
 
