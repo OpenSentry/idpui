@@ -16,11 +16,8 @@ func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFun
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "ShowConsent",
     })
-    log.Debug("Received consent request");
 
     c.HTML(http.StatusOK, "consent.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
@@ -34,12 +31,9 @@ func SubmitConsent(env *environment.State, route environment.Route) gin.HandlerF
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "SubmitConsent",
     })
-    log.Debug("Received consent request");
-
+    
     var idToken *oidc.IDToken
     session := sessions.Default(c)
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)

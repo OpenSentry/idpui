@@ -18,9 +18,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
-    log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
+    log = log.WithFields(logrus.Fields{      
       "func": "ShowProfile",
     })
 
