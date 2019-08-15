@@ -26,8 +26,10 @@ import (
 )
 
 func init() {
-  //logrus.SetFormatter(&logrus.JSONFormatter{})
-  config.InitConfigurations()
+  err := config.InitConfigurations()
+  if err != nil {
+    logrus.Fatal(err)
+  }
   gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
   gob.Register(&oidc.IDToken{})
   gob.Register(&idpapi.Profile{})
