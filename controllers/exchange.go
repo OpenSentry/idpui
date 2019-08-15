@@ -18,7 +18,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
     log = log.WithFields(logrus.Fields{
       "func": "ExchangeAuthorizationCodeCallback",
     })
-    
+
     session := sessions.Default(c)
     v := session.Get(environment.SessionStateKey)
     if v == nil {
@@ -92,8 +92,9 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
       session.Set(environment.SessionIdTokenKey, idToken)
       err = session.Save()
       if err == nil {
-        var redirectTo = config.GetString("oauth2.defaultRedirect") // FIXME: Where to redirect to?
-        log.Debug("Redirecting to: " + redirectTo)
+        var redirectTo = config.GetString("oauth2.defaultRedirect")
+        log.WithFields(logrus.Fields{"fixme": 1}).Debug("Figure out where to redirect to.")
+        log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
         c.Redirect(http.StatusFound, redirectTo)
         c.Abort()
         return;

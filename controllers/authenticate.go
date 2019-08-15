@@ -26,18 +26,19 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ShowAuthentication",
-    })    
+    })
 
     loginChallenge := c.Query("login_challenge")
     if loginChallenge == "" {
       // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
-      // Idp-Fe should ask hydra for a challenge to login
+      // IdpUi should ask hydra for a challenge to login
       initUrl, err := StartAuthentication(env, c, route, log)
       if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         c.Abort()
         return
       }
+      log.WithFields(logrus.Fields{"redirect_to": initUrl.String()}).Debug("Redirecting")
       c.Redirect(http.StatusFound, initUrl.String())
       c.Abort()
       return
@@ -50,12 +51,13 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
     }
     authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
     if err != nil {
-      c.JSON(400, gin.H{"error": err.Error()})
+      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
     if authenticateResponse.Authenticated {
-      c.Redirect(302, authenticateResponse.RedirectTo)
+      log.WithFields(logrus.Fields{"redirect_to": authenticateResponse.RedirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
       c.Abort()
       return
     }
@@ -74,29 +76,23 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "idpui",
       "func": "SubmitAuthentication",
     })
-
-    log.Debug("Received authentication request")
 
     var form authenticationForm
     err := c.Bind(&form)
     if err != nil {
       // Do better error handling in the application.
-      c.JSON(400, gin.H{"error": err.Error()})
+      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
 
     if form.Username == "" {
-      // FIXME: session flash missing username
-      log.Warn("Session flash missing username")
+      log.WithFields(logrus.Fields{"fixme": 1}).Debug("Session flash missing username")
     }
     if form.Password == "" {
-      // FIXME: session flash missing password
-      log.Warn("Session flash missing password")
+      log.WithFields(logrus.Fields{"fixme": 1}).Debug("Session flash missing password")
     }
 
     idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
@@ -109,20 +105,22 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     }
     authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
     if err != nil {
-      c.JSON(400, gin.H{"error": err.Error()})
+      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
 
     // User authenticated, redirect
     if authenticateResponse.Authenticated {
-      c.Redirect(302, authenticateResponse.RedirectTo)
+      log.WithFields(logrus.Fields{"redirect_to": authenticateResponse.RedirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
       c.Abort()
       return
     }
 
     // Deny by default
     // Failed authentication, retry login challenge.
+    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Move error to session flash")
     retryLoginUrl := "/?login_challenge=" + form.Challenge + "&login_error=Authentication Failure";
     retryUrl, err := url.Parse(retryLoginUrl)
     if err != nil {
@@ -130,7 +128,8 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       c.Abort()
       return
     }
-    c.Redirect(302, retryUrl.String())
+    log.WithFields(logrus.Fields{"redirect_to": retryUrl.String()}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, retryUrl.String())
     c.Abort()
   }
   return gin.HandlerFunc(fn)
@@ -168,9 +167,12 @@ func StartAuthentication(env *environment.State, c *gin.Context, route environme
     return nil, err
   }
 
-  log.Debug("Saved session "+environment.SessionStateKey+": " + state)
-
-  log.Debug("Using "+environment.SessionStateKey+" param: " + state)
+  logSession := log.WithFields(logrus.Fields{
+    "session.state.key": environment.SessionStateKey,
+    "session.state.state": state,
+  })
+  logSession.Debug("Saved session")
+  logSession.Debug("Using session")
   authUrl := env.HydraConfig.AuthCodeURL(state)
   u, err := url.Parse(authUrl)
   return u, err
