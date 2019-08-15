@@ -7,6 +7,7 @@ import (
   "net/http"
   "encoding/gob"
   "os"
+  "time"
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
@@ -26,10 +27,34 @@ import (
 )
 
 func init() {
+  log = logrus.New();
+
   err := config.InitConfigurations()
   if err != nil {
-    logrus.Panic(err)
+    log.Panic(err.Error())
+    return
   }
+
+  logDebug = config.GetInt("log.debug")
+  logFormat = config.GetString("log.format")
+
+  // We only have 2 log levels. Things developers care about (debug) and things the user of the app cares about (info)
+  log = logrus.New();
+  if logDebug == 1 {
+    log.SetLevel(logrus.DebugLevel)
+  } else {
+    log.SetLevel(logrus.InfoLevel)
+  }
+  if logFormat == "json" {
+    log.SetFormatter(&logrus.JSONFormatter{})
+  }
+
+  appFields = logrus.Fields{
+    "appname": app,
+    "log.debug": logDebug,
+    "log.format": logFormat,
+  }
+
   gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
   gob.Register(&oidc.IDToken{})
   gob.Register(&idpapi.Profile{})
@@ -38,12 +63,16 @@ func init() {
 
 const app = "idpui"
 
-func main() {
+var (
+  logDebug int // Set to 1 to enable debug
+  logFormat string // Current only supports default and json
 
-  appFields := logrus.Fields{
-    "appname": app,
-    "func": "main",
-  }
+  log *logrus.Logger
+
+  appFields logrus.Fields
+)
+
+func main() {
 
   provider, err := oidc.NewProvider(context.Background(), config.GetString("hydra.public.url") + "/")
   if err != nil {
@@ -108,9 +137,11 @@ func main() {
 }
 
 func serve(env *environment.State) {
-  r := gin.Default()
+  r := gin.New() // Clean gin to take control with logging.
+  r.Use(gin.Recovery())
+
   r.Use(ginrequestid.RequestId())
-  r.Use(logger(env))
+  r.Use(RequestLogger(env))
 
   store := cookie.NewStore([]byte(config.GetString("session.authKey")))
   // Ref: https://godoc.org/github.com/gin-gonic/contrib/sessions#Options
@@ -131,16 +162,16 @@ func serve(env *environment.State) {
 
   // Setup routes to use, this defines log for debug log
   routes := map[string]environment.Route{
-    "/":               environment.Route{URL: "/", LogId: "idpui://"},
-    "/authenticate":   environment.Route{URL: "/authenticate",LogId: "idpui://authenticate"},
-    "/logout":         environment.Route{URL: "/logout",LogId: "idpui://logout"},
-    "/session/logout": environment.Route{URL: "/session/logout",LogId: "idpui://session/logout"},
-    "/register":       environment.Route{URL: "/register",LogId: "idpui://register"},
-    "/recover":        environment.Route{URL: "/recover",LogId: "idpui://recover"},
-    "/callback":       environment.Route{URL: "/callback",LogId: "idpui://callback"},
-    "/me":             environment.Route{URL: "/me",LogId: "idpui://me"},
-    "/password":       environment.Route{URL: "/password",LogId: "idpui//password"},
-    "/consent":        environment.Route{URL: "/consent",LogId: "idpui://consent"},
+    "/":               environment.Route{URL: "/",               LogId: "idpui://"},
+    "/authenticate":   environment.Route{URL: "/authenticate",   LogId: "idpui://authenticate"},
+    "/logout":         environment.Route{URL: "/logout",         LogId: "idpui://logout"},
+    "/session/logout": environment.Route{URL: "/session/logout", LogId: "idpui://session/logout"},
+    "/register":       environment.Route{URL: "/register",       LogId: "idpui://register"},
+    "/recover":        environment.Route{URL: "/recover",        LogId: "idpui://recover"},
+    "/callback":       environment.Route{URL: "/callback",       LogId: "idpui://callback"},
+    "/me":             environment.Route{URL: "/me",             LogId: "idpui://me"},
+    "/password":       environment.Route{URL: "/password",       LogId: "idpui//password"},
+    "/consent":        environment.Route{URL: "/consent",        LogId: "idpui://consent"},
   }
 
   ep := r.Group("/")
@@ -176,17 +207,64 @@ func serve(env *environment.State) {
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))
 }
 
-func logger(env *environment.State) gin.HandlerFunc {
+func RequestLogger(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
+
+    // Start timer
+    start := time.Now()
+    path := c.Request.URL.Path
+    raw := c.Request.URL.RawQuery
+
     var requestId string = c.MustGet(environment.RequestIdKey).(string)
-    logger := logrus.New() // Use this to direct request log somewhere else than app log
-    //logger.SetFormatter(&logrus.JSONFormatter{})
-    requestLog := logger.WithFields(logrus.Fields{
-      "appname": env.AppName,
-      "requestid": requestId,
+    requestLog := log.WithFields(appFields).WithFields(logrus.Fields{
+      "request.id": requestId,
     })
     c.Set(environment.LogKey, requestLog)
-    c.Next()
+
+		c.Next()
+
+		// Stop timer
+		stop := time.Now()
+		latency := stop.Sub(start)
+
+    ipData, err := getRequestIpData(c.Request)
+    if err != nil {
+      log.WithFields(appFields).WithFields(logrus.Fields{
+        "func": "RequestLogger",
+      }).Debug(err.Error())
+    }
+
+    forwardedForIpData, err := getForwardedForIpData(c.Request)
+    if err != nil {
+      log.WithFields(appFields).WithFields(logrus.Fields{
+        "func": "RequestLogger",
+      }).Debug(err.Error())
+    }
+
+		method := c.Request.Method
+		statusCode := c.Writer.Status()
+		errorMessage := c.Errors.ByType(gin.ErrorTypePrivate).String()
+
+		bodySize := c.Writer.Size()
+
+    var fullpath string = path
+		if raw != "" {
+			fullpath = path + "?" + raw
+		}
+
+		log.WithFields(appFields).WithFields(logrus.Fields{
+      "latency": latency,
+      "forwarded_for.ip": forwardedForIpData.Ip,
+      "forwarded_for.port": forwardedForIpData.Port,
+      "ip": ipData.Ip,
+      "port": ipData.Port,
+      "method": method,
+      "status": statusCode,
+      "error": errorMessage,
+      "body_size": bodySize,
+      "path": fullpath,
+      "request.id": requestId,
+    }).Info("")
   }
   return gin.HandlerFunc(fn)
 }
@@ -205,20 +283,18 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "idpui.Authentication",
-      "func": "main.AuthenticationAndAuthorizationRequired",
+      "func": "AuthenticationAndAuthorizationRequired",
     })
 
     // Authentication
     token, err := authenticationRequired(env, c, route, log)
     if err != nil {
       // Require authentication to access resources. Init oauth2 Authorization code flow with idpui as the client.
-      log.Debug("Error: " + err.Error())
+      log.Debug(err.Error())
 
       initUrl, err := controllers.StartAuthentication(env, c, route, log)
       if err != nil {
-        log.Debug("Error: " + err.Error())
+        log.Debug(err.Error())
         c.HTML(http.StatusInternalServerError, "", gin.H{"error": err.Error()})
         c.Abort()
         return
@@ -230,16 +306,15 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
     c.Set(environment.AccessTokenKey, token) // Authenticated, so use it forward.
 
     // Authorization
-    grantedScopes, err := authorizationRequired(env, c, route, log, requiredScopes)
+    _ /* grantedScopes */, err = authorizationRequired(env, c, route, log, requiredScopes)
     if err != nil {
-      log.Debug("Error: " + err.Error())
+      log.Debug(err.Error())
       c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
-    log.Debug(grantedScopes)
 
-    log.WithFields(logrus.Fields{"fixme":1}).Debug("Find IdToken for access token")
+    log.WithFields(logrus.Fields{"fixme":1}).Debug("Missing id_token. Write code to find it correctly")
     idToken := &oauth2.Token{}
     c.Set(environment.IdTokenKey, idToken) // Authorized
 
@@ -250,31 +325,34 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
 }
 
 func authenticationRequired(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry) (*oauth2.Token, error) {
-
-  log = log.WithFields(logrus.Fields{
-    "func": "main.AuthenticationAndAuthorizationRequired.authenticationRequired",
-  })
-
-  log.Debug("Checking Authorization: Bearer <token> in request")
-
   session := sessions.Default(c)
 
+  log = log.WithFields(logrus.Fields{
+    "func": "authenticationRequired",
+  })
+
+  logWithBearer := log.WithFields(logrus.Fields{"authorization": "bearer"})
+  logWithSession := log.WithFields(logrus.Fields{"authorization": "session"})
+
+  logWithBearer.Debug("Looking for access token")
   var token *oauth2.Token
   auth := c.Request.Header.Get("Authorization")
   split := strings.SplitN(auth, " ", 2)
   if len(split) == 2 || strings.EqualFold(split[0], "bearer") {
-    log.Debug("Authorization: Bearer <token> found for request")
+    logWithBearer.Debug("Found access token")
     token = &oauth2.Token{
       AccessToken: split[1],
       TokenType: split[0],
     }
+    log = logWithBearer
   } else {
-    log.Debug("Checking Session <token> in request")
+    logWithSession.Debug("Looking for access token")
     v := session.Get(environment.SessionTokenKey)
     if v != nil {
       token = v.(*oauth2.Token)
-      log.Debug("Session <token> found in request")
+      logWithSession.Debug("Found access token")
     }
+    log = logWithSession
   }
 
   tokenSource := env.HydraConfig.TokenSource(oauth2.NoContext, token)
@@ -284,7 +362,7 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
   }
 
   if newToken.AccessToken != token.AccessToken {
-    log.Debug("Token was refresed. Updated session token to match new token")
+    log.Debug("Refreshed access token. Session updated")
     session.Set(environment.SessionTokenKey, newToken)
     session.Save()
     token = newToken
@@ -299,28 +377,29 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
     log.Debug("Valid access token")
 
     // See #5 of QTNA
-    log.WithFields(logrus.Fields{"fixme":1}).Debug("Missing implementation of QTNA #5 - Is the access token revoked?") // Call token revoked list to check if token is revoked.
+    log.WithFields(logrus.Fields{"fixme": 1, "qtna": 5}).Debug("Missing check against token-revoked-list to check if token is revoked") // Call token revoked list to check if token is revoked.
 
     return token, nil
   }
 
   // Deny by default
-  log.Debug("Missing or invalid access token")
-  return nil, errors.New("Missing or invalid access token")
+  return nil, errors.New("Invalid access token")
 }
 
 func authorizationRequired(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry, requiredScopes []string) ([]string, error) {
 
   log = log.WithFields(logrus.Fields{
-    "func": "main.AuthenticationAndAuthorizationRequired.authorizationRequired",
+    "func": "authorizationRequired",
   })
 
-  log.Debug("Checking required scopes for request")
+  strRequiredScopes := strings.Join(requiredScopes, ",")
+  log.WithFields(logrus.Fields{"scopes": strRequiredScopes}).Debug("Looking for required scopes");
 
   var grantedScopes []string
 
   // See #3 of QTNA
-  log.Debug("Missing implementation of QTNA #3 - Is the access token granted the required scopes?")
+  log.WithFields(logrus.Fields{"fixme": 1, "qtna": 3}).Debug("Missing check if access token is granted the required scopes")
+
   /*aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
   grantedScopes, err := aapapi.IsRequiredScopesGrantedForToken(config.aapapi.AuthorizationsUrl, aapapiClient, requiredScopes)
   if err != nil {
@@ -328,10 +407,9 @@ func authorizationRequired(env *environment.State, c *gin.Context, route environ
   }*/
 
   // See #4 of QTNA
-  // FIXME: Is user who granted the scopes allow to use the scopes (check aapapi model for what user is allowed to do.)
-  log.Debug("Missing implementation of QTNA #4 - Is the user or client giving the grants in the access token authorized to operate the scopes granted?")
+  log.WithFields(logrus.Fields{"fixme": 1, "qtna": 4}).Debug("Missing check if the user or client giving the grants in the access token  isauthorized to operate the granted scopes")
 
   strGrantedScopes := strings.Join(grantedScopes, ",")
-  log.Debug("Valid scopes: " + strGrantedScopes)
+  log.WithFields(logrus.Fields{"scopes": strGrantedScopes}).Debug("Found required scopes");
   return grantedScopes, nil
 }
