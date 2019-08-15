@@ -16,11 +16,8 @@ func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "route.logid": route.LogId,
-      "component": "controller",
       "func": "ShowLogout",
-    })
-    log.Debug("Received logout request")
+    })    
 
     logoutChallenge := c.Query("logout_challenge")
     if logoutChallenge == "" {
