@@ -18,7 +18,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
-    log = log.WithFields(logrus.Fields{      
+    log = log.WithFields(logrus.Fields{
       "func": "ShowProfile",
     })
 
@@ -51,7 +51,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
 
     aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
 
-    log.Debug("Please change idp fe to only have one client credential that is allowed to call idpapi and aapapi")
+    log.Debug("Please change idpui to only have one client credential that is allowed to call idpapi and aapapi")
 
     var consents string = "n/a"
     consentRequest := aapapi.ConsentRequest{

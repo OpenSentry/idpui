@@ -87,12 +87,12 @@ func RevokeConsent(url string, client *IdpApiClient, revokeConsentRequest Revoke
     return false, err
   }
 
-  rawResponse, err := client.Do(consentRequest)
+  response, err := client.Do(consentRequest)
   if err != nil {
     return false, err
   }
 
-  _ /* responseData */, err = ioutil.ReadAll(rawResponse.Body)
+  _ /* responseData */, err = ioutil.ReadAll(response.Body)
   if err != nil {
     return false, err
   }
@@ -193,12 +193,12 @@ func FetchProfile(url string, client *IdpApiClient, identityRequest IdentityRequ
       return profile, err
     }
 
-    rawResponse, err := client.Do(userInfoRequest)
+    response, err := client.Do(userInfoRequest)
     if err != nil {
       return profile, err
     }
 
-    responseData, err := ioutil.ReadAll(rawResponse.Body)
+    responseData, err := ioutil.ReadAll(response.Body)
     if err != nil {
       return profile, err
     }
@@ -207,21 +207,21 @@ func FetchProfile(url string, client *IdpApiClient, identityRequest IdentityRequ
     id = userInfoResponse.Sub
   }
 
-  rawRequest, err := http.NewRequest("GET", url, nil)
+  request, err := http.NewRequest("GET", url, nil)
   if err != nil {
     return profile, err
   }
 
-  query := rawRequest.URL.Query()
+  query := request.URL.Query()
   query.Add("id", id)
-  rawRequest.URL.RawQuery = query.Encode()
+  request.URL.RawQuery = query.Encode()
 
-  rawResponse, err := client.Do(rawRequest)
+  response, err := client.Do(request)
   if err != nil {
     return profile, err
   }
 
-  responseData, err := ioutil.ReadAll(rawResponse.Body)
+  responseData, err := ioutil.ReadAll(response.Body)
   if err != nil {
     return profile, err
   }

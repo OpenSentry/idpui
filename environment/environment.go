@@ -19,7 +19,6 @@ const (
 )
 
 type State struct {
-  AppName string
   Provider *oidc.Provider
   IdpApiConfig *clientcredentials.Config
   AapApiConfig *clientcredentials.Config
