@@ -169,6 +169,7 @@ func serve(env *environment.State) {
     "/recover":        environment.Route{URL: "/recover",        LogId: "idpui://recover"},
     "/callback":       environment.Route{URL: "/callback",       LogId: "idpui://callback"},
     "/me":             environment.Route{URL: "/me",             LogId: "idpui://me"},
+    "/me/edit":        environment.Route{URL: "/me/edit",        LogId: "idpui//me/edit"},
     "/password":       environment.Route{URL: "/password",       LogId: "idpui//password"},
     "/consent":        environment.Route{URL: "/consent",        LogId: "idpui://consent"},
   }
@@ -195,6 +196,8 @@ func serve(env *environment.State) {
     ep.GET(routes["/callback"].URL, controllers.ExchangeAuthorizationCodeCallback(env, routes["/callback"])) // token exhange endpoint.
 
     ep.GET(routes["/me"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me"], "openid"), controllers.ShowProfile(env, routes["/me"]))
+    ep.GET(routes["/me/edit"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/edit"], "openid"), controllers.ShowProfileEdit(env, routes["/me/edit"]))
+    ep.POST(routes["/me/edit"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/edit"], "openid"), controllers.SubmitProfileEdit(env, routes["/me/edit"]))
 
     ep.GET(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.ShowPassword(env, routes["/password"]))
     ep.POST(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.SubmitPassword(env, routes["/password"]))

@@ -141,6 +141,45 @@ func CreateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) 
   return newProfile, nil
 }
 
+func UpdateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) (Profile, error) {
+  var identityResponse IdentityResponse
+  var updatedProfile Profile
+
+  identityRequest := IdentityRequest{
+    Id: profile.Id,
+    Name: profile.Name,
+    Email: profile.Email,
+  }
+  body, _ := json.Marshal(identityRequest)
+
+  var data = bytes.NewBuffer(body)
+
+  request, _ := http.NewRequest("PUT", identitiesUrl, data)
+
+  response, err := client.Do(request)
+  if err != nil {
+    return updatedProfile, err
+  }
+
+  responseData, _ := ioutil.ReadAll(response.Body)
+  if response.StatusCode != 200 {
+    return updatedProfile, errors.New("status: " + string(response.StatusCode) + ", error="+string(responseData))
+  }
+
+  err = json.Unmarshal(responseData, &identityResponse)
+  if err != nil {
+    return updatedProfile, err
+  }
+
+  updatedProfile = Profile{
+    Id: identityResponse.Id,
+    Name: identityResponse.Name,
+    Email: identityResponse.Email,
+    Password: identityResponse.Password,
+  }
+  return updatedProfile, nil
+}
+
 func UpdatePassword(identitiesUrl string, client *IdpApiClient, profile Profile) (Profile, error) {
   var identityResponse IdentityResponse
   var updatedProfile Profile
