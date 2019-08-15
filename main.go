@@ -28,7 +28,7 @@ import (
 func init() {
   err := config.InitConfigurations()
   if err != nil {
-    logrus.Fatal(err)
+    logrus.Panic(err)
   }
   gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
   gob.Register(&oidc.IDToken{})
@@ -47,7 +47,7 @@ func main() {
 
   provider, err := oidc.NewProvider(context.Background(), config.GetString("hydra.public.url") + "/")
   if err != nil {
-    logrus.WithFields(appFields).WithFields(logrus.Fields{"component": "Hydra Provider"}).Info("oidc.NewProvider" + err.Error())
+    logrus.WithFields(appFields).Panic("oidc.NewProvider" + err.Error())
     return
   }
 
