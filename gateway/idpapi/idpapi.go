@@ -6,7 +6,6 @@ import (
   "bytes"
   "encoding/json"
   "io/ioutil"
-  "fmt"
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
@@ -93,12 +92,10 @@ func RevokeConsent(url string, client *IdpApiClient, revokeConsentRequest Revoke
     return false, err
   }
 
-  responseData, err := ioutil.ReadAll(rawResponse.Body)
+  _ /* responseData */, err = ioutil.ReadAll(rawResponse.Body)
   if err != nil {
     return false, err
   }
-
-  fmt.Println(responseData)
 
   return true, nil
 }
