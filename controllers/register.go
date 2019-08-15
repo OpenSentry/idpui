@@ -144,7 +144,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       session.AddFlash(errors, "register.errors")
       err = session.Save()
       if err != nil {
-        log.Fatal(err.Error())
+        log.Debug(err.Error())
       }
       log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
       c.Redirect(http.StatusFound, route.URL)
