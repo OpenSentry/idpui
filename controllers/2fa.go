@@ -3,6 +3,7 @@ package controllers
 import (
   "net/http"
   "bytes"
+  "strings"
   "image/png"
   "encoding/base64"
 
@@ -116,29 +117,22 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
 
     session := sessions.Default(c)
 
-    // NOTE: Maybe session is not a good way to do this.
-    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
-    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
-    var idToken *oidc.IDToken
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "2fa.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
+    errors := make(map[string][]string)
+
+    passcode := strings.TrimSpace(form.Passcode)
+    if passcode == "" {
+      errors["errorPasscode"] = append(errors["errorPasscode"], "Missing passcode")
     }
 
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
-
-    // Look up profile information for user.
-    request := idpapi.IdentityRequest{
-      Id: idToken.Subject,
-    }
-    profile, err := idpapi.FetchProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, request)
-    if err != nil {
-      c.HTML(http.StatusNotFound, "2fa.html", gin.H{"error": "Identity not found"})
-      c.Abort()
+    if len(errors) > 0 {
+      session.AddFlash(errors, "2fa.errors")
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, route.URL)
+      c.Abort();
       return
     }
 
@@ -147,18 +141,44 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
     // see https://github.com/pquerna/otp, https://help.github.com/en/articles/configuring-two-factor-authentication-recovery-methods
   	valid := totp.Validate(form.Passcode, form.Secret)
     if valid == true {
+
+      var idToken *oidc.IDToken
+      idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
+      if idToken == nil {
+        c.HTML(http.StatusNotFound, "2fa.html", gin.H{"error": "Identity not found"})
+        c.Abort()
+        return
+      }
+
+      var accessToken *oauth2.Token
+      accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
+      idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+
       log.WithFields(logrus.Fields{
-        "id": profile.Id,
+        "id": idToken.Subject,
         /* DO NOT LOG THIS IS LIKE PASSWORDS
         "passcode": form.Passcode,
         "secret": form.Secret,
         */
       }).Debug("Passcode verified")
 
-      // Add secret to Identity in db and enable setting to require it. Remeber to store the secret using bcrypt hashing?
-      log.WithFields(logrus.Fields{"id": profile.Id}).Debug("Enable 2fa for Identity")
+      var profileRequest = idpapi.Profile{
+        Id: idToken.Subject,
+        TwoFactor: idpapi.TwoFactor{
+          Required: true,
+          Secret: form.Secret,
+        },
+      }
+      profile, err := idpapi.UpdateTwoFactor(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.2fa"), idpapiClient, profileRequest);
+      if err != nil {
+        log.Debug(err.Error())
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        c.Abort()
+        return
+      }
 
-      log.WithFields(logrus.Fields{"fixme":1}).Debug("Redirect to where we came from")
+      log.Debug(profile)
+
       log.WithFields(logrus.Fields{"redirect_to": "/me"}).Debug("Redirecting")
       c.Redirect(http.StatusFound, "/me")
       return
