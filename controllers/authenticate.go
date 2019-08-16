@@ -15,9 +15,9 @@ import (
 )
 
 type authenticationForm struct {
-    Challenge string `form:"challenge"`
-    Username string `form:"username"`
-    Password string `form:"password"`
+  Challenge string `form:"challenge" binding:"required"`
+  Username string `form:"username" binding:"required"`
+  Password string `form:"password" binding:"required"`
 }
 
 func ShowAuthentication(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -32,8 +32,9 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
     if loginChallenge == "" {
       // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
       // IdpUi should ask hydra for a challenge to login
-      initUrl, err := StartAuthentication(env, c, route, log)
+      initUrl, err := StartAuthenticationSession(env, c, route, log)
       if err != nil {
+        log.Debug(err.Error())
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         c.Abort()
         return
@@ -46,21 +47,26 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
 
     idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
-    var authenticateRequest = idpapi.AuthenticateRequest{
+    var authenticateRequest = idpapi.AuthenticateRequest{      
       Challenge: loginChallenge,
     }
     authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
     if err != nil {
+      log.WithFields(logrus.Fields{
+        "challenge": authenticateRequest.Challenge,
+      }).Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
+
     if authenticateResponse.Authenticated {
       log.WithFields(logrus.Fields{"redirect_to": authenticateResponse.RedirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
       c.Abort()
       return
     }
+
     loginError := c.Query("login_error")
     c.HTML(200, "authenticate.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
@@ -82,22 +88,15 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     var form authenticationForm
     err := c.Bind(&form)
     if err != nil {
-      // Do better error handling in the application.
+      log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
     }
 
-    if form.Username == "" {
-      log.WithFields(logrus.Fields{"fixme": 1}).Debug("Session flash missing username")
-    }
-    if form.Password == "" {
-      log.WithFields(logrus.Fields{"fixme": 1}).Debug("Session flash missing password")
-    }
-
     idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
-    // Ask idp-be to authenticate the user
+    // Ask idpapi to authenticate the user
     var authenticateRequest = idpapi.AuthenticateRequest{
       Id: form.Username,
       Password: form.Password,
@@ -105,6 +104,10 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     }
     authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
     if err != nil {
+      log.WithFields(logrus.Fields{
+        "id": authenticateRequest.Id,
+        "challenge": authenticateRequest.Challenge,
+      }).Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
@@ -112,7 +115,27 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
 
     // User authenticated, redirect
     if authenticateResponse.Authenticated {
-      log.WithFields(logrus.Fields{"redirect_to": authenticateResponse.RedirectTo}).Debug("Redirecting")
+
+      // Authentication requried two factor
+      if authenticateResponse.Require2Fa {
+        redirectTo := "/passcode?login_challenge=" + authenticateRequest.Challenge
+        log.WithFields(logrus.Fields{
+          "id": authenticateResponse.Id,
+          "authenticated": authenticateResponse.Authenticated,
+          "require_2fa": authenticateResponse.Require2Fa,
+          "redirect_to": redirectTo,
+        }).Debug("Redirecting")
+        c.Redirect(http.StatusFound, redirectTo)
+        c.Abort()
+        return
+      }
+
+      log.WithFields(logrus.Fields{
+        "id": authenticateResponse.Id,
+        "authenticated": authenticateResponse.Authenticated,
+        "require_2fa": authenticateResponse.Require2Fa,
+        "redirect_to": authenticateResponse.RedirectTo,
+      }).Debug("Redirecting")
       c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
       c.Abort()
       return
@@ -144,7 +167,7 @@ func CreateRandomStringWithNumberOfBytes(numberOfBytes int) (string, error) {
   return base64.StdEncoding.EncodeToString(st), nil
 }
 
-func StartAuthentication(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry) (*url.URL, error) {
+func StartAuthenticationSession(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry) (*url.URL, error) {
   var state string
   var err error
 
