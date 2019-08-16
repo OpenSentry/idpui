@@ -1,0 +1,48 @@
+<head>
+
+  <meta charset="utf-8">
+
+  <title>Two Factor</title>
+  <meta name="description" content="Two Factor">
+  <meta name="author" content="Company">
+
+</head>
+<body>
+
+  <h1>Greetings, {{ .name }}</h1>
+  <p>
+  This is where you can setup two factor authentication for your profile.
+  </p>
+
+  <h2>Two factor using Authenticator App</h2>
+
+  <div>
+    <div style="margin:10px">
+      <span>Issuer:</span>
+      <span>{{ .issuer }}</span>
+    </div>
+
+    <div style="margin:10px">
+      <span>Secret:</span>
+      <span>{{ .secret }}</span>
+    </div>
+  </div>
+
+  <img src="data:image/png;base64, {{ .qrcode }}" alt="QR Code" />
+
+  <form action="/me/2fa" method="post">
+    {{ .csrfField }}
+
+    <input type="hidden" name="secret" value="{{ .secret }}">
+
+    <div style="margin:10px">
+      <label for="display-name">Passcode:</label>
+      <input name="passcode" type="password" placeholder="Enter passcode" required>
+      {{if .errorPasscode}} <div class="error">{{ .errorPasscode }}</div> {{end}}
+    </div>
+
+    <input type="submit" name="submit" value="Verify" />
+  </form>
+
+  <script type="text/javascript"></script>
+</body>
