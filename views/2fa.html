@@ -36,7 +36,7 @@
     <input type="hidden" name="secret" value="{{ .secret }}">
 
     <div style="margin:10px">
-      <label for="display-name">Passcode:</label>
+      <label for="passcode">Passcode:</label>
       <input name="passcode" type="password" placeholder="Enter passcode" required>
       {{if .errorPasscode}} <div class="error">{{ .errorPasscode }}</div> {{end}}
     </div>
