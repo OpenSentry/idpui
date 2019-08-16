@@ -163,6 +163,7 @@ func serve(env *environment.State) {
   routes := map[string]environment.Route{
     "/":               environment.Route{URL: "/",               LogId: "idpui://"},
     "/authenticate":   environment.Route{URL: "/authenticate",   LogId: "idpui://authenticate"},
+    "/passcode":       environment.Route{URL: "/passcode",       LogId: "idpui://passcode"},
     "/logout":         environment.Route{URL: "/logout",         LogId: "idpui://logout"},
     "/session/logout": environment.Route{URL: "/session/logout", LogId: "idpui://session/logout"},
     "/register":       environment.Route{URL: "/register",       LogId: "idpui://register"},
@@ -181,6 +182,8 @@ func serve(env *environment.State) {
     ep.GET(routes["/"].URL, controllers.ShowAuthentication(env, routes["/"]))
     ep.GET(routes["/authenticate"].URL, controllers.ShowAuthentication(env, routes["/authenticate"]))
     ep.POST(routes["/authenticate"].URL, controllers.SubmitAuthentication(env, routes["/authenticate"]))
+    ep.GET(routes["/passcode"].URL, controllers.ShowPasscode(env, routes["/passcode"]))
+    ep.POST(routes["/passcode"].URL, controllers.SubmitPasscode(env, routes["/passcode"]))
 
     ep.GET(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.ShowLogout(env, routes["/logout"]))
     ep.POST(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.SubmitLogout(env, routes["/logout"]))
@@ -297,7 +300,7 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
       // Require authentication to access resources. Init oauth2 Authorization code flow with idpui as the client.
       log.Debug(err.Error())
 
-      initUrl, err := controllers.StartAuthentication(env, c, route, log)
+      initUrl, err := controllers.StartAuthenticationSession(env, c, route, log)
       if err != nil {
         log.Debug(err.Error())
         c.HTML(http.StatusInternalServerError, "", gin.H{"error": err.Error()})

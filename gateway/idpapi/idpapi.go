@@ -20,7 +20,20 @@ type AuthenticateRequest struct {
 type AuthenticateResponse struct {
   Id              string            `json:"id"`
   Authenticated   bool              `json:"authenticated"`
+  Require2Fa      bool              `json:"require_2fa"`
   RedirectTo      string            `json:"redirect_to,omitempty"`
+}
+
+type PasscodeRequest struct {
+  Id        string `json:"id" binding:"required"`
+  Passcode  string `json:"passcode" binding:"required"`
+  Challenge string `json:"challenge" binding:"required"`
+}
+
+type PasscodeResponse struct {
+  Id         string `json:"id" binding:"required"`
+  Verified   bool   `json:"verifed" binding:"required"`
+  RedirectTo string `json:"redirect_to" binding:"required"`
 }
 
 type LogoutRequest struct {
@@ -378,6 +391,34 @@ func Authenticate(authenticateUrl string, client *IdpApiClient, authenticateRequ
   }
 
   return authenticateResponse, nil
+}
+
+func VerifyPasscode(passcodeUrl string, client *IdpApiClient, passcodeRequest PasscodeRequest) (PasscodeResponse, error) {
+  var passcodeResponse PasscodeResponse
+
+  body, _ := json.Marshal(passcodeRequest)
+
+  var data = bytes.NewBuffer(body)
+
+  request, _ := http.NewRequest("POST", passcodeUrl, data)
+
+  response, err := client.Do(request)
+  if err != nil {
+    return passcodeResponse, err
+  }
+
+  responseData, _ := ioutil.ReadAll(response.Body)
+
+  if response.StatusCode != 200 {
+    return passcodeResponse, errors.New(string(responseData))
+  }
+
+  err = json.Unmarshal(responseData, &passcodeResponse)
+  if err != nil {
+    return passcodeResponse, err
+  }
+
+  return passcodeResponse, nil
 }
 
 // config.IdpApi.LogoutUrl
