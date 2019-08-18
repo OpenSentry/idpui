@@ -3,6 +3,9 @@ package controllers
 import (
   "net/url"
   "net/http"
+  "crypto/hmac"
+  "crypto/sha256"
+  "encoding/hex"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
@@ -26,55 +29,39 @@ func ShowPasscode(env *environment.State, route environment.Route) gin.HandlerFu
     })
 
     loginChallenge := c.Query("login_challenge")
-    if loginChallenge == "" {
-      log.Debug("Missing login challenge")
+    id := c.Query("id")
+    sig := c.Query("sig")
+
+    if loginChallenge == "" || id == "" || sig == "" {
+      log.Debug("Missing login_challenge")
       log.WithFields(logrus.Fields{
-        "challenge": "",
-        "redirect_to": "/authenticate",
-      }).Debug("Redirecting")
-      c.Redirect(http.StatusFound, "/authenticate")
+        "challenge": loginChallenge,
+        "id": id,
+        "sig": sig,
+      }).Debug("Missing login_challenge, id or sig")
+      c.JSON(http.StatusNotFound, gin.H{"error": "Missing login_challenge, id or sig"})
       c.Abort()
       return
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    // Check none tampered with the redirect input
+    redirectTo :=  "/passcode?login_challenge=" + loginChallenge + "&id=" + id
 
-    var authenticateRequest = idpapi.AuthenticateRequest{
-      Challenge: loginChallenge,
-    }
-    authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
-    if err != nil {
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
-      return
-    }
+    sigKey := config.GetString("2fa.sigkey")
+    h := hmac.New(sha256.New, []byte(sigKey))
+    h.Write([]byte(redirectTo))
+    sha := hex.EncodeToString(h.Sum(nil))
 
-    if authenticateResponse.Authenticated == false {
-      log.WithFields(logrus.Fields{
-        "challenge": authenticateRequest.Challenge,
-        "id": authenticateResponse.Id,
-        "authenticated": authenticateResponse.Authenticated,
-        "redirect_to": "/authenticate",
-      }).Debug("Redirecting")
-      c.Redirect(http.StatusFound, "/authenticate")
-      c.Abort()
-      return
-    }
-
-    if authenticateResponse.Require2Fa == false {
-      log.WithFields(logrus.Fields{
-        "challenge": authenticateRequest.Challenge,
-        "redirect_to": authenticateResponse.RedirectTo,
-      }).Debug("Redirecting")
-      c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
-      c.Abort()
-      return
+    if sha != sig {
+      c.JSON(http.StatusNotFound, gin.H{"error": "Signature does not match. Hint: Did soneone tamper with the challenge or id paramters?"})
+      c.Abort();
+      return;
     }
 
     c.HTML(200, "passcode.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "challenge": authenticateRequest.Challenge,
-      "username": authenticateResponse.Id,
+      "challenge": loginChallenge,
+      "username": id,
     })
   }
   return gin.HandlerFunc(fn)
@@ -96,6 +83,8 @@ func SubmitPasscode(env *environment.State, route environment.Route) gin.Handler
       c.Abort()
       return
     }
+
+    log.WithFields(logrus.Fields{"fixme": 1}).Debug("We need to check that the post request challenge was also made from the right client and not tampered with")
 
     idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
@@ -128,7 +117,7 @@ func SubmitPasscode(env *environment.State, route environment.Route) gin.Handler
     // Deny by default
     // Reject the login challenge.
     log.WithFields(logrus.Fields{"fixme": 1}).Debug("Move error to session flash")
-    retryLoginUrl := "/?login_challenge=" + form.Challenge + "&login_error=Passcode verification failed";
+    retryLoginUrl := "/?login_challenge=" + form.Challenge + "&id=" + passcodeRequest.Id + "&passcode_error=Passcode verification failed";
     retryUrl, err := url.Parse(retryLoginUrl)
     if err != nil {
       log.Debug(err.Error())

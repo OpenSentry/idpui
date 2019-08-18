@@ -22,13 +22,14 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
     session := sessions.Default(c)
     v := session.Get(environment.SessionStateKey)
     if v == nil {
-      c.JSON(http.StatusBadRequest, gin.H{"error": "Request not initiated by idp-fe route.LogId. Hint: Missing "+environment.SessionStateKey+" in session"})
+      log.WithFields(logrus.Fields{"key": environment.SessionStateKey}).Debug("Request not initiated by app. Hint: Missing session state")
+      c.JSON(http.StatusBadRequest, gin.H{"error": "Request not initiated by idpui. Hint: Missing session state"})
       c.Abort()
       return;
     }
     sessionState := v.(string)
 
-    // FIXME: Cleanup the session state once consumed, but where?
+    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Do we need to cleanup session state once consumed to ensure no reuse?")
 
     requestState := c.Query("state")
     if requestState == "" {
@@ -46,6 +47,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
     error := c.Query("error");
     if error != "" {
       errorHint := c.Query("error_hint")
+      log.Debug(errorHint)
       c.JSON(http.StatusNotFound, gin.H{"error": error, "hint": errorHint})
       c.Abort()
       return;
@@ -61,6 +63,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
     // Found a code try and exchange it for access token.
     token, err := env.HydraConfig.Exchange(context.Background(), code)
     if err != nil {
+      log.WithFields(logrus.Fields{"error": err.Error()}).Debug("Token exchange failed")
       c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
       c.Abort()
       return
@@ -82,6 +85,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
 
       idToken, err := verifier.Verify(context.Background(), rawIdToken)
       if err != nil {
+        log.WithFields(logrus.Fields{"error": err.Error()}).Debug("Id token verification failed")
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to verify id_token. Hint: " + err.Error()})
         c.Abort()
         return

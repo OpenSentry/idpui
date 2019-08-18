@@ -80,7 +80,7 @@ func main() {
     return
   }
 
-  // IdpFe needs to be able to act as an App using its client_id to bootstrap Authorization Code flow
+  // IdpApi needs to be able to act as an App using its client_id to bootstrap Authorization Code flow
   // Eg. Users accessing /me directly from browser.
   hydraConfig := &oauth2.Config{
     ClientID:     config.GetString("oauth2.client.id"),
