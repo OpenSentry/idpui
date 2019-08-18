@@ -47,7 +47,7 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
 
     idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
-    var authenticateRequest = idpapi.AuthenticateRequest{      
+    var authenticateRequest = idpapi.AuthenticateRequest{
       Challenge: loginChallenge,
     }
     authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
@@ -115,21 +115,6 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
 
     // User authenticated, redirect
     if authenticateResponse.Authenticated {
-
-      // Authentication requried two factor
-      if authenticateResponse.Require2Fa {
-        redirectTo := "/passcode?login_challenge=" + authenticateRequest.Challenge
-        log.WithFields(logrus.Fields{
-          "id": authenticateResponse.Id,
-          "authenticated": authenticateResponse.Authenticated,
-          "require_2fa": authenticateResponse.Require2Fa,
-          "redirect_to": redirectTo,
-        }).Debug("Redirecting")
-        c.Redirect(http.StatusFound, redirectTo)
-        c.Abort()
-        return
-      }
-
       log.WithFields(logrus.Fields{
         "id": authenticateResponse.Id,
         "authenticated": authenticateResponse.Authenticated,
