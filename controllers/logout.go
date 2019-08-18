@@ -11,6 +11,10 @@ import (
   "golang-idp-fe/gateway/idpapi"
 )
 
+type logoutForm struct {
+  Challenge string `form:"challenge" binding:"required"`
+}
+
 func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -48,7 +52,7 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
       "func": "SubmitLogout",
     })
 
-    var form authenticationForm
+    var form logoutForm
     err := c.Bind(&form)
     if err != nil {
       // Do better error handling in the application.
