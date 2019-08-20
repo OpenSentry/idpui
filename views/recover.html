@@ -16,8 +16,15 @@
   <div id="content-wrapper">
     <img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />
     <h1>Identity Provider</h1>
+
     <form action="/recover" method="post">
-      <input type="text" name="identity" placeholder="Username or email" />
+      {{ .csrfField }}
+
+      {{if .success}} <div class="success">We have sent you an email with instruction on how to recover your identity.</div> {{end}}
+
+      <input type="text" name="identity" placeholder="Enter username or email" required>
+      {{if .errorIdentity}} <div class="error">{{ .errorIdentity }}</div> {{end}}
+
       <input type="submit" name="submit" value="Recover" />
     </form>
 

@@ -187,8 +187,8 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       }
 
       // Registration successful, return to create new ones, but with success message
-      log.WithFields(logrus.Fields{"redirect_to": "/register"}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, "/register")
+      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, route.URL)
       c.Abort()
       return
     }
