@@ -70,6 +70,16 @@ type UserInfoResponse struct {
   Sub       string      `json:"sub"`
 }
 
+type RecoverRequest struct {
+  Id              string            `json:"id" binding:"required"`
+}
+
+type RecoverResponse struct {
+  Id              string          `json:"id" binding:"required"`
+  RecoverMethod   string          `json:"recover_method" binding:"required"`
+  Email           string          `json:"email" binding:"required"`
+}
+
 // App structs
 
 type TwoFactor struct {
@@ -419,6 +429,34 @@ func VerifyPasscode(passcodeUrl string, client *IdpApiClient, passcodeRequest Pa
   }
 
   return passcodeResponse, nil
+}
+
+func Recover(recoverUrl string, client *IdpApiClient, recoverRequest RecoverRequest) (RecoverResponse, error) {
+  var recoverResponse RecoverResponse
+
+  body, _ := json.Marshal(recoverRequest)
+
+  var data = bytes.NewBuffer(body)
+
+  request, _ := http.NewRequest("POST", recoverUrl, data)
+
+  response, err := client.Do(request)
+  if err != nil {
+    return recoverResponse, err
+  }
+
+  responseData, _ := ioutil.ReadAll(response.Body)
+
+  if response.StatusCode != 200 {
+    return recoverResponse, errors.New(string(responseData))
+  }
+
+  err = json.Unmarshal(responseData, &recoverResponse)
+  if err != nil {
+    return recoverResponse, err
+  }
+
+  return recoverResponse, nil
 }
 
 // config.IdpApi.LogoutUrl
