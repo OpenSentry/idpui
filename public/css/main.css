@@ -69,8 +69,8 @@ input[type=button]:hover, input[type=submit]:hover {
 }
 
 #content-wrapper .success {
-	color:#0f0;
-	background:#000;
+	color: #fff;
+	margin-bottom: 20px;
 }
 
 	#content-wrapper form input[type=text], #content-wrapper form input[type=password] {
@@ -81,18 +81,28 @@ input[type=button]:hover, input[type=submit]:hover {
 		width:100%;
 	}
 
-
-img#fingerprint {
-	margin:0 5px 50px 0px;
-	height:60px;
-	float:left;
+#content-wrapper h1 {
+	color: #fff;
+	display:inline-block;
+	vertical-align:middle;
 }
-	h1 {
-		float:left;
-		display:inline-block;
-		font-size:18pt;
-		color:#FFF;
-	}
+
+#content-wrapper h2 {
+	color: #fff;
+}
+
+#content-wrapper p {
+	color: #fff;
+}
+
+#content-wrapper h1.fingerprint {
+	padding-left: 60px;
+	padding-top: 10px;
+	background-image: url("/public/images/fingerprint.svg");
+	background-position: left top;
+	background-repeat: no-repeat;
+	height: 40px !important;
+}
 
 .info {
 	margin-top:10px;

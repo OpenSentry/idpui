@@ -14,13 +14,19 @@
   <div id="top-spacer"></div>
 
   <div id="content-wrapper">
-    <img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />
-    <h1>Identity Provider</h1>
+    <h1 class="fingerprint">Identity Provider</h1>
+
+    <h2>Recover Identity</h2>
+    <p>
+      If you have lost access to your identity, you can start the process of recovering it here using the email registered to the identity.<br><br>
+      You are prompted for the username or email of the identity you want to recover.<br><br>
+      We will send a verification code to the email registered to the identity and you will be prompted to enter this verification code along with the new password.<br><br>
+      If entered correctly the password of the identity will be updated and you will be prompted to login with the new password.<br><br>
+      Stay safe.
+    </p>
 
     <form action="/recover" method="post">
       {{ .csrfField }}
-
-      {{if .success}} <div class="success">We have sent you an email with instruction on how to recover your identity.</div> {{end}}
 
       <input type="text" name="identity" placeholder="Enter username or email" required>
       {{if .errorIdentity}} <div class="error">{{ .errorIdentity }}</div> {{end}}

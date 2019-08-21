@@ -16,22 +16,21 @@
   <div id="content-wrapper">
     <h1 class="fingerprint">Identity Provider</h1>
 
-    <p style="clear:both;">
-      Greetings {{ .user }}<br><br>
-      You are about to change your password.<br><br>
-      If you do not wish to change password just navigate somewhere else and nothing will have changed.
-    </p>
-
-    <form action="/password" method="post">
+    <form action="/recoververification" method="post">
       {{ .csrfField }}
+
+      <input name="recover_challenge" type="hidden" value={{.recoverChallenge}}>
+
+      <input name="verification_code" type="password" placeholder="Enter your verification code" required>
+      {{if .errorVerificationCode}} <div class="error">{{ .errorVerificationCode }}</div> {{end}}
 
       <input name="password" type="password" autocomplete="new-password" placeholder="Enter your NEW password, sshhh..." required>
       {{if .errorPassword}} <div class="error">{{ .errorPassword }}</div> {{end}}
 
-      <input name="password_retyped" type="password" autocomplete="new-password" placeholder="Retype your NEW password again, just checking..." required>
+      <input name="password_retyped" type="password" autocomplete="new-password" placeholder="Enter your NEW password again, just checking..." required>
       {{if .errorPasswordRetyped}} <div class="error">{{ .errorPasswordRetyped }}</div> {{end}}
 
-      <input type="submit" name="submit" value="Change password" />
+      <input type="submit" name="submit" value="Verify and change password" />
     </form>
 
   </div>
