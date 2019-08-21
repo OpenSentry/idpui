@@ -9,6 +9,7 @@ import (
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
+  jwt "github.com/dgrijalva/jwt-go"
 )
 
 type AuthenticateRequest struct {
@@ -72,12 +73,33 @@ type UserInfoResponse struct {
 
 type RecoverRequest struct {
   Id              string            `json:"id" binding:"required"`
+  Password        string            `json:"password" binding:"required"`
 }
 
 type RecoverResponse struct {
-  Id              string          `json:"id" binding:"required"`
-  RecoverMethod   string          `json:"recover_method" binding:"required"`
-  Email           string          `json:"email" binding:"required"`
+  Id         string `json:"id" binding:"required"`
+  Signature  string `json:"sig" binding:"required"`
+  RedirectTo string `json:"redirect_to" binding:"required"`
+  VerificationCode string `json:"verification_code" binding:"required"`
+}
+
+type RecoverVerificationRequest struct {
+  Challenge        string `json:"recover_challenge" binding:"required"`
+  VerificationCode string `json:"verification_code" binding:"required"`
+  Password         string  `json:"password" binding:"required"`
+}
+
+type RecoverVerificationResponse struct {
+  Id         string `json:"id" binding:"required"`
+  Verified   bool   `json:"verifed" binding:"required"`
+  RedirectTo string `json:"redirect_to" binding:"required"`
+}
+
+// JWT structs
+
+type RecoverChallengeClaim struct {
+  VerificationCode string `json:"code" binding:"required"`
+	jwt.StandardClaims
 }
 
 // App structs
@@ -439,6 +461,34 @@ func Recover(recoverUrl string, client *IdpApiClient, recoverRequest RecoverRequ
   var data = bytes.NewBuffer(body)
 
   request, _ := http.NewRequest("POST", recoverUrl, data)
+
+  response, err := client.Do(request)
+  if err != nil {
+    return recoverResponse, err
+  }
+
+  responseData, _ := ioutil.ReadAll(response.Body)
+
+  if response.StatusCode != 200 {
+    return recoverResponse, errors.New(string(responseData))
+  }
+
+  err = json.Unmarshal(responseData, &recoverResponse)
+  if err != nil {
+    return recoverResponse, err
+  }
+
+  return recoverResponse, nil
+}
+
+func RecoverVerification(recoverVerificationUrl string, client *IdpApiClient, recoverRequest RecoverVerificationRequest) (RecoverVerificationResponse, error) {
+  var recoverResponse RecoverVerificationResponse
+
+  body, _ := json.Marshal(recoverRequest)
+
+  var data = bytes.NewBuffer(body)
+
+  request, _ := http.NewRequest("POST", recoverVerificationUrl, data)
 
   response, err := client.Do(request)
   if err != nil {

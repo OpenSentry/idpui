@@ -35,7 +35,7 @@ func ShowPasscode(env *environment.State, route environment.Route) gin.HandlerFu
     if loginChallenge == "" || id == "" || sig == "" {
       log.Debug("Missing login_challenge")
       log.WithFields(logrus.Fields{
-        "challenge": loginChallenge,
+        "login_challenge": loginChallenge,
         "id": id,
         "sig": sig,
       }).Debug("Missing login_challenge, id or sig")
