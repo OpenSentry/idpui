@@ -26,8 +26,6 @@ func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFun
 
     session := sessions.Default(c)
 
-    success := session.Flashes("recover.success")
-
     errors := session.Flashes("recover.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
@@ -47,7 +45,6 @@ func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFun
 
     c.HTML(200, "recover.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "success": success,
       "errorIdentity": errorIdentity,
     })
   }
@@ -95,9 +92,9 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
     idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
     recoverRequest := idpapi.RecoverRequest{
-      Id: form.Identity,
+      Id: form.Identity,      
     }
-    _ /* recoverResponse */, err = idpapi.Recover(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.recover"), idpapiClient, recoverRequest)
+    recoverResponse, err := idpapi.Recover(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.recover"), idpapiClient, recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -105,14 +102,10 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
       return
     }
 
-    session.AddFlash(1, "recover.success")
-
-    err = session.Save()
-    if err != nil {
-      log.Debug(err.Error())
-    }
-
-    c.Redirect(http.StatusFound, route.URL)
+    log.WithFields(logrus.Fields{
+      "redirect_to": recoverResponse.RedirectTo,
+    }).Debug("Redirecting");
+    c.Redirect(http.StatusFound, recoverResponse.RedirectTo)
     c.Abort()
   }
   return gin.HandlerFunc(fn)

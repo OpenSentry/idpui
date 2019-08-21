@@ -161,19 +161,20 @@ func serve(env *environment.State) {
 
   // Setup routes to use, this defines log for debug log
   routes := map[string]environment.Route{
-    "/":               environment.Route{URL: "/",               LogId: "idpui://"},
-    "/authenticate":   environment.Route{URL: "/authenticate",   LogId: "idpui://authenticate"},
-    "/passcode":       environment.Route{URL: "/passcode",       LogId: "idpui://passcode"},
-    "/logout":         environment.Route{URL: "/logout",         LogId: "idpui://logout"},
-    "/session/logout": environment.Route{URL: "/session/logout", LogId: "idpui://session/logout"},
-    "/register":       environment.Route{URL: "/register",       LogId: "idpui://register"},
-    "/recover":        environment.Route{URL: "/recover",        LogId: "idpui://recover"},
-    "/callback":       environment.Route{URL: "/callback",       LogId: "idpui://callback"},
-    "/me":             environment.Route{URL: "/me",             LogId: "idpui://me"},
-    "/me/edit":        environment.Route{URL: "/me/edit",        LogId: "idpui//me/edit"},
-    "/me/2fa":         environment.Route{URL: "/me/2fa",         LogId: "idpui//me/2fa"},
-    "/password":       environment.Route{URL: "/password",       LogId: "idpui//password"},
-    "/consent":        environment.Route{URL: "/consent",        LogId: "idpui://consent"},
+    "/":                    environment.Route{URL: "/",               LogId: "idpui://"},
+    "/authenticate":        environment.Route{URL: "/authenticate",   LogId: "idpui://authenticate"},
+    "/passcode":            environment.Route{URL: "/passcode",       LogId: "idpui://passcode"},
+    "/logout":              environment.Route{URL: "/logout",         LogId: "idpui://logout"},
+    "/session/logout":      environment.Route{URL: "/session/logout", LogId: "idpui://session/logout"},
+    "/register":            environment.Route{URL: "/register",       LogId: "idpui://register"},
+    "/recover":             environment.Route{URL: "/recover",        LogId: "idpui://recover"},
+    "/recoververification": environment.Route{URL: "/recoververification", LogId: "idpui://recoververification"},
+    "/callback":            environment.Route{URL: "/callback",       LogId: "idpui://callback"},
+    "/me":                  environment.Route{URL: "/me",             LogId: "idpui://me"},
+    "/me/edit":             environment.Route{URL: "/me/edit",        LogId: "idpui//me/edit"},
+    "/me/2fa":              environment.Route{URL: "/me/2fa",         LogId: "idpui//me/2fa"},
+    "/password":            environment.Route{URL: "/password",       LogId: "idpui//password"},
+    "/consent":             environment.Route{URL: "/consent",        LogId: "idpui://consent"},
   }
 
   ep := r.Group("/")
@@ -196,6 +197,8 @@ func serve(env *environment.State) {
 
     ep.GET(routes["/recover"].URL, controllers.ShowRecover(env, routes["/recover"]))
     ep.POST(routes["/recover"].URL, controllers.SubmitRecover(env, routes["/recover"]))
+    ep.GET(routes["/recoververification"].URL, controllers.ShowRecoverVerification(env, routes["/recoververification"]))
+    ep.POST(routes["/recoververification"].URL, controllers.SubmitRecoverVerification(env, routes["/recoververification"]))
 
     ep.GET(routes["/callback"].URL, controllers.ExchangeAuthorizationCodeCallback(env, routes["/callback"])) // token exhange endpoint.
 
