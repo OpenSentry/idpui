@@ -5,6 +5,7 @@ import (
   "net/http"
   "crypto/rand"
   "encoding/base64"
+  "strings"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
@@ -61,17 +62,46 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
     }
 
     if authenticateResponse.Authenticated {
-      log.WithFields(logrus.Fields{"redirect_to": authenticateResponse.RedirectTo}).Debug("Redirecting")
+      log.WithFields(logrus.Fields{"authenticated": authenticateResponse.Authenticated, "redirect_to": authenticateResponse.RedirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
       c.Abort()
       return
     }
 
-    loginError := c.Query("login_error")
+    session := sessions.Default(c)
+
+    // Retain the values that was submittet, except passwords!
+    username := session.Get("authenticate.username")
+
+    errors := session.Flashes("authenticate.errors")
+    err = session.Save() // Remove flashes read, and save submit fields
+    if err != nil {
+      log.Debug(err.Error())
+    }
+
+    var errorUsername string
+    var errorPassword string
+
+    if len(errors) > 0 {
+      errorsMap := errors[0].(map[string][]string)
+      for k, v := range errorsMap {
+
+        if k == "errorUsername" && len(v) > 0 {
+          errorUsername = strings.Join(v, ", ")
+        }
+        if k == "errorPassword" && len(v) > 0 {
+          errorPassword = strings.Join(v, ", ")
+        }
+
+      }
+    }
+
     c.HTML(200, "authenticate.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "challenge": loginChallenge,
-      "login_error": loginError,
+      "username": username,
+      "errorUsername": errorUsername,
+      "errorPassword": errorPassword,
     })
   }
   return gin.HandlerFunc(fn)
@@ -94,12 +124,47 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       return
     }
 
+    session := sessions.Default(c)
+
+    // Save values if submit fails
+    session.Set("authenticate.username", form.Username)
+    err = session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+    }
+
+    errors := make(map[string][]string)
+
+    username := strings.TrimSpace(form.Username)
+    if username == "" {
+      errors["errorUsername"] = append(errors["errorUsername"], "Missing username")
+    }
+
+    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Should we trim password?")
+    password := strings.TrimSpace(form.Password)
+    if password == "" {
+      errors["errorPassword"] = append(errors["errorPassword"], "Missing password")
+    }
+
+    if len(errors) > 0 {
+      session.AddFlash(errors, "authenticate.errors")
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+      redirectTo := c.Request.URL.RequestURI() + "?login_challenge=" + form.Challenge
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
+      c.Abort();
+      return
+    }
+
     idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
     // Ask idpapi to authenticate the user
     var authenticateRequest = idpapi.AuthenticateRequest{
-      Id: form.Username,
-      Password: form.Password,
+      Id: username,
+      Password: password,
       Challenge: form.Challenge,
     }
     authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
@@ -127,17 +192,16 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     }
 
     // Deny by default
-    // Failed authentication, retry login challenge.
-    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Move error to session flash")
-    retryLoginUrl := "/?login_challenge=" + form.Challenge + "&login_error=Authentication Failure";
-    retryUrl, err := url.Parse(retryLoginUrl)
+    errors["errorUsername"] = append(errors["errorUsername"], "Authentication failed")
+    session.AddFlash(errors, "authenticate.errors")
+    err = session.Save()
     if err != nil {
-      c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-      c.Abort()
-      return
+      log.Debug(err.Error())
     }
-    log.WithFields(logrus.Fields{"redirect_to": retryUrl.String()}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, retryUrl.String())
+
+    redirectTo := c.Request.URL.RequestURI() + "?login_challenge=" + form.Challenge
+    log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, redirectTo)
     c.Abort()
   }
   return gin.HandlerFunc(fn)

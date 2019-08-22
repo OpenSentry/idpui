@@ -52,6 +52,17 @@ input[type=button]:hover, input[type=submit]:hover {
 	cursor:pointer;
 }
 
+#content-wrapper form div.input-group {
+	margin-bottom: 20px;
+}
+
+#content-wrapper form div.input-group label.error {
+	color: #fff;
+	margin-top: 10px;
+	padding-left: 10px;
+	display:inline-block;
+}
+
 #top-spacer {
 	height:25%;
 }
@@ -63,23 +74,15 @@ input[type=button]:hover, input[type=submit]:hover {
 	padding:30px 50px;
 }
 
-#content-wrapper .error {
-	color:#f00;
-	background:#000;
-}
-
 #content-wrapper .success {
 	color: #fff;
 	margin-bottom: 20px;
 }
 
-	#content-wrapper form input[type=text], #content-wrapper form input[type=password] {
-		margin-bottom: 20px;
-	}
-	#content-wrapper form input[type=submit] {
-		margin-top:20px;
-		width:100%;
-	}
+#content-wrapper form input[type=submit] {
+	margin-top:20px;
+	width:100%;
+}
 
 #content-wrapper h1 {
 	color: #fff;
@@ -120,18 +123,4 @@ a, a:active, a:visited {
 	height:auto;
 	margin:auto;
 	padding:30px 50px;
-}
-
-#error-wrapper-wrapper {
-	width: 300px;
-	height:auto;
-	margin:auto;
-	padding:30px 50px;
-}
-
-.error {
-	margin-top:10px;
-	font-size:12pt;
-	color:#FFF;
-	display:inline-block;
 }
