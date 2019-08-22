@@ -124,7 +124,7 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
       if err != nil {
         log.Debug(err.Error())
       }
-      redirectTo := c.Request.URL.RequestURI()
+      redirectTo := c.Request.URL.RequestURI() + "?recover_challenge=" + form.Challenge
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, redirectTo)
       c.Abort();
@@ -146,10 +146,25 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
       return
     }
 
-    log.WithFields(logrus.Fields{
-      "redirect_to": recoverResponse.RedirectTo,
-    }).Debug("Redirecting");
-    c.Redirect(http.StatusFound, recoverResponse.RedirectTo)
+    if recoverResponse.Verified == true && recoverResponse.RedirectTo != "" {
+      log.WithFields(logrus.Fields{
+        "redirect_to": recoverResponse.RedirectTo,
+      }).Debug("Redirecting");
+      c.Redirect(http.StatusFound, recoverResponse.RedirectTo)
+      c.Abort()
+      return
+    }
+
+    errors["errorVerificationCode"] = append(errors["errorVerificationCode"], "Invalid verification code")
+    session.AddFlash(errors, "recoververification.errors")
+    err = session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+    }
+
+    redirectTo := c.Request.URL.RequestURI() + "?recover_challenge=" + form.Challenge
+    log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, redirectTo)
   }
   return gin.HandlerFunc(fn)
 }
