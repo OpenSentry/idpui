@@ -16,16 +16,19 @@
   <div id="content-wrapper">
     <h1 class="fingerprint">Identity Provider</h1>
 
-    <div id="login-error-wrapper">
-      <span class="error">{{ .login_error }}</span>
-    </div>
-
     <form action="/authenticate" method="post">
       {{ .csrfField }}
       <input type="hidden" name="challenge" value="{{ .challenge }}" />
 
-      <input name="username" type="text" autocomplete="username" placeholder="Enter your username" required>
-      <input name="password" type="password" autocomplete="current-password" placeholder="Enter your secret password, sshhh..." required>
+      <div class="input-group">
+        <input name="username" type="text" autocomplete="username" placeholder="Enter your username" value="{{ .username }}" required>
+        {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
+      </div>
+
+      <div class="input-group">
+        <input name="password" type="password" autocomplete="current-password" placeholder="Enter your password, sshhh..." required>
+        {{if .errorPassword}} <label for="password" class="error">{{ .errorPassword }}</label> {{end}}
+      </div>
 
       <input type="submit" name="submit" value="Connect" />
     </form>
