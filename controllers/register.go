@@ -35,8 +35,6 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
     displayName := session.Get("register.display-name")
     email := session.Get("register.email")
 
-    success := session.Flashes("register.success")
-
     errors := session.Flashes("register.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
@@ -79,7 +77,6 @@ func ShowRegistration(env *environment.State, route environment.Route) gin.Handl
       "username": username,
       "displayName": displayName,
       "email": email,
-      "success": success,
       "errorUsername": errorUsername,
       "errorPassword": errorPassword,
       "errorPasswordRetyped": errorPasswordRetyped,
@@ -171,15 +168,15 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       }
 
       session := sessions.Default(c)
-      session.Set(environment.SessionSubject, profile.Id)
 
       // Cleanup session
       session.Delete("register.username")
       session.Delete("register.display-name")
       session.Delete("register.email")
+      session.Delete("register.errors")
 
-      // Register success message
-      session.AddFlash(1, "register.success")
+      // Propagete username to authenticate controller
+      session.Set("authenticate.username", profile.Id)
 
       err = session.Save()
       if err != nil {
@@ -187,8 +184,9 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       }
 
       // Registration successful, return to create new ones, but with success message
-      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, route.URL)
+      redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.profile")
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
       return
     }

@@ -16,10 +16,18 @@
   <div id="content-wrapper">
     <h1 class="fingerprint">Identity Provider</h1>
 
+    <h2>Recover Identity</h2>
+    <p>
+      Please enter the verification code we sent to your email aswell as the new password you wish to use.
+    </p>
+
     <form action="/recoververification" method="post">
       {{ .csrfField }}
 
-      <input name="recover_challenge" type="hidden" value={{.recoverChallenge}}>
+      <div class="input-group">
+        <input name="username" type="hidden" value="{{ .username }}" required>
+        {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
+      </div>
 
       <div class="input-group">
         <input name="verification_code" type="password" placeholder="Enter your verification code" required>

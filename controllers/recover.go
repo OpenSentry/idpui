@@ -26,6 +26,9 @@ func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFun
 
     session := sessions.Default(c)
 
+    // See if a failed authenticate submit is present and prefill the recover field.
+    username := session.Get("authenticate.username")
+
     errors := session.Flashes("recover.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
@@ -45,6 +48,7 @@ func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFun
 
     c.HTML(200, "recover.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "username": username,
       "errorIdentity": errorIdentity,
     })
   }
@@ -74,7 +78,18 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
 
     identity := strings.TrimSpace(form.Identity)
     if identity == "" {
-      errors["errorIdentity"] = append(errors["errorIdentity"], "Missing identity")
+      errors["errorIdentity"] = append(errors["errorIdentity"], "Not found")
+    }
+
+    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+
+    recoverRequest := idpapi.RecoverRequest{
+      Id: form.Identity,
+    }
+    recoverResponse, err := idpapi.Recover(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.recover"), idpapiClient, recoverRequest)
+    if err != nil {
+      log.Debug(err.Error())
+      errors["errorIdentity"] = append(errors["errorIdentity"], "Not found")
     }
 
     if len(errors) > 0 {
@@ -89,17 +104,16 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
       return
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    // Propagate selected user to verification controller to keep urls clean
+    session.Set("recoververification.username", recoverResponse.Id)
 
-    recoverRequest := idpapi.RecoverRequest{
-      Id: form.Identity,      
-    }
-    recoverResponse, err := idpapi.Recover(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.recover"), idpapiClient, recoverRequest)
+    // Cleanup session
+    session.Delete("authenticate.username")
+    session.Delete("recover.errors")
+
+    err = session.Save()
     if err != nil {
       log.Debug(err.Error())
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
-      return
     }
 
     log.WithFields(logrus.Fields{
