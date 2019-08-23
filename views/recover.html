@@ -28,8 +28,10 @@
     <form action="/recover" method="post">
       {{ .csrfField }}
 
-      <input type="text" name="identity" placeholder="Enter username or email" value="{{ .username }}" required>
-      {{if .errorIdentity}} <div class="error">{{ .errorIdentity }}</div> {{end}}
+      <div class="input-group">
+        <input name="identity" type="text" placeholder="Enter username or email" value="{{ .username }}" required>
+        {{if .errorIdentity}} <label for="identity" class="error">{{ .errorIdentity }}</label> {{end}}
+      </div>
 
       <input type="submit" name="submit" value="Recover" />
     </form>
