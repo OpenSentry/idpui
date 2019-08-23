@@ -93,6 +93,9 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
     }
 
     if len(errors) > 0 {
+
+      session.Set("authenticate.username", recoverRequest.Id)
+
       session.AddFlash(errors, "recover.errors")
       err = session.Save()
       if err != nil {
