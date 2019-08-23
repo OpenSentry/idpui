@@ -1,0 +1,45 @@
+<head>
+
+  <meta charset="utf-8">
+
+  <title>Register</title>
+  <meta name="description" content="Delete profile">
+  <meta name="author" content="Company">
+
+  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
+
+</head>
+<body>
+
+  <div id="top-spacer"></div>
+
+  <div id="content-wrapper">
+    <h1 class="fingerprint">Identity Provider</h1>
+
+    <h2>Delete profile</h2>
+
+    <p>
+      If you wish to delete your identity, you can start the process here. You must accept the risk to start the process.<br><br>
+      Beware this is a non recoverable action. Meaning we cannot restore your identity once deleted.<br><br>
+      All information will be lost.<br><br>
+      We will send you an email with a verification code, which must be entered when prompted for the deletion to happen.<br><br>
+      Stay safe.
+    </p>
+
+    <form action="/me/delete" method="post">
+      {{ .csrfField }}
+
+      <div class="input-group">
+        <input name="risk_accepted" type="checkbox" value="{{ .RiskAccepted }}">
+        <label for="risk_accepted">I accept the risk of deleting my profile</label>
+        {{if .errorRiskAccepted}} <label for="risk_accepted" class="error">{{ .errorRiskAccepted }}</label> {{end}}
+      </div>
+
+      <input type="submit" name="submit" value="Delete profile" />
+    </form>
+
+    <span class="info">Already have an account? <a href="/authenticate">Authenticate</a></span>
+  </div>
+
+  <script type="text/javascript"></script>
+</body>

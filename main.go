@@ -171,9 +171,10 @@ func serve(env *environment.State) {
     "/recoververification": environment.Route{URL: "/recoververification", LogId: "idpui://recoververification"},
     "/callback":            environment.Route{URL: "/callback",       LogId: "idpui://callback"},
     "/me":                  environment.Route{URL: "/me",             LogId: "idpui://me"},
-    "/me/edit":             environment.Route{URL: "/me/edit",        LogId: "idpui//me/edit"},
-    "/me/2fa":              environment.Route{URL: "/me/2fa",         LogId: "idpui//me/2fa"},
-    "/password":            environment.Route{URL: "/password",       LogId: "idpui//password"},
+    "/me/edit":             environment.Route{URL: "/me/edit",        LogId: "idpui://me/edit"},
+    "/me/delete":           environment.Route{URL: "/me/delete",      LogId: "idpui://me/delete"},
+    "/me/2fa":              environment.Route{URL: "/me/2fa",         LogId: "idpui://me/2fa"},
+    "/password":            environment.Route{URL: "/password",       LogId: "idpui://password"},
     "/consent":             environment.Route{URL: "/consent",        LogId: "idpui://consent"},
   }
 
@@ -205,6 +206,10 @@ func serve(env *environment.State) {
     ep.GET(routes["/me"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me"], "openid"), controllers.ShowProfile(env, routes["/me"]))
     ep.GET(routes["/me/edit"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/edit"], "openid"), controllers.ShowProfileEdit(env, routes["/me/edit"]))
     ep.POST(routes["/me/edit"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/edit"], "openid"), controllers.SubmitProfileEdit(env, routes["/me/edit"]))
+
+    ep.GET(routes["/me/delete"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/delete"], "openid"), controllers.ShowProfileDelete(env, routes["/me/delete"]))
+    ep.POST(routes["/me/delete"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/delete"], "openid"), controllers.SubmitProfileDelete(env, routes["/me/delete"]))
+
     ep.GET(routes["/me/2fa"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/2fa"], "openid"), controllers.Show2Fa(env, routes["/me/2fa"]))
     ep.POST(routes["/me/2fa"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/2fa"], "openid"), controllers.Submit2Fa(env, routes["/me/2fa"]))
 
