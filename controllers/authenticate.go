@@ -180,6 +180,16 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
 
     // User authenticated, redirect
     if authenticateResponse.Authenticated {
+
+      // Cleanup session
+      session.Delete("authenticate.username")
+      session.Delete("authenticate.errors")
+
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+
       log.WithFields(logrus.Fields{
         "id": authenticateResponse.Id,
         "authenticated": authenticateResponse.Authenticated,
