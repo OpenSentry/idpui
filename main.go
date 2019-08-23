@@ -171,9 +171,9 @@ func serve(env *environment.State) {
     "/recoververification": environment.Route{URL: "/recoververification", LogId: "idpui://recoververification"},
     "/callback":            environment.Route{URL: "/callback",       LogId: "idpui://callback"},
     "/me":                  environment.Route{URL: "/me",             LogId: "idpui://me"},
-    "/me/edit":             environment.Route{URL: "/me/edit",        LogId: "idpui//me/edit"},
-    "/me/2fa":              environment.Route{URL: "/me/2fa",         LogId: "idpui//me/2fa"},
-    "/password":            environment.Route{URL: "/password",       LogId: "idpui//password"},
+    "/me/edit":             environment.Route{URL: "/me/edit",        LogId: "idpui://me/edit"},
+    "/me/2fa":              environment.Route{URL: "/me/2fa",         LogId: "idpui://me/2fa"},
+    "/password":            environment.Route{URL: "/password",       LogId: "idpui://password"},
     "/consent":             environment.Route{URL: "/consent",        LogId: "idpui://consent"},
   }
 
