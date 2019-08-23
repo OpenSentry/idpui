@@ -9,7 +9,6 @@ import (
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
-  jwt "github.com/dgrijalva/jwt-go"
 )
 
 type AuthenticateRequest struct {
@@ -77,29 +76,21 @@ type RecoverRequest struct {
 }
 
 type RecoverResponse struct {
-  Id         string `json:"id" binding:"required"`
-  Signature  string `json:"sig" binding:"required"`
+  Id         string `json:"id" binding:"required"`  
   RedirectTo string `json:"redirect_to" binding:"required"`
-  VerificationCode string `json:"verification_code" binding:"required"`
 }
 
 type RecoverVerificationRequest struct {
-  Challenge        string `json:"recover_challenge" binding:"required"`
+  Id               string `json:"id" binding:"required"`
   VerificationCode string `json:"verification_code" binding:"required"`
-  Password         string  `json:"password" binding:"required"`
+  Password         string `json:"password" binding:"required"`
+  RedirectTo       string `json:"redirect_to" binding:"required"`
 }
 
 type RecoverVerificationResponse struct {
   Id         string `json:"id" binding:"required"`
   Verified   bool   `json:"verifed" binding:"required"`
   RedirectTo string `json:"redirect_to" binding:"required"`
-}
-
-// JWT structs
-
-type RecoverChallengeClaim struct {
-  VerificationCode string `json:"code" binding:"required"`
-	jwt.StandardClaims
 }
 
 // App structs

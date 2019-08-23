@@ -28,7 +28,7 @@
     <form action="/recover" method="post">
       {{ .csrfField }}
 
-      <input type="text" name="identity" placeholder="Enter username or email" required>
+      <input type="text" name="identity" placeholder="Enter username or email" value="{{ .username }}" required>
       {{if .errorIdentity}} <div class="error">{{ .errorIdentity }}</div> {{end}}
 
       <input type="submit" name="submit" value="Recover" />

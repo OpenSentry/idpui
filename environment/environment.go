@@ -10,7 +10,6 @@ const (
   SessionStoreKey string = "idpui"
   SessionStateKey string = "state"
   SessionTokenKey string = "token"
-  SessionSubject string = "sub"
   SessionIdTokenKey string = "idtoken"
   RequestIdKey string = "RequestId"
   AccessTokenKey string = "access_token"

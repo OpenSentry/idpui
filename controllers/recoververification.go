@@ -13,7 +13,7 @@ import (
 )
 
 type verificationForm struct {
-  Challenge        string `form:"recover_challenge" binding:"required"`
+  Username         string `form:"username" binding:"required"`
   VerificationCode string `form:"verification_code" binding:"required"`
   Password         string `form:"password" binding:"required"`
   PasswordRetyped  string `form:"password_retyped" binding:"required"`
@@ -27,17 +27,9 @@ func ShowRecoverVerification(env *environment.State, route environment.Route) gi
       "func": "ShowRecoverVerification",
     })
 
-    recoverChallenge := c.Query("recover_challenge")
-    if recoverChallenge == "" {
-      log.WithFields(logrus.Fields{
-        "recover_challenge": recoverChallenge,
-      }).Debug("Missing recover_challenge")
-      c.JSON(http.StatusNotFound, gin.H{"error": "Missing recover_challenge"})
-      c.Abort()
-      return
-    }
-
     session := sessions.Default(c)
+
+    username := session.Get("recoververification.username")
 
     errors := session.Flashes("recoververification.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -45,6 +37,7 @@ func ShowRecoverVerification(env *environment.State, route environment.Route) gi
       log.Debug(err.Error())
     }
 
+    var errorUsername string
     var errorVerificationCode string
     var errorPassword string
     var errorPasswordRetyped string
@@ -52,6 +45,10 @@ func ShowRecoverVerification(env *environment.State, route environment.Route) gi
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
+
+        if k == "errorUsername" && len(v) > 0 {
+          errorUsername = strings.Join(v, ", ")
+        }
 
         if k == "errorVerificationCode" && len(v) > 0 {
           errorVerificationCode = strings.Join(v, ", ")
@@ -68,10 +65,11 @@ func ShowRecoverVerification(env *environment.State, route environment.Route) gi
 
     c.HTML(http.StatusOK, "recoververification.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "username": username,
+      "errorUsername": errorUsername,
       "errorVerificationCode": errorVerificationCode,
       "errorPassword": errorPassword,
       "errorPasswordRetyped": errorPasswordRetyped,
-      "recoverChallenge": recoverChallenge,
     })
   }
   return gin.HandlerFunc(fn)
@@ -97,6 +95,11 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
     session := sessions.Default(c)
 
     errors := make(map[string][]string)
+
+    username := strings.TrimSpace(form.Username)
+    if username == "" {
+      errors["errorUsername"] = append(errors["errorUsername"], "Missing username")
+    }
 
     verificationCode := strings.TrimSpace(form.VerificationCode)
     if verificationCode == "" {
@@ -124,7 +127,7 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
       if err != nil {
         log.Debug(err.Error())
       }
-      redirectTo := c.Request.URL.RequestURI() + "?recover_challenge=" + form.Challenge
+      redirectTo := route.URL
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, redirectTo)
       c.Abort();
@@ -134,9 +137,10 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
     idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
 
     recoverRequest := idpapi.RecoverVerificationRequest{
-      Challenge: form.Challenge,
-      VerificationCode: form.VerificationCode,
-      Password: form.Password,
+      Id: username,
+      VerificationCode: verificationCode,
+      Password: password,
+      RedirectTo: "/",
     }
     recoverResponse, err := idpapi.RecoverVerification(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.recoververification"), idpapiClient, recoverRequest)
     if err != nil {
@@ -147,6 +151,19 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
     }
 
     if recoverResponse.Verified == true && recoverResponse.RedirectTo != "" {
+
+      // Cleanup session
+      session.Delete("recoververification.username")
+      session.Delete("recoververification.errors")
+
+      // Propagete username to authenticate controller
+      session.Set("authenticate.username", recoverResponse.Id)
+
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+
       log.WithFields(logrus.Fields{
         "redirect_to": recoverResponse.RedirectTo,
       }).Debug("Redirecting");
@@ -162,7 +179,7 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
       log.Debug(err.Error())
     }
 
-    redirectTo := c.Request.URL.RequestURI() + "?recover_challenge=" + form.Challenge
+    redirectTo := route.URL
     log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
     c.Redirect(http.StatusFound, redirectTo)
   }
