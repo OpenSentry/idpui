@@ -76,7 +76,7 @@ type RecoverRequest struct {
 }
 
 type RecoverResponse struct {
-  Id         string `json:"id" binding:"required"`  
+  Id         string `json:"id" binding:"required"`
   RedirectTo string `json:"redirect_to" binding:"required"`
 }
 
@@ -191,6 +191,40 @@ func CreateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) 
     },
   }
   return newProfile, nil
+}
+
+func DeleteProfile(identitiesUrl string, client *IdpApiClient, profile Profile) (Profile, error) {
+  var identityResponse IdentityResponse
+  var updatedProfile Profile
+
+  identityRequest := IdentityRequest{
+    Id: profile.Id,
+  }
+  body, _ := json.Marshal(identityRequest)
+
+  var data = bytes.NewBuffer(body)
+
+  request, _ := http.NewRequest("DELETE", identitiesUrl, data)
+
+  response, err := client.Do(request)
+  if err != nil {
+    return updatedProfile, err
+  }
+
+  responseData, _ := ioutil.ReadAll(response.Body)
+  if response.StatusCode != 200 {
+    return updatedProfile, errors.New("status: " + string(response.StatusCode) + ", error="+string(responseData))
+  }
+
+  err = json.Unmarshal(responseData, &identityResponse)
+  if err != nil {
+    return updatedProfile, err
+  }
+
+  updatedProfile = Profile{
+    Id: identityResponse.Id,
+  }
+  return updatedProfile, nil
 }
 
 func UpdateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) (Profile, error) {
