@@ -15,7 +15,7 @@ import (
 )
 
 type profileDeleteForm struct {
-  RiskAccepted bool `form:"risk_accepted"`
+  RiskAccepted string `form:"risk_accepted"`
 }
 
 func ShowProfileDelete(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -27,6 +27,17 @@ func ShowProfileDelete(env *environment.State, route environment.Route) gin.Hand
     })
 
     session := sessions.Default(c)
+
+    // NOTE: Maybe session is not a good way to do this.
+    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
+    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
+    var idToken *oidc.IDToken
+    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
+    if idToken == nil {
+      c.HTML(http.StatusNotFound, "profiledelete.html", gin.H{"error": "Identity not found"})
+      c.Abort()
+      return
+    }
 
     riskAccepted := session.Get("profiledelete.risk_accepted")
 
@@ -49,8 +60,9 @@ func ShowProfileDelete(env *environment.State, route environment.Route) gin.Hand
       }
     }
 
-    c.HTML(http.StatusOK, "medelete.html", gin.H{
+    c.HTML(http.StatusOK, "profiledelete.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "username": idToken.Subject,
       "RiskAccepted": riskAccepted,
       "errorRiskAccepted": errorRiskAccepted,
     })
@@ -78,12 +90,14 @@ func SubmitProfileDelete(env *environment.State, route environment.Route) gin.Ha
 
     errors := make(map[string][]string)
 
-    if form.RiskAccepted == false {
+    riskAccepted := len(form.RiskAccepted) > 0
+
+    if riskAccepted == false {
       errors["errorRiskAccepted"] = append(errors["errorRiskAccepted"], "You have not accepted the risk")
     }
 
     if len(errors) <= 0  {
-      if form.RiskAccepted == true {
+      if riskAccepted == true {
 
         // NOTE: Maybe session is not a good way to do this.
         // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
@@ -91,7 +105,7 @@ func SubmitProfileDelete(env *environment.State, route environment.Route) gin.Ha
         var idToken *oidc.IDToken
         idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
         if idToken == nil {
-          c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
+          c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
           c.Abort()
           return
         }
@@ -100,10 +114,10 @@ func SubmitProfileDelete(env *environment.State, route environment.Route) gin.Ha
         accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
         idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
-        var profileDeleteRequest = idpapi.Profile{
+        var deleteRequest = idpapi.DeleteProfileRequest{
           Id: idToken.Subject,
         }
-        deleteChallenge, err := idpapi.DeleteProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, profileDeleteRequest)
+        deleteChallenge, err := idpapi.DeleteProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, deleteRequest)
         if err != nil {
           log.Debug(err.Error())
           c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
