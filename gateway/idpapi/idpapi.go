@@ -129,7 +129,7 @@ func RevokeConsent(url string, client *IdpApiClient, revokeConsentRequest Revoke
 
   // FIXME: Call hydra directly. This should not be allowed! (idpui does not have hydra scope)
   // It should call aapapi instead. But for testing this was faster.
-  u := "https://admin.oauth.localhost/oauth2/auth/sessions/consent?subject=" + revokeConsentRequest.Id
+  u := "https://oauth.localhost/admin/oauth2/auth/sessions/consent?subject=" + revokeConsentRequest.Id
   consentRequest, err := http.NewRequest("DELETE", u, nil)
   if err != nil {
     return false, err
