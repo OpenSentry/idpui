@@ -7,6 +7,8 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
+  "golang.org/x/oauth2"
+  oidc "github.com/coreos/go-oidc"
   "golang-idp-fe/config"
   "golang-idp-fe/environment"
   "golang-idp-fe/gateway/idpapi"
@@ -27,7 +29,16 @@ func ShowProfileDeleteVerification(env *environment.State, route environment.Rou
 
     session := sessions.Default(c)
 
-    username := session.Get("profiledeleteverification.username")
+    // NOTE: Maybe session is not a good way to do this.
+    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
+    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
+    var idToken *oidc.IDToken
+    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
+    if idToken == nil {
+      c.HTML(http.StatusNotFound, "profiledelete.html", gin.H{"error": "Identity not found"})
+      c.Abort()
+      return
+    }
 
     errors := session.Flashes("profiledeleteverification.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -61,9 +72,9 @@ func ShowProfileDeleteVerification(env *environment.State, route environment.Rou
       }
     }
 
-    c.HTML(http.StatusOK, "recoververification.html", gin.H{
+    c.HTML(http.StatusOK, "profiledeleteverification.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "username": username,
+      "username": idToken.Subject,
       "errorUsername": errorUsername,
       "errorVerificationCode": errorVerificationCode,
       "errorPassword": errorPassword,
@@ -117,13 +128,26 @@ func SubmitProfileDeleteVerification(env *environment.State, route environment.R
       return
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    var idToken *oidc.IDToken
 
-    deleteRequest := idpapi.ProfileDeleteVerificationRequest{
-      Id: username,
-      VerificationCode: verificationCode,
+
+    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
+    if idToken == nil {
+      c.HTML(http.StatusNotFound, "profiledeleteverification.html", gin.H{"error": "Identity not found"})
+      c.Abort()
+      return
     }
-    deleteResponse, err := idpapi.ProfileDeleteVerification(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.recoververification"), idpapiClient, deleteRequest)
+
+    var accessToken *oauth2.Token
+    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
+    idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+
+    deleteRequest := idpapi.DeleteProfileVerificationRequest{
+      Id: idToken.Subject,
+      VerificationCode: verificationCode,
+      RedirectTo: config.GetString("idpui.public.url") + config.GetString("idpapi.public.endpoints.profile"),
+    }
+    deleteResponse, err := idpapi.DeleteProfileVerification(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.deleteverification"), idpapiClient, deleteRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -133,10 +157,8 @@ func SubmitProfileDeleteVerification(env *environment.State, route environment.R
 
     if deleteResponse.Verified == true && deleteResponse.RedirectTo != "" {
 
-      // Cleanup session
-      session.Delete("profiledeleteverification.username")
-      session.Delete("profiledeleteverification.errors")
-
+      // Destroy user session
+      session.Clear()
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())

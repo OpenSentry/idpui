@@ -29,7 +29,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     session := sessions.Default(c)
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
+      c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
@@ -44,7 +44,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     }
     profile, err := idpapi.FetchProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, request)
     if err != nil {
-      c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
+      c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
@@ -68,7 +68,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
 
     var permissions string = "n/a"
 
-    c.HTML(http.StatusOK, "me.html", gin.H{
+    c.HTML(http.StatusOK, "profile.html", gin.H{
       "user": idToken.Subject,
       "name": profile.Name,
       "email": profile.Email,

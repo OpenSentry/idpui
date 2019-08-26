@@ -202,7 +202,12 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     }
 
     // Deny by default
-    errors["errorUsername"] = append(errors["errorUsername"], "Authentication failed")
+
+    if authenticateResponse.NotFound {
+      errors["errorUsername"] = append(errors["errorUsername"], "Not found")
+    } else {
+      errors["errorUsername"] = append(errors["errorUsername"], "Invalid password")
+    }
     session.AddFlash(errors, "authenticate.errors")
     err = session.Save()
     if err != nil {
