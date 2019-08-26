@@ -161,21 +161,22 @@ func serve(env *environment.State) {
 
   // Setup routes to use, this defines log for debug log
   routes := map[string]environment.Route{
-    "/":                    environment.Route{URL: "/",               LogId: "idpui://"},
-    "/authenticate":        environment.Route{URL: "/authenticate",   LogId: "idpui://authenticate"},
-    "/passcode":            environment.Route{URL: "/passcode",       LogId: "idpui://passcode"},
-    "/logout":              environment.Route{URL: "/logout",         LogId: "idpui://logout"},
-    "/session/logout":      environment.Route{URL: "/session/logout", LogId: "idpui://session/logout"},
-    "/register":            environment.Route{URL: "/register",       LogId: "idpui://register"},
-    "/recover":             environment.Route{URL: "/recover",        LogId: "idpui://recover"},
-    "/recoververification": environment.Route{URL: "/recoververification", LogId: "idpui://recoververification"},
-    "/callback":            environment.Route{URL: "/callback",       LogId: "idpui://callback"},
-    "/me":                  environment.Route{URL: "/me",             LogId: "idpui://me"},
-    "/me/edit":             environment.Route{URL: "/me/edit",        LogId: "idpui://me/edit"},
-    "/me/delete":           environment.Route{URL: "/me/delete",      LogId: "idpui://me/delete"},
-    "/me/2fa":              environment.Route{URL: "/me/2fa",         LogId: "idpui://me/2fa"},
-    "/password":            environment.Route{URL: "/password",       LogId: "idpui://password"},
-    "/consent":             environment.Route{URL: "/consent",        LogId: "idpui://consent"},
+    "/":                      environment.Route{URL: "/",                      LogId: "idpui://"},
+    "/authenticate":          environment.Route{URL: "/authenticate",          LogId: "idpui://authenticate"},
+    "/passcode":              environment.Route{URL: "/passcode",              LogId: "idpui://passcode"},
+    "/logout":                environment.Route{URL: "/logout",                LogId: "idpui://logout"},
+    "/session/logout":        environment.Route{URL: "/session/logout",        LogId: "idpui://session/logout"},
+    "/register":              environment.Route{URL: "/register",              LogId: "idpui://register"},
+    "/recover":               environment.Route{URL: "/recover",               LogId: "idpui://recover"},
+    "/recoververification":   environment.Route{URL: "/recoververification",   LogId: "idpui://recoververification"},
+    "/callback":              environment.Route{URL: "/callback",              LogId: "idpui://callback"},
+    "/me":                    environment.Route{URL: "/me",                    LogId: "idpui://me"},
+    "/me/edit":               environment.Route{URL: "/me/edit",               LogId: "idpui://me/edit"},
+    "/me/delete":             environment.Route{URL: "/me/delete",             LogId: "idpui://me/delete"},
+    "/me/deleteverification": environment.Route{URL: "/me/deleteverification", LogId: "idpui://me/deleteverification"},
+    "/me/2fa":                environment.Route{URL: "/me/2fa",                LogId: "idpui://me/2fa"},
+    "/password":              environment.Route{URL: "/password",              LogId: "idpui://password"},
+    "/consent":               environment.Route{URL: "/consent",               LogId: "idpui://consent"},
   }
 
   ep := r.Group("/")
@@ -209,6 +210,8 @@ func serve(env *environment.State) {
 
     ep.GET(routes["/me/delete"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/delete"], "openid"), controllers.ShowProfileDelete(env, routes["/me/delete"]))
     ep.POST(routes["/me/delete"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/delete"], "openid"), controllers.SubmitProfileDelete(env, routes["/me/delete"]))
+    ep.GET(routes["/me/deleteverification"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/deleteverification"], "openid"), controllers.ShowProfileDeleteVerification(env, routes["/me/deleteverification"]))
+    ep.POST(routes["/me/deleteverification"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/deleteverification"], "openid"), controllers.SubmitProfileDeleteVerification(env, routes["/me/deleteverification"]))
 
     ep.GET(routes["/me/2fa"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/2fa"], "openid"), controllers.Show2Fa(env, routes["/me/2fa"]))
     ep.POST(routes["/me/2fa"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/2fa"], "openid"), controllers.Submit2Fa(env, routes["/me/2fa"]))

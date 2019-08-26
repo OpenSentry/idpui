@@ -30,7 +30,7 @@
       {{ .csrfField }}
 
       <div class="input-group">
-        <input name="risk_accepted" type="checkbox" value="{{ .RiskAccepted }}">
+        <input name="risk_accepted" type="checkbox" value="accept">
         <label for="risk_accepted">I accept the risk of deleting my profile</label>
         {{if .errorRiskAccepted}} <label for="risk_accepted" class="error">{{ .errorRiskAccepted }}</label> {{end}}
       </div>

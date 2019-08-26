@@ -19,6 +19,7 @@ type AuthenticateRequest struct {
 
 type AuthenticateResponse struct {
   Id              string            `json:"id"`
+  NotFound        bool              `json:"not_found"`
   Authenticated   bool              `json:"authenticated"`
   Require2Fa      bool              `json:"require_2fa"`
   RedirectTo      string            `json:"redirect_to,omitempty"`
@@ -88,6 +89,27 @@ type RecoverVerificationRequest struct {
 }
 
 type RecoverVerificationResponse struct {
+  Id         string `json:"id" binding:"required"`
+  Verified   bool   `json:"verifed" binding:"required"`
+  RedirectTo string `json:"redirect_to" binding:"required"`
+}
+
+type DeleteProfileRequest struct {
+  Id              string            `json:"id" binding:"required"`
+}
+
+type DeleteProfileResponse struct {
+  Id         string `json:"id" binding:"required"`
+  RedirectTo string `json:"redirect_to" binding:"required"`
+}
+
+type DeleteProfileVerificationRequest struct {
+  Id               string `json:"id" binding:"required"`
+  VerificationCode string `json:"verification_code" binding:"required"`
+  RedirectTo       string `json:"redirect_to" binding:"required"`
+}
+
+type DeleteProfileVerificationResponse struct {
   Id         string `json:"id" binding:"required"`
   Verified   bool   `json:"verifed" binding:"required"`
   RedirectTo string `json:"redirect_to" binding:"required"`
@@ -193,38 +215,60 @@ func CreateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) 
   return newProfile, nil
 }
 
-func DeleteProfile(identitiesUrl string, client *IdpApiClient, profile Profile) (Profile, error) {
-  var identityResponse IdentityResponse
-  var updatedProfile Profile
+func DeleteProfile(deleteUrl string, client *IdpApiClient, deleteProfileRequest DeleteProfileRequest) (DeleteProfileResponse, error) {
+  var deleteResponse DeleteProfileResponse
 
-  identityRequest := IdentityRequest{
-    Id: profile.Id,
-  }
-  body, _ := json.Marshal(identityRequest)
+  body, _ := json.Marshal(deleteProfileRequest)
 
   var data = bytes.NewBuffer(body)
 
-  request, _ := http.NewRequest("DELETE", identitiesUrl, data)
+  request, _ := http.NewRequest("DELETE", deleteUrl, data)
 
   response, err := client.Do(request)
   if err != nil {
-    return updatedProfile, err
+    return deleteResponse, err
   }
 
   responseData, _ := ioutil.ReadAll(response.Body)
+
   if response.StatusCode != 200 {
-    return updatedProfile, errors.New("status: " + string(response.StatusCode) + ", error="+string(responseData))
+    return deleteResponse, errors.New(string(responseData))
   }
 
-  err = json.Unmarshal(responseData, &identityResponse)
+  err = json.Unmarshal(responseData, &deleteResponse)
   if err != nil {
-    return updatedProfile, err
+    return deleteResponse, err
   }
 
-  updatedProfile = Profile{
-    Id: identityResponse.Id,
+  return deleteResponse, nil
+}
+
+func DeleteProfileVerification(deleteVerificationUrl string, client *IdpApiClient, deleteRequest DeleteProfileVerificationRequest) (DeleteProfileVerificationResponse, error) {
+  var deleteVerificationResponse DeleteProfileVerificationResponse
+
+  body, _ := json.Marshal(deleteRequest)
+
+  var data = bytes.NewBuffer(body)
+
+  request, _ := http.NewRequest("POST", deleteVerificationUrl, data)
+
+  response, err := client.Do(request)
+  if err != nil {
+    return deleteVerificationResponse, err
   }
-  return updatedProfile, nil
+
+  responseData, _ := ioutil.ReadAll(response.Body)
+
+  if response.StatusCode != 200 {
+    return deleteVerificationResponse, errors.New(string(responseData))
+  }
+
+  err = json.Unmarshal(responseData, &deleteVerificationResponse)
+  if err != nil {
+    return deleteVerificationResponse, err
+  }
+
+  return deleteVerificationResponse, nil
 }
 
 func UpdateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) (Profile, error) {

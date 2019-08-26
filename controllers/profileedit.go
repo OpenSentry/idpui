@@ -35,7 +35,7 @@ func ShowProfileEdit(env *environment.State, route environment.Route) gin.Handle
     var idToken *oidc.IDToken
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
+      c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
@@ -50,7 +50,7 @@ func ShowProfileEdit(env *environment.State, route environment.Route) gin.Handle
     }
     profile, err := idpapi.FetchProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, request)
     if err != nil {
-      c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
+      c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
@@ -97,7 +97,7 @@ func ShowProfileEdit(env *environment.State, route environment.Route) gin.Handle
       }
     }
 
-    c.HTML(http.StatusOK, "meedit.html", gin.H{
+    c.HTML(http.StatusOK, "profileedit.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "user": idToken.Subject,
       "displayName": displayName,
@@ -136,7 +136,7 @@ func SubmitProfileEdit(env *environment.State, route environment.Route) gin.Hand
     var idToken *oidc.IDToken
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "me.html", gin.H{"error": "Identity not found"})
+      c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
@@ -193,7 +193,7 @@ func SubmitProfileEdit(env *environment.State, route environment.Route) gin.Hand
     }
 
     // Registration successful, return to create new ones, but with success message
-    log.WithFields(logrus.Fields{"redirect_to": "/me/edit"}).Debug("Redirecting")
+    log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
     c.Redirect(http.StatusFound, route.URL)
     return
 
