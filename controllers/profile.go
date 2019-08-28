@@ -69,6 +69,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     var permissions string = "n/a"
 
     c.HTML(http.StatusOK, "profile.html", gin.H{
+      "__title": "Profile",
       "user": idToken.Subject,
       "name": profile.Name,
       "email": profile.Email,

@@ -20,6 +20,7 @@ func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFun
     })
 
     c.HTML(http.StatusOK, "consent.html", gin.H{
+      "__title": "Consent",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
     })
   }
@@ -33,7 +34,7 @@ func SubmitConsent(env *environment.State, route environment.Route) gin.HandlerF
     log = log.WithFields(logrus.Fields{
       "func": "SubmitConsent",
     })
-    
+
     var idToken *oidc.IDToken
     session := sessions.Default(c)
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)

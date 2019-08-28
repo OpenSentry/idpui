@@ -88,6 +88,7 @@ func Show2Fa(env *environment.State, route environment.Route) gin.HandlerFunc {
 
     c.HTML(http.StatusOK, "2fa.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "__title": "Two Factor Authentication",
       "user": idToken.Subject,
       "name": profile.Name,
       "email": profile.Email,
