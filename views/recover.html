@@ -1,43 +1,31 @@
-<head>
+{{ template "htmlbegin" . }}
 
-  <meta charset="utf-8">
+<div id="top-spacer"></div>
 
-  <title>Recover</title>
-  <meta name="description" content="Recover">
-  <meta name="author" content="Company">
+<div id="content-wrapper">
+  <h1 class="fingerprint">Identity Provider</h1>
 
-  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
+  <h2>Recover Identity</h2>
+  <p>
+    If you have lost access to your identity, you can start the process of recovering it here using the email registered to the identity.<br><br>
+    You are prompted for the username or email of the identity you want to recover.<br><br>
+    We will send a verification code to the email registered to the identity and you will be prompted to enter this verification code along with the new password.<br><br>
+    If entered correctly the password of the identity will be updated and you will be prompted to login with the new password.<br><br>
+    Stay safe.
+  </p>
 
-</head>
-<body>
+  <form action="/recover" method="post">
+    {{ .csrfField }}
 
-  <div id="top-spacer"></div>
+    <div class="input-group">
+      <input name="identity" type="text" placeholder="Enter username or email" value="{{ .username }}" required>
+      {{if .errorIdentity}} <label for="identity" class="error">{{ .errorIdentity }}</label> {{end}}
+    </div>
 
-  <div id="content-wrapper">
-    <h1 class="fingerprint">Identity Provider</h1>
+    <input type="submit" name="submit" value="Recover" />
+  </form>
 
-    <h2>Recover Identity</h2>
-    <p>
-      If you have lost access to your identity, you can start the process of recovering it here using the email registered to the identity.<br><br>
-      You are prompted for the username or email of the identity you want to recover.<br><br>
-      We will send a verification code to the email registered to the identity and you will be prompted to enter this verification code along with the new password.<br><br>
-      If entered correctly the password of the identity will be updated and you will be prompted to login with the new password.<br><br>
-      Stay safe.
-    </p>
+  <span class="info">Go to <a href="/authenticate">authentication</a></span>
+</div>
 
-    <form action="/recover" method="post">
-      {{ .csrfField }}
-
-      <div class="input-group">
-        <input name="identity" type="text" placeholder="Enter username or email" value="{{ .username }}" required>
-        {{if .errorIdentity}} <label for="identity" class="error">{{ .errorIdentity }}</label> {{end}}
-      </div>
-
-      <input type="submit" name="submit" value="Recover" />
-    </form>
-
-    <span class="info">Go to <a href="/authenticate">authentication</a></span>
-  </div>
-
-  <script type="text/javascript"></script>
-</body>
+{{ template "htmlend" . }}

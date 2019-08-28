@@ -1,0 +1,231 @@
+@import '_vars.scss';
+
+body {
+  padding:0;
+  margin:0;
+  font-family: "Roboto", sans-serif;
+}
+
+img#fingerprint {
+  height: 30px;
+}
+img.circle {
+  border-radius: 50%;
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: 1fr; /* Side nav is hidden on mobile */
+  grid-template-rows: 50px 1fr 50px;
+  grid-template-areas:
+    'header'
+    'main'
+    'footer';
+  height: 100vh;
+}
+
+.sidenav {
+  display: none;
+  grid-area: sidenav;
+  background-color: $base1-bg;
+}
+
+.main-cards {
+  column-count: 1;
+  column-gap: 20px;
+  margin: 20px;
+}
+
+/* Non-mobile styles, 750px breakpoint */
+@media only screen and (min-width: 46.875em) {
+  /* Show the sidenav */
+  .grid-container {
+    grid-template-columns: 240px 1fr; /* Show the side nav for non-mobile screens */
+    grid-template-areas:
+      "sidenav header"
+      "sidenav main"
+      "sidenav footer";
+  }
+  .sidenav {
+    display: flex;
+    flex-direction: column;
+  }
+}
+/* Medium-sized screen breakpoint (tablet, 1050px) */
+@media only screen and (min-width: 65.625em) {
+  /* Break out main cards into two columns */
+  .main-cards {
+    column-count: 2;
+  }
+}
+
+/* Hamburger menu icon, stays fixed on mobile for any possible scrolling */
+.menu-icon {
+  position: fixed;
+  display: flex;
+  top: 5px;
+  left: 10px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  z-index: 1;
+  cursor: pointer;
+  padding: 12px;
+  background-color: $sidebar-icon-fg;
+}
+
+/* Make room for the menu icon on mobile */
+.header__search {
+  margin-left: 42px;
+}
+
+/* Mobile-first side nav styles */
+.sidenav {
+  grid-area: sidenav;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 240px;
+  position: fixed;
+  overflow-y: auto;
+  box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  z-index: 2; /* Needs to sit above the hamburger menu icon */
+  background-color: $sidebar-bg;
+  transform: translateX(-245px);
+  transition: all .6s ease-in-out;
+}
+
+/* The active class is toggled on hamburger and close icon clicks */
+.sidenav.active {
+  transform: translateX(0);
+}
+
+/* Only visible on mobile screens */
+.sidenav__close-icon {
+  position: absolute;
+  visibility: visible;
+  top: 8px;
+  right: 12px;
+  cursor: pointer;
+  font-size: 20px;
+  color: $sidebar-icon-fg;
+}
+
+/* Non-mobile styles for side nav responsiveness, 750px breakpoint */
+@media only screen and (min-width: 46.875em) {
+  .sidenav {
+    position: relative; /* Fixed position on mobile */
+    transform: translateX(0);
+  }
+
+  .sidenav__close-icon {
+    visibility: hidden;
+  }
+}
+
+/* Give every child element its grid name */
+.header {
+  grid-area: header;
+  background-color: $header-bg;
+}
+
+.main {
+  grid-area: main;
+  background-color: $main-bg;
+}
+
+.footer {
+  grid-area: footer;
+  background-color: $footer-bg;
+}
+
+.header, .footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.sidenav {
+  display: flex; /* Will be hidden on mobile */
+  flex-direction: column;
+  grid-area: sidenav;
+  background-color: $sidebar-bg;
+}
+.sidenav__logo {
+  padding: 0;
+  list-style-type: none;
+  padding: $sidebar-padding;
+  color:$sidebar-fg;
+}
+.sidenav__identity {
+  background: $sidebar-identity-bg; // #4D5672
+}
+.sidenav__identity img {
+  padding: $sidebar-padding;
+  float:left;
+}
+.sidenav__identity span.name {
+  padding:37px 0;
+  display:inline-block;
+  float:left;
+  color: $sidebar-fg;
+}
+.sidenav__list {
+  padding: 0;
+  margin-top: 85px;
+  list-style-type: none;
+}
+.sidenav__list-item {
+  padding: $sidebar-padding;
+  color: $sidebar-fg;
+}
+.sidenav__list-item:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: $main-padding;
+  height: 150px; /* Force our height since we don't have actual content yet */
+  background-color: #AAA; // #e3e4e6;
+  color: white;
+}
+
+.main-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); /* Where the magic happens */
+  grid-auto-rows: 94px;
+  grid-gap: 20px;
+  margin: $main-margin;
+}
+
+.main-cards {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(265px, 1fr)); /* Where the magic happens */
+  grid-auto-rows: 94px;
+  grid-gap: 0;
+  margin: $main-margin;
+}
+
+.overviewcard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $main-padding;
+  background-color: #d3d3;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background-color: #82bef6;
+  margin-bottom: 20px;
+  -webkit-column-break-inside: avoid;
+  padding: 24px;
+  box-sizing: border-box;
+}

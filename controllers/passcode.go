@@ -59,6 +59,7 @@ func ShowPasscode(env *environment.State, route environment.Route) gin.HandlerFu
     }
 
     c.HTML(200, "passcode.html", gin.H{
+      "__title": "Passcode",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "challenge": loginChallenge,
       "username": id,

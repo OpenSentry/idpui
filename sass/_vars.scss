@@ -1,0 +1,32 @@
+$base1-bg: #394263;
+$base1-fg: #ddd;
+$base2-bg: #fff;
+$base2-fg: #888;
+$base3-bg: #eee;
+$base3-fg: #888;
+
+$default-padding: 20px;
+$default-margin: 20px;
+
+$sidebar-bg: $base1-bg;
+$sidebar-fg: $base1-fg;
+$sidebar-icon-fg: $base1-fg;
+$sidebar-identity-fg: $base1-fg;
+$sidebar-identity-bg: lighten( $base1-bg, 10% );
+$sidebar-padding: $default-padding;
+$sidebar-margin: $default-margin;
+
+$header-bg: $base2-bg;
+$header-fg: $base2-fg;
+$header-padding: $default-padding;
+$header-margin: $default-margin;
+
+$main-bg: $base3-bg;
+$main-fg: $base3-fg;
+$main-padding: $default-padding;
+$main-margin: $default-margin;
+
+$footer-bg: $base2-bg;
+$footer-fg: $base2-fg;
+$footer-padding: $default-padding;
+$footer-margin: $default-margin;

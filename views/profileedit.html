@@ -1,62 +1,52 @@
-<head>
+{{ template "htmlbegin" . }}
 
-  <meta charset="utf-8">
+<h1>Greetings, {{ .registeredDisplayName }}</h1>
+<p>
+This is where you can edit your profile data, like email and name.
+</p>
 
-  <title>Edit profile</title>
-  <meta name="description" content="Edit profile">
-  <meta name="author" content="Company">
+<h2>Profile</h2>
 
-</head>
-<body>
-
-  <h1>Greetings, {{ .registeredDisplayName }}</h1>
-  <p>
-  This is where you can edit your profile data, like email and name.
-  </p>
-
-  <h2>Profile</h2>
-
-  <p>We have registered the following data on you:</p>
-  <div>
-    <div style="margin:10px">
-      <span>Username:</span>
-      <span>{{ .user }}</span>
-    </div>
-
-    <div style="margin:10px">
-      <span>Name:</span>
-      <span>{{ .registeredDisplayName }}</span>
-    </div>
-
-    <div style="margin:10px">
-      <span>Email:</span>
-      <span>{{ .registeredEmail }}</span>
-    </div>
+<p>We have registered the following data on you:</p>
+<div>
+  <div style="margin:10px">
+    <span>Username:</span>
+    <span>{{ .user }}</span>
   </div>
 
-  <p>Edit:</p>
-  <form action="/me/edit" method="post">
-    {{ .csrfField }}
+  <div style="margin:10px">
+    <span>Name:</span>
+    <span>{{ .registeredDisplayName }}</span>
+  </div>
 
-    <div style="margin:10px">
-      <span>Username:</span>
-      <span>{{ .user }}</span>
-    </div>
+  <div style="margin:10px">
+    <span>Email:</span>
+    <span>{{ .registeredEmail }}</span>
+  </div>
+</div>
 
-    <div style="margin:10px">
-      <label for="display-name">Name:</label>
-      <input name="display-name" type="text" autocomplete="name" value="{{ .displayName }}" placeholder="Enter your full name">
-      {{if .errorDisplayName}} <div class="error">{{ .errorDisplayName }}</div> {{end}}
-    </div>
+<p>Edit:</p>
+<form action="/me/edit" method="post">
+  {{ .csrfField }}
 
-    <div style="margin:10px">
-      <label for="email">Email:</label>
-      <input name="email" type="text" autocomplete="email" value="{{ .email }}" placeholder="Enter your email" />
-      {{if .errorEmail}} <div class="error">{{ .errorEmail }}</div> {{end}}
-    </div>
+  <div style="margin:10px">
+    <span>Username:</span>
+    <span>{{ .user }}</span>
+  </div>
 
-    <input type="submit" name="submit" value="Save edits" />
-  </form>
+  <div style="margin:10px">
+    <label for="display-name">Name:</label>
+    <input name="display-name" type="text" autocomplete="name" value="{{ .displayName }}" placeholder="Enter your full name">
+    {{if .errorDisplayName}} <div class="error">{{ .errorDisplayName }}</div> {{end}}
+  </div>
 
-  <script type="text/javascript"></script>
-</body>
+  <div style="margin:10px">
+    <label for="email">Email:</label>
+    <input name="email" type="text" autocomplete="email" value="{{ .email }}" placeholder="Enter your email" />
+    {{if .errorEmail}} <div class="error">{{ .errorEmail }}</div> {{end}}
+  </div>
+
+  <input type="submit" name="submit" value="Save edits" />
+</form>
+
+{{ template "htmlbegin" . }}

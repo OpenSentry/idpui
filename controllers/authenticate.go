@@ -97,6 +97,10 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
     }
 
     c.HTML(200, "authenticate.html", gin.H{
+      "__links": []map[string]string{
+        {"href": "/public/css/main.css"},
+      },
+      "__title": "Authenticate",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "challenge": loginChallenge,
       "username": username,

@@ -1,48 +1,38 @@
-<head>
+{{ template "htmlbegin" . }}
 
-  <meta charset="utf-8">
+<h1>Greetings, {{ .name }}</h1>
+<p>
+This is where you can setup two factor authentication for your profile.
+</p>
 
-  <title>Two Factor</title>
-  <meta name="description" content="Two Factor">
-  <meta name="author" content="Company">
+<h2>Two factor using Authenticator App</h2>
 
-</head>
-<body>
-
-  <h1>Greetings, {{ .name }}</h1>
-  <p>
-  This is where you can setup two factor authentication for your profile.
-  </p>
-
-  <h2>Two factor using Authenticator App</h2>
-
-  <div>
-    <div style="margin:10px">
-      <span>Issuer:</span>
-      <span>{{ .issuer }}</span>
-    </div>
-
-    <div style="margin:10px">
-      <span>Secret:</span>
-      <span>{{ .secret }}</span>
-    </div>
+<div>
+  <div style="margin:10px">
+    <span>Issuer:</span>
+    <span>{{ .issuer }}</span>
   </div>
 
-  <img src="data:image/png;base64, {{ .qrcode }}" alt="QR Code" />
+  <div style="margin:10px">
+    <span>Secret:</span>
+    <span>{{ .secret }}</span>
+  </div>
+</div>
 
-  <form action="/me/2fa" method="post">
-    {{ .csrfField }}
+<img src="data:image/png;base64, {{ .qrcode }}" alt="QR Code" />
 
-    <input type="hidden" name="secret" value="{{ .secret }}">
+<form action="/me/2fa" method="post">
+  {{ .csrfField }}
 
-    <div style="margin:10px">
-      <label for="passcode">Passcode:</label>
-      <input name="passcode" type="password" placeholder="Enter passcode" required>
-      {{if .errorPasscode}} <div class="error">{{ .errorPasscode }}</div> {{end}}
-    </div>
+  <input type="hidden" name="secret" value="{{ .secret }}">
 
-    <input type="submit" name="submit" value="Verify" />
-  </form>
+  <div style="margin:10px">
+    <label for="passcode">Passcode:</label>
+    <input name="passcode" type="password" placeholder="Enter passcode" required>
+    {{if .errorPasscode}} <div class="error">{{ .errorPasscode }}</div> {{end}}
+  </div>
 
-  <script type="text/javascript"></script>
-</body>
+  <input type="submit" name="submit" value="Verify" />
+</form>
+
+{{ template "htmlend" . }}

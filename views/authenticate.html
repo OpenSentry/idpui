@@ -1,46 +1,34 @@
-<head>
+{{ template "htmlbegin" . }}
 
-  <meta charset="utf-8">
+<div id="top-spacer"></div>
 
-  <title>Authentication</title>
-  <meta name="description" content="Authentication">
-  <meta name="author" content="Company">
+<div id="content-wrapper">
+  <h1 class="fingerprint">Identity Provider</h1>
 
-  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
+  <form action="/authenticate" method="post">
+    {{ .csrfField }}
+    <input type="hidden" name="challenge" value="{{ .challenge }}" />
 
-</head>
-<body>
+    <div class="input-group">
+      <input name="username" type="text" autocomplete="username" placeholder="Enter your username" value="{{ .username }}" required>
+      {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
+    </div>
 
-  <div id="top-spacer"></div>
+    <div class="input-group">
+      <input name="password" type="password" autocomplete="current-password" placeholder="Enter your password, sshhh..." required>
+      {{if .errorPassword}} <label for="password" class="error">{{ .errorPassword }}</label> {{end}}
+    </div>
 
-  <div id="content-wrapper">
-    <h1 class="fingerprint">Identity Provider</h1>
+    <input type="submit" name="submit" value="Connect" />
+  </form>
 
-    <form action="/authenticate" method="post">
-      {{ .csrfField }}
-      <input type="hidden" name="challenge" value="{{ .challenge }}" />
+  <span class="info">Forgot your credentials? <a href="/recover">Recover</a></span>
+  <span class="info">Don't have an account yet? <a href="/register">Sign up</a></span>
 
-      <div class="input-group">
-        <input name="username" type="text" autocomplete="username" placeholder="Enter your username" value="{{ .username }}" required>
-        {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
-      </div>
+</div>
 
-      <div class="input-group">
-        <input name="password" type="password" autocomplete="current-password" placeholder="Enter your password, sshhh..." required>
-        {{if .errorPassword}} <label for="password" class="error">{{ .errorPassword }}</label> {{end}}
-      </div>
+<div id="debug-wrapper">
+  <span class="info">Login challenge: {{ .challenge }}</span>
+<div>
 
-      <input type="submit" name="submit" value="Connect" />
-    </form>
-
-    <span class="info">Forgot your credentials? <a href="/recover">Recover</a></span>
-    <span class="info">Don't have an account yet? <a href="/register">Sign up</a></span>
-
-  </div>
-
-  <div id="debug-wrapper">
-    <span class="info">Login challenge: {{ .challenge }}</span>
-  <div>
-
-  <script type="text/javascript"></script>
-</body>
+{{ template "htmlend" . }}

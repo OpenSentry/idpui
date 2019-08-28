@@ -1,44 +1,32 @@
-<head>
+{{ template "htmlbegin" . }}
 
-  <meta charset="utf-8">
+<div id="top-spacer"></div>
 
-  <title>Delete Identity</title>
-  <meta name="description" content="Delete Identity">
-  <meta name="author" content="Company">
+<div id="content-wrapper">
+  <h1 class="fingerprint">Identity Provider</h1>
 
-  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
+  <h2>Delete Identity</h2>
 
-</head>
-<body>
+  <p>
+    If you wish to delete your identity, you can start the process here. You must accept the risk to start the process.<br><br>
+    Beware this is a non recoverable action. Meaning we cannot restore your identity once deleted.<br><br>
+    All information will be lost.<br><br>
+    We will send you an email with a verification code, which must be entered when prompted for the deletion to happen.<br><br>
+    Stay safe.
+  </p>
 
-  <div id="top-spacer"></div>
+  <form action="/me/delete" method="post">
+    {{ .csrfField }}
 
-  <div id="content-wrapper">
-    <h1 class="fingerprint">Identity Provider</h1>
+    <div class="input-group">
+      <input name="risk_accepted" type="checkbox" value="accept">
+      <label for="risk_accepted">I accept the risk of deleting my profile</label>
+      {{if .errorRiskAccepted}} <label for="risk_accepted" class="error">{{ .errorRiskAccepted }}</label> {{end}}
+    </div>
 
-    <h2>Delete Identity</h2>
+    <input type="submit" name="submit" value="Delete profile" />
+  </form>
 
-    <p>
-      If you wish to delete your identity, you can start the process here. You must accept the risk to start the process.<br><br>
-      Beware this is a non recoverable action. Meaning we cannot restore your identity once deleted.<br><br>
-      All information will be lost.<br><br>
-      We will send you an email with a verification code, which must be entered when prompted for the deletion to happen.<br><br>
-      Stay safe.
-    </p>
+</div>
 
-    <form action="/me/delete" method="post">
-      {{ .csrfField }}
-
-      <div class="input-group">
-        <input name="risk_accepted" type="checkbox" value="accept">
-        <label for="risk_accepted">I accept the risk of deleting my profile</label>
-        {{if .errorRiskAccepted}} <label for="risk_accepted" class="error">{{ .errorRiskAccepted }}</label> {{end}}
-      </div>
-
-      <input type="submit" name="submit" value="Delete profile" />
-    </form>
-
-  </div>
-
-  <script type="text/javascript"></script>
-</body>
+{{ template "htmlend" . }}
