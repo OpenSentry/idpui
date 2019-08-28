@@ -1,67 +1,57 @@
-<head>
+{{ template "htmlbegin" . }}
 
-  <meta charset="utf-8">
+<h1>Greetings, {{ .name }}</h1>
+<p>
+This is where you can view your profile data, like email and name, or view which apps you consented access to your data.
+</p>
 
-  <title>Profile</title>
-  <meta name="description" content="Profile">
-  <meta name="author" content="Company">
+<h2>Profile</h2>
+<p>
+We have registered the following data on you:
 
-</head>
-<body>
-
-  <h1>Greetings, {{ .name }}</h1>
-  <p>
-  This is where you can view your profile data, like email and name, or view which apps you consented access to your data.
-  </p>
-
-  <h2>Profile</h2>
-  <p>
-  We have registered the following data on you:
-
-  <div>
-    <div style="margin:10px">
-      <span>Username:</span>
-      <span>{{ .user }}</span>
-    </div>
-
-    <div style="margin:10px">
-      <span>Name:</span>
-      <span>{{ .name }}</span>
-    </div>
-
-    <div style="margin:10px">
-      <span>Email:</span>
-      <span>{{ .email }}</span>
-    </div>
+<div>
+  <div style="margin:10px">
+    <span>Username:</span>
+    <span>{{ .user }}</span>
   </div>
 
-  <a href="/logout">Logout</a>
-  <a href="/password">Change password</a>
-  <a href="/me/edit">Edit profile</a>
-  <a href="/me/2fa">Two factor</a>
-  <a href="/me/delete">Delete identity</a>
+  <div style="margin:10px">
+    <span>Name:</span>
+    <span>{{ .name }}</span>
+  </div>
 
-  <h2>Managing</h2>
-  <p>
-  You manage the following people and systems:
-  <br><br>
-  n/a
-  </p>
+  <div style="margin:10px">
+    <span>Email:</span>
+    <span>{{ .email }}</span>
+  </div>
+</div>
 
-  <h2>Permission</h2>
-  <p>
-  You are granted the following access to apps:
-  <br></br>
-  {{ .permissions }}
-  </p>
+<a href="/logout">Logout</a>
+<a href="/password">Change password</a>
+<a href="/me/edit">Edit profile</a>
+<a href="/me/2fa">Two factor</a>
+<a href="/me/delete">Delete identity</a>
 
-  <h2>Consent</h2>
-  <p>
-  You have granted the following apps access to your data:
-  <br><br>
-  {{ .consents }}
-  </p>
-  <a href="/consent">Revoke consent to all apps</a>
+<h2>Managing</h2>
+<p>
+You manage the following people and systems:
+<br><br>
+n/a
+</p>
 
-  <script type="text/javascript"></script>
-</body>
+<h2>Permission</h2>
+<p>
+You are granted the following access to apps:
+<br></br>
+{{ .permissions }}
+</p>
+
+<h2>Consent</h2>
+<p>
+You have granted the following apps access to your data:
+<br><br>
+{{ .consents }}
+</p>
+<a href="/consent">Revoke consent to all apps</a>
+
+{{ template "htmlend" . }}

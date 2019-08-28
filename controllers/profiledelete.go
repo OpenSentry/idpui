@@ -61,6 +61,7 @@ func ShowProfileDelete(env *environment.State, route environment.Route) gin.Hand
     }
 
     c.HTML(http.StatusOK, "profiledelete.html", gin.H{
+      "__title": "Delete profile",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "username": idToken.Subject,
       "RiskAccepted": riskAccepted,

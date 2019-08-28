@@ -35,6 +35,7 @@ func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc
 
     logoutError := c.Query("logout_error")
     c.HTML(http.StatusOK, "logout.html", gin.H{
+      "__title": "Logout",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "challenge": logoutChallenge,
       "logout_error": logoutError,
@@ -93,6 +94,7 @@ func ShowLogoutSession(env *environment.State, route environment.Route) gin.Hand
     })
 
     c.HTML(200, "session-logout.html", gin.H{
+      "__title": "Session logout",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
     })
   }

@@ -64,6 +64,7 @@ func ShowRecoverVerification(env *environment.State, route environment.Route) gi
     }
 
     c.HTML(http.StatusOK, "recoververification.html", gin.H{
+      "__title": "Recover verification",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "username": username,
       "errorUsername": errorUsername,

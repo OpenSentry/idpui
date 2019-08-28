@@ -1,31 +1,19 @@
-<head>
+{{ template "htmlbegin" . }}
 
-  <meta charset="utf-8">
+<div id="top-spacer"></div>
 
-  <title>Profile</title>
-  <meta name="description" content="Unauthorized">
-  <meta name="author" content="Company">
+<div id="content-wrapper">
+  <h2>Unauthorized</h2>
 
-  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
+  <p>
+    Access to requested resource was denied.
+  </p>
 
-</head>
-<body>
+  <h3>Error</h3>
+  <p>
+    {{ .error }}
+  </p>
 
-  <div id="top-spacer"></div>
+</div>
 
-  <div id="content-wrapper">
-    <h2>Unauthorized</h2>
-
-    <p>
-      Access to requested resource was denied.
-    </p>
-
-    <h3>Error</h3>
-    <p>
-      {{ .error }}
-    </p>
-
-  </div>
-
-  <script type="text/javascript"></script>
-</body>
+{{ template "htmlend" . }}

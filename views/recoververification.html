@@ -1,53 +1,41 @@
-<head>
+{{ template "htmlbegin" . }}
 
-  <meta charset="utf-8">
+<div id="top-spacer"></div>
 
-  <title>Password</title>
-  <meta name="description" content="Password">
-  <meta name="author" content="Company">
+<div id="content-wrapper">
+  <h1 class="fingerprint">Identity Provider</h1>
 
-  <link rel="stylesheet" type="text/css" href="/public/css/main.css">
+  <h2>Recover Identity</h2>
+  <p>
+    Please enter the verification code we sent to your email aswell as the new password you wish to use.
+  </p>
 
-</head>
-<body>
+  <form action="/recoververification" method="post">
+    {{ .csrfField }}
 
-  <div id="top-spacer"></div>
+    <div class="input-group">
+      <input name="username" type="hidden" value="{{ .username }}" required>
+      {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
+    </div>
 
-  <div id="content-wrapper">
-    <h1 class="fingerprint">Identity Provider</h1>
+    <div class="input-group">
+      <input name="verification_code" type="password" placeholder="Enter your verification code" required>
+      {{if .errorVerificationCode}} <label for="verification_code" class="error">{{ .errorVerificationCode }}</label> {{end}}
+    </div>
 
-    <h2>Recover Identity</h2>
-    <p>
-      Please enter the verification code we sent to your email aswell as the new password you wish to use.
-    </p>
+    <div class="input-group">
+      <input name="password" type="password" autocomplete="new-password" placeholder="Enter your NEW password, sshhh..." required>
+      {{if .errorPassword}} <label for="password" class="error">{{ .errorPassword }}</label> {{end}}
+    </div>
 
-    <form action="/recoververification" method="post">
-      {{ .csrfField }}
+    <div class="input-group">
+      <input name="password_retyped" type="password" autocomplete="new-password" placeholder="Enter your NEW password again, just checking..." required>
+      {{if .errorPasswordRetyped}} <label for="password_retyped" class="error">{{ .errorPasswordRetyped }}</label> {{end}}
+    </div>
 
-      <div class="input-group">
-        <input name="username" type="hidden" value="{{ .username }}" required>
-        {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
-      </div>
+    <input type="submit" name="submit" value="Verify and change password" />
+  </form>
 
-      <div class="input-group">
-        <input name="verification_code" type="password" placeholder="Enter your verification code" required>
-        {{if .errorVerificationCode}} <label for="verification_code" class="error">{{ .errorVerificationCode }}</label> {{end}}
-      </div>
+</div>
 
-      <div class="input-group">
-        <input name="password" type="password" autocomplete="new-password" placeholder="Enter your NEW password, sshhh..." required>
-        {{if .errorPassword}} <label for="password" class="error">{{ .errorPassword }}</label> {{end}}
-      </div>
-
-      <div class="input-group">
-        <input name="password_retyped" type="password" autocomplete="new-password" placeholder="Enter your NEW password again, just checking..." required>
-        {{if .errorPasswordRetyped}} <label for="password_retyped" class="error">{{ .errorPasswordRetyped }}</label> {{end}}
-      </div>
-
-      <input type="submit" name="submit" value="Verify and change password" />
-    </form>
-
-  </div>
-
-  <script type="text/javascript"></script>
-</body>
+{{ template "htmlend" . }}

@@ -47,6 +47,10 @@ func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFun
     }
 
     c.HTML(200, "recover.html", gin.H{
+      "__links": []map[string]string{
+        {"href": "/public/css/main.css"},
+      },
+      "__title": "Recover",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "username": username,
       "errorIdentity": errorIdentity,

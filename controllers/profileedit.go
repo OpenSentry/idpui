@@ -98,6 +98,7 @@ func ShowProfileEdit(env *environment.State, route environment.Route) gin.Handle
     }
 
     c.HTML(http.StatusOK, "profileedit.html", gin.H{
+      "__title": "Edit profile",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "user": idToken.Subject,
       "displayName": displayName,
