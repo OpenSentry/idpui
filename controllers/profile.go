@@ -8,10 +8,11 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  "idpui/config"
-  "idpui/environment"
   idp "github.com/charmixer/idp/client"
-  "idpui/gateway/aap"
+  aap "github.com/charmixer/aap/client"
+
+  "github.com/charmixer/idpui/config"
+  "github.com/charmixer/idpui/environment"
 )
 
 func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFunc {

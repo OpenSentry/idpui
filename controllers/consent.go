@@ -7,8 +7,9 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   oidc "github.com/coreos/go-oidc"
-  "idpui/environment"
   idp "github.com/charmixer/idp/client"
+
+  "github.com/charmixer/idpui/environment"
 )
 
 func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFunc {

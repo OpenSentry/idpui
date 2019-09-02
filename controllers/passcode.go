@@ -9,9 +9,10 @@ import (
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
-  "idpui/config"
-  "idpui/environment"
   idp "github.com/charmixer/idp/client"
+
+  "github.com/charmixer/idpui/config"
+  "github.com/charmixer/idpui/environment"
 )
 
 type passcodeForm struct {
