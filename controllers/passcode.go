@@ -11,7 +11,7 @@ import (
   "github.com/gorilla/csrf"
   "idpui/config"
   "idpui/environment"
-  "idpui/gateway/idp"
+  idp "github.com/charmixer/idp/client"
 )
 
 type passcodeForm struct {

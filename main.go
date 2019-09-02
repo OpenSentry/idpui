@@ -22,7 +22,7 @@ import (
   "idpui/config"
   "idpui/environment"
   "idpui/controllers"
-  "idpui/gateway/idp"
+  idp "github.com/charmixer/idp/client"
   "github.com/pborman/getopt"
 )
 
