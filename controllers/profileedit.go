@@ -9,9 +9,9 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type profileEditForm struct {
@@ -42,13 +42,13 @@ func ShowProfileEdit(env *environment.State, route environment.Route) gin.Handle
 
     var accessToken *oauth2.Token
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    request := idpapi.IdentityRequest{
+    request := idp.IdentityRequest{
       Id: idToken.Subject,
     }
-    profile, err := idpapi.FetchProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, request)
+    profile, err := idp.FetchProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
     if err != nil {
       c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -144,7 +144,7 @@ func SubmitProfileEdit(env *environment.State, route environment.Route) gin.Hand
 
     var accessToken *oauth2.Token
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Save values if submit fails
     session.Set("profileedit.display-name", form.Name)
@@ -168,12 +168,12 @@ func SubmitProfileEdit(env *environment.State, route environment.Route) gin.Hand
       return
     }
 
-    var profileRequest = idpapi.Profile{
+    var profileRequest = idp.Profile{
       Id: idToken.Subject,
       Email: form.Email,
       Name: form.Name,
     }
-    _ /* profile */, err = idpapi.UpdateProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, profileRequest)
+    _ /* profile */, err = idp.UpdateProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, profileRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

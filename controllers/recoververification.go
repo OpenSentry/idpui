@@ -7,9 +7,9 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type verificationForm struct {
@@ -135,15 +135,15 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
       return
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    recoverRequest := idpapi.RecoverVerificationRequest{
+    recoverRequest := idp.RecoverVerificationRequest{
       Id: username,
       VerificationCode: verificationCode,
       Password: password,
       RedirectTo: "/",
     }
-    recoverResponse, err := idpapi.RecoverVerification(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.recoververification"), idpapiClient, recoverRequest)
+    recoverResponse, err := idp.RecoverVerification(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recoververification"), idpClient, recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

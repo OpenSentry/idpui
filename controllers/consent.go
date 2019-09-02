@@ -7,8 +7,8 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   oidc "github.com/coreos/go-oidc"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -44,12 +44,12 @@ func SubmitConsent(env *environment.State, route environment.Route) gin.HandlerF
       return
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    request := idpapi.RevokeConsentRequest{
+    request := idp.RevokeConsentRequest{
       Id: idToken.Subject,
     }
-    r, err := idpapi.RevokeConsent("fixme", idpapiClient, request)
+    r, err := idp.RevokeConsent("fixme", idpClient, request)
     if err != nil {
       c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
       c.Abort()

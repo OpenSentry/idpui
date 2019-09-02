@@ -9,9 +9,9 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type profileDeleteVerificationForm struct {
@@ -141,14 +141,14 @@ func SubmitProfileDeleteVerification(env *environment.State, route environment.R
 
     var accessToken *oauth2.Token
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
-    deleteRequest := idpapi.DeleteProfileVerificationRequest{
+    deleteRequest := idp.DeleteProfileVerificationRequest{
       Id: idToken.Subject,
       VerificationCode: verificationCode,
-      RedirectTo: config.GetString("idpui.public.url") + config.GetString("idpapi.public.endpoints.profile"),
+      RedirectTo: config.GetString("idpui.public.url") + config.GetString("idp.public.endpoints.profile"),
     }
-    deleteResponse, err := idpapi.DeleteProfileVerification(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.deleteverification"), idpapiClient, deleteRequest)
+    deleteResponse, err := idp.DeleteProfileVerification(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.deleteverification"), idpClient, deleteRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

@@ -10,9 +10,9 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type authenticationForm struct {
@@ -46,12 +46,12 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
       return
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    var authenticateRequest = idpapi.AuthenticateRequest{
+    var authenticateRequest = idp.AuthenticateRequest{
       Challenge: loginChallenge,
     }
-    authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
+    authenticateResponse, err := idp.Authenticate(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), idpClient, authenticateRequest)
     if err != nil {
       log.WithFields(logrus.Fields{
         "challenge": authenticateRequest.Challenge,
@@ -163,15 +163,15 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       return
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    // Ask idpapi to authenticate the user
-    var authenticateRequest = idpapi.AuthenticateRequest{
+    // Ask idp to authenticate the user
+    var authenticateRequest = idp.AuthenticateRequest{
       Id: username,
       Password: password,
       Challenge: form.Challenge,
     }
-    authenticateResponse, err := idpapi.Authenticate(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.authenticate"), idpapiClient, authenticateRequest)
+    authenticateResponse, err := idp.Authenticate(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), idpClient, authenticateRequest)
     if err != nil {
       log.WithFields(logrus.Fields{
         "id": authenticateRequest.Id,
