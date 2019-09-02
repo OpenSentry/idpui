@@ -19,11 +19,12 @@ import (
   "github.com/gwatts/gin-adapter"
   "github.com/atarantini/ginrequestid"
   oidc "github.com/coreos/go-oidc"
-  "idpui/config"
-  "idpui/environment"
-  "idpui/controllers"
-  idp "github.com/charmixer/idp/client"
   "github.com/pborman/getopt"
+  idp "github.com/charmixer/idp/client"
+
+  "github.com/charmixer/idpui/config"
+  "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/controllers"
 )
 
 func init() {
