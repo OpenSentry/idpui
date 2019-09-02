@@ -7,9 +7,9 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type registrationForm struct {
@@ -155,15 +155,15 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
 
     if password == retypedPassword { // Just for safety is caught in the input error detection.
 
-      idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+      idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-      var profileRequest = idpapi.Profile{
+      var profileRequest = idp.Profile{
         Id: form.Username,
         Email: form.Email,
         Password: form.Password,
         Name: form.Name,
       }
-      profile, err := idpapi.CreateProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, profileRequest)
+      profile, err := idp.CreateProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, profileRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

@@ -19,10 +19,10 @@ import (
   "github.com/gwatts/gin-adapter"
   "github.com/atarantini/ginrequestid"
   oidc "github.com/coreos/go-oidc"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/controllers"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/controllers"
+  "idpui/gateway/idp"
   "github.com/pborman/getopt"
 )
 
@@ -57,7 +57,7 @@ func init() {
 
   gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
   gob.Register(&oidc.IDToken{})
-  gob.Register(&idpapi.Profile{})
+  gob.Register(&idp.Profile{})
   gob.Register(make(map[string][]string))
 }
 
@@ -90,22 +90,22 @@ func main() {
     Scopes:       config.GetStringSlice("oauth2.scopes.required"),
   }
 
-  // IdpFe needs to be able as an App using client_id to access idpapi endpoints. Using client credentials flow
-  idpapiConfig := &clientcredentials.Config{
+  // IdpFe needs to be able as an App using client_id to access idp endpoints. Using client credentials flow
+  idpConfig := &clientcredentials.Config{
     ClientID:  config.GetString("oauth2.client.id"),
     ClientSecret: config.GetString("oauth2.client.secret"),
     TokenURL: provider.Endpoint().TokenURL,
     Scopes: config.GetStringSlice("oauth2.scopes.required"),
-    EndpointParams: url.Values{"audience": {"idpapi"}},
+    EndpointParams: url.Values{"audience": {"idp"}},
     AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
   }
 
-  aapapiConfig := &clientcredentials.Config{
+  aapConfig := &clientcredentials.Config{
     ClientID:  config.GetString("oauth2.client.id"),
     ClientSecret: config.GetString("oauth2.client.secret"),
     TokenURL: provider.Endpoint().TokenURL,
     Scopes: config.GetStringSlice("oauth2.scopes.required"),
-    EndpointParams: url.Values{"audience": {"aapapi"}},
+    EndpointParams: url.Values{"audience": {"aap"}},
     AuthStyle: 2, // https://godoc.org/golang.org/x/oauth2#AuthStyle
   }
 
@@ -113,8 +113,8 @@ func main() {
   env := &environment.State{
     Provider: provider,
     HydraConfig: hydraConfig,
-    IdpApiConfig: idpapiConfig,
-    AapApiConfig: aapapiConfig,
+    IdpApiConfig: idpConfig,
+    AapApiConfig: aapConfig,
   }
 
   //optServe := getopt.BoolLong("serve", 0, "Serve application")
@@ -419,8 +419,8 @@ func authorizationRequired(env *environment.State, c *gin.Context, route environ
   // See #3 of QTNA
   log.WithFields(logrus.Fields{"fixme": 1, "qtna": 3}).Debug("Missing check if access token is granted the required scopes")
 
-  /*aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
-  grantedScopes, err := aapapi.IsRequiredScopesGrantedForToken(config.aapapi.AuthorizationsUrl, aapapiClient, requiredScopes)
+  /*aapClient := aap.NewAapApiClient(env.AapApiConfig)
+  grantedScopes, err := aap.IsRequiredScopesGrantedForToken(config.aap.AuthorizationsUrl, aapClient, requiredScopes)
   if err != nil {
     return nil, err
   }*/

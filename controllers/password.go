@@ -9,9 +9,9 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type passwordForm struct {
@@ -136,16 +136,16 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
 
       var accessToken *oauth2.Token
       accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-      idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+      idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
-      //idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+      //idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-      var profileRequest = idpapi.Profile{
+      var profileRequest = idp.Profile{
         Id: idToken.Subject,
         Password: form.Password,
       }
 
-      profile, err := idpapi.UpdatePassword(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.password"), idpapiClient, profileRequest)
+      profile, err := idp.UpdatePassword(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), idpClient, profileRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

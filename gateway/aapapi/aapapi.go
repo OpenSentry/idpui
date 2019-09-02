@@ -1,4 +1,4 @@
-package aapapi
+package aap
 
 import (
   "net/http"

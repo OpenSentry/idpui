@@ -8,10 +8,10 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
-  "golang-idp-fe/gateway/aapapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
+  "idpui/gateway/aap"
 )
 
 func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -36,30 +36,30 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
 
     var accessToken *oauth2.Token
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    request := idpapi.IdentityRequest{
+    request := idp.IdentityRequest{
       Id: idToken.Subject,
     }
-    profile, err := idpapi.FetchProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, request)
+    profile, err := idp.FetchProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
     if err != nil {
       c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
 
-    aapapiClient := aapapi.NewAapApiClient(env.AapApiConfig)
+    aapClient := aap.NewAapApiClient(env.AapApiConfig)
 
-    log.Debug("Please change idpui to only have one client credential that is allowed to call idpapi and aapapi")
+    log.Debug("Please change idpui to only have one client credential that is allowed to call idp and aap")
 
     var consents string = "n/a"
-    consentRequest := aapapi.ConsentRequest{
+    consentRequest := aap.ConsentRequest{
       Subject: idToken.Subject,
       ClientId: env.AapApiConfig.ClientID,
       // RequestedScopes: requestedScopes, // Only look for permissions that was requested (query optimization)
     }
-    grantedScopes, err := aapapi.FetchConsents(config.GetString("aapapi.public.url") + config.GetString("aapapi.public.endpoints.authorizations"), aapapiClient, consentRequest)
+    grantedScopes, err := aap.FetchConsents(config.GetString("aap.public.url") + config.GetString("aap.public.endpoints.authorizations"), aapClient, consentRequest)
     if err != nil {
       log.Debug(err)
     } else {
