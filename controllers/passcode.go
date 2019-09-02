@@ -9,9 +9,9 @@ import (
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type passcodeForm struct {
@@ -87,17 +87,17 @@ func SubmitPasscode(env *environment.State, route environment.Route) gin.Handler
 
     log.WithFields(logrus.Fields{"fixme": 1}).Debug("We need to check that the post request challenge was also made from the right client and not tampered with")
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
     log.WithFields(logrus.Fields{"fixme":1}).Debug("Do we need to call FetchIdentity here to ensure posted username is correct?")
 
     log.WithFields(logrus.Fields{"fixme":1}).Debug("should this use NewIdpApiClientWithUserAccessToken instead as http client?")
-    var passcodeRequest = idpapi.PasscodeRequest{
+    var passcodeRequest = idp.PasscodeRequest{
       Id: form.Username,
       Passcode: form.Passcode,
       Challenge: form.Challenge,
     }
-    passcodeResponse, err := idpapi.VerifyPasscode(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.passcode"), idpapiClient, passcodeRequest)
+    passcodeResponse, err := idp.VerifyPasscode(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.passcode"), idpClient, passcodeRequest)
     if err != nil {
       log.WithFields(logrus.Fields{
         "id": passcodeRequest.Id,

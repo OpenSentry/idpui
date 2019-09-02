@@ -7,9 +7,9 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type recoverForm struct {
@@ -85,12 +85,12 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
       errors["errorIdentity"] = append(errors["errorIdentity"], "Not found")
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    recoverRequest := idpapi.RecoverRequest{
+    recoverRequest := idp.RecoverRequest{
       Id: form.Identity,
     }
-    recoverResponse, err := idpapi.Recover(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.recover"), idpapiClient, recoverRequest)
+    recoverResponse, err := idp.Recover(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), idpClient, recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       errors["errorIdentity"] = append(errors["errorIdentity"], "Not found")

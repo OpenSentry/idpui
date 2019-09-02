@@ -9,7 +9,7 @@ LABEL maintainer="Lasse Nielsen <65roed@gmail.com>"
 RUN apk add --update --no-cache ca-certificates cmake make g++ openssl-dev git curl pkgconfig
 
 # Set the Current Working Directory inside the container
-WORKDIR $GOPATH/src/golang-idp-fe
+WORKDIR $GOPATH/src/idpui
 
 # Copy everything from the current directory to the PWD(Present Working Directory) inside the container
 COPY . .
@@ -30,4 +30,4 @@ RUN chmod +x /entrypoint.sh
 #USER 1000
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["golang-idp-fe"]
+CMD ["idpui"]

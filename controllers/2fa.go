@@ -14,9 +14,9 @@ import (
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
   "github.com/pquerna/otp/totp"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type totpForm struct {
@@ -46,13 +46,13 @@ func Show2Fa(env *environment.State, route environment.Route) gin.HandlerFunc {
 
     var accessToken *oauth2.Token
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    request := idpapi.IdentityRequest{
+    request := idp.IdentityRequest{
       Id: idToken.Subject,
     }
-    profile, err := idpapi.FetchProfile(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.identities"), idpapiClient, request)
+    profile, err := idp.FetchProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
     if err != nil {
       c.HTML(http.StatusNotFound, "2fa.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -153,7 +153,7 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
 
       var accessToken *oauth2.Token
       accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-      idpapiClient := idpapi.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+      idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
       log.WithFields(logrus.Fields{
         "id": idToken.Subject,
@@ -163,14 +163,14 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
         */
       }).Debug("Passcode verified")
 
-      var profileRequest = idpapi.Profile{
+      var profileRequest = idp.Profile{
         Id: idToken.Subject,
-        TwoFactor: idpapi.TwoFactor{
+        TwoFactor: idp.TwoFactor{
           Required: true,
           Secret: form.Secret,
         },
       }
-      profile, err := idpapi.UpdateTwoFactor(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.2fa"), idpapiClient, profileRequest);
+      profile, err := idp.UpdateTwoFactor(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.2fa"), idpClient, profileRequest);
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

@@ -6,9 +6,9 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang-idp-fe/config"
-  "golang-idp-fe/environment"
-  "golang-idp-fe/gateway/idpapi"
+  "idpui/config"
+  "idpui/environment"
+  "idpui/gateway/idp"
 )
 
 type logoutForm struct {
@@ -62,12 +62,12 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
       return
     }
 
-    idpapiClient := idpapi.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    var request = idpapi.LogoutRequest{
+    var request = idp.LogoutRequest{
       Challenge: form.Challenge,
     }
-    logout, err := idpapi.Logout(config.GetString("idpapi.public.url") + config.GetString("idpapi.public.endpoints.logout"), idpapiClient, request)
+    logout, err := idp.Logout(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.logout"), idpClient, request)
     if err != nil {
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
