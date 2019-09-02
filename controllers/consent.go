@@ -8,7 +8,7 @@ import (
   "github.com/gin-contrib/sessions"
   oidc "github.com/coreos/go-oidc"
   "idpui/environment"
-  "idpui/gateway/idp"
+  idp "github.com/charmixer/idp/client"
 )
 
 func ShowConsent(env *environment.State, route environment.Route) gin.HandlerFunc {

@@ -10,7 +10,7 @@ import (
   oidc "github.com/coreos/go-oidc"
   "idpui/config"
   "idpui/environment"
-  "idpui/gateway/idp"
+  idp "github.com/charmixer/idp/client"
   "idpui/gateway/aap"
 )
 
