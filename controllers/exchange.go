@@ -7,8 +7,9 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
   oidc "github.com/coreos/go-oidc"
-  "idpui/config"
-  "idpui/environment"
+
+  "github.com/charmixer/idpui/config"
+  "github.com/charmixer/idpui/environment"
 )
 
 func ExchangeAuthorizationCodeCallback(env *environment.State, route environment.Route) gin.HandlerFunc {

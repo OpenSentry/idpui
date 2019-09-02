@@ -14,9 +14,10 @@ import (
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
   "github.com/pquerna/otp/totp"
-  "idpui/config"
-  "idpui/environment"
   idp "github.com/charmixer/idp/client"
+
+  "github.com/charmixer/idpui/config"
+  "github.com/charmixer/idpui/environment"
 )
 
 type totpForm struct {

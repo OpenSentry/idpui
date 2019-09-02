@@ -7,9 +7,10 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "idpui/config"
-  "idpui/environment"
   idp "github.com/charmixer/idp/client"
+  
+  "github.com/charmixer/idpui/config"
+  "github.com/charmixer/idpui/environment"
 )
 
 type registrationForm struct {

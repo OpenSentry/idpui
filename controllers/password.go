@@ -9,9 +9,10 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  "idpui/config"
-  "idpui/environment"
   idp "github.com/charmixer/idp/client"
+
+  "github.com/charmixer/idpui/config"
+  "github.com/charmixer/idpui/environment"
 )
 
 type passwordForm struct {
