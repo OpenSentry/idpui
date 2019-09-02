@@ -8,7 +8,7 @@ import (
   "github.com/gin-contrib/sessions"
   "idpui/config"
   "idpui/environment"
-  "idpui/gateway/idp"
+  idp "github.com/charmixer/idp/client"
 )
 
 type logoutForm struct {
