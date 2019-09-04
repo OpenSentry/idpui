@@ -5,12 +5,12 @@
 <div id="content-wrapper">
   <h1 class="fingerprint">Identity Provider</h1>
 
-  <form action="/otp" method="post">
+  <form action="/verify" method="post">
     {{ .csrfField }}
     <input type="hidden" name="challenge" value="{{ .challenge }}" />
-    <input type="hidden" name="username" value="{{ .username }}" />
 
-    <input name="otp" type="password" placeholder="Enter otp" required>
+    <input name="code" type="password" placeholder="Enter code" required>
+    {{if .errorCode}} <label for="username" class="error">{{ .errorCode }}</label> {{end}}
 
     <input type="submit" name="submit" value="Verify" />
   </form>
@@ -18,7 +18,7 @@
 </div>
 
 <div id="debug-wrapper">
-  <span class="info">Login challenge: {{ .challenge }}</span>
+  <span class="info">Otp challenge: {{ .challenge }}</span>
 <div>
 
 {{ template "htmlend" . }}

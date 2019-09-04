@@ -10,7 +10,8 @@ import (
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
-  
+  "github.com/charmixer/idp/identities"
+
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 )
@@ -116,10 +117,10 @@ func SubmitProfileDelete(env *environment.State, route environment.Route) gin.Ha
         accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
         idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
-        var deleteRequest = idp.DeleteProfileRequest{
+        var deleteRequest = identities.DeleteRequest{
           Id: idToken.Subject,
         }
-        deleteChallenge, err := idp.DeleteProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, deleteRequest)
+        deleteChallenge, err := idp.DeleteIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, deleteRequest)
         if err != nil {
           log.Debug(err.Error())
           c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

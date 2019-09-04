@@ -11,6 +11,7 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
+  "github.com/charmixer/idp/identities"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -49,9 +50,19 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
 
     idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    var authenticateRequest = idp.AuthenticateRequest{
-      Challenge: loginChallenge,
+    var authenticateRequest identities.AuthenticateRequest
+    otpChallenge := c.Query("otp_challenge")
+    if otpChallenge != "" {
+      authenticateRequest = identities.AuthenticateRequest{
+        Challenge: loginChallenge,
+        //OtpChallenge: otpChallenge,
+      }
+    } else {
+      authenticateRequest = identities.AuthenticateRequest{
+        Challenge: loginChallenge,
+      }
     }
+
     authenticateResponse, err := idp.Authenticate(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), idpClient, authenticateRequest)
     if err != nil {
       log.WithFields(logrus.Fields{
@@ -167,7 +178,7 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
     // Ask idp to authenticate the user
-    var authenticateRequest = idp.AuthenticateRequest{
+    var authenticateRequest = identities.AuthenticateRequest{
       Id: username,
       Password: password,
       Challenge: form.Challenge,
@@ -198,7 +209,7 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       log.WithFields(logrus.Fields{
         "id": authenticateResponse.Id,
         "authenticated": authenticateResponse.Authenticated,
-        "require_2fa": authenticateResponse.Require2Fa,
+        "totp_required": authenticateResponse.TotpRequired,
         "redirect_to": authenticateResponse.RedirectTo,
       }).Debug("Redirecting")
       c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)

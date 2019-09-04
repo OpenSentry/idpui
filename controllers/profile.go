@@ -9,6 +9,7 @@ import (
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
+  "github.com/charmixer/idp/identities"
   aap "github.com/charmixer/aap/client"
 
   "github.com/charmixer/idpui/config"
@@ -40,10 +41,10 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    request := idp.IdentityRequest{
+    request := identities.IdentitiesRequest{
       Id: idToken.Subject,
     }
-    profile, err := idp.FetchProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
+    profile, err := idp.FetchIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
     if err != nil {
       c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
       c.Abort()

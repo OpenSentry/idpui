@@ -27,9 +27,9 @@ This is where you can setup two factor authentication for your profile.
   <input type="hidden" name="secret" value="{{ .secret }}">
 
   <div style="margin:10px">
-    <label for="passcode">Passcode:</label>
-    <input name="passcode" type="password" placeholder="Enter passcode" required>
-    {{if .errorPasscode}} <div class="error">{{ .errorPasscode }}</div> {{end}}
+    <label for="otp">Otp:</label>
+    <input name="otp" type="password" placeholder="Enter otp" required>
+    {{if .errorOtp}} <div class="error">{{ .errorOtp }}</div> {{end}}
   </div>
 
   <input type="submit" name="submit" value="Verify" />

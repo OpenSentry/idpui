@@ -8,6 +8,7 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
+  "github.com/charmixer/idp/identities"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -138,7 +139,7 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
 
     idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    recoverRequest := idp.RecoverVerificationRequest{
+    recoverRequest := identities.RecoverVerificationRequest{
       Id: username,
       VerificationCode: verificationCode,
       Password: password,

@@ -10,6 +10,7 @@ import (
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
+  "github.com/charmixer/idp/identities"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -141,12 +142,12 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
 
       //idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-      var profileRequest = idp.Profile{
+      var passwordRequest = identities.PasswordRequest{
         Id: idToken.Subject,
         Password: form.Password,
       }
 
-      profile, err := idp.UpdatePassword(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), idpClient, profileRequest)
+      profile, err := idp.UpdatePassword(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), idpClient, passwordRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
