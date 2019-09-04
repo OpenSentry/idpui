@@ -41,7 +41,7 @@ func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
     session := sessions.Default(c)
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "2fa.html", gin.H{"error": "Identity not found"})
+      c.HTML(http.StatusNotFound, "totp.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
@@ -56,7 +56,7 @@ func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
     }
     profile, err := idp.FetchIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, identityRequest)
     if err != nil {
-      c.HTML(http.StatusNotFound, "2fa.html", gin.H{"error": "Identity not found"})
+      c.HTML(http.StatusNotFound, "totp.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
@@ -71,7 +71,7 @@ func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
         "totp.issuer": totpOpts.Issuer,
         "totp.accountname": totpOpts.AccountName,
       }).Debug(err)
-      c.HTML(http.StatusInternalServerError, "2fa.html", gin.H{"error": "Failed to generate TOTP code"})
+      c.HTML(http.StatusInternalServerError, "totp.html", gin.H{"error": "Failed to generate TOTP code"})
       c.Abort()
       return
     }
@@ -81,14 +81,14 @@ func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
   	img, err := key.Image(200, 200)
   	if err != nil {
       log.Debug(err)
-      c.HTML(http.StatusInternalServerError, "2fa.html", gin.H{"error": "Failed to generate QR code PNG"})
+      c.HTML(http.StatusInternalServerError, "totp.html", gin.H{"error": "Failed to generate QR code PNG"})
       c.Abort()
       return
   	}
   	png.Encode(&buf, img)
     embedQrCode := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-    c.HTML(http.StatusOK, "2fa.html", gin.H{
+    c.HTML(http.StatusOK, "totp.html", gin.H{
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "__title": "Two Factor Authentication",
       "user": idToken.Subject,
@@ -101,7 +101,7 @@ func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
   }
   return gin.HandlerFunc(fn)
 }
-func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -128,7 +128,7 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
     }
 
     if len(errors) > 0 {
-      session.AddFlash(errors, "2fa.errors")
+      session.AddFlash(errors, "totp.errors")
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
@@ -139,7 +139,7 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
       return
     }
 
-    // We need to validate that the user entered a correct otp form the authenticator app before enabling 2fa on the profile. Or we risk locking the user out of the system.
+    // We need to validate that the user entered a correct otp form the authenticator app before enabling totp on the profile. Or we risk locking the user out of the system.
     // We should also generate a set of one time recovery codes and display to the user (simple generate a set of random codes and let the user print them)
     // see https://github.com/pquerna/otp, https://help.github.com/en/articles/configuring-two-factor-authentication-recovery-methods
   	valid := totp.Validate(form.Otp, form.Secret)
@@ -148,7 +148,7 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
       var idToken *oidc.IDToken
       idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
       if idToken == nil {
-        c.HTML(http.StatusNotFound, "2fa.html", gin.H{"error": "Identity not found"})
+        c.HTML(http.StatusNotFound, "totp.html", gin.H{"error": "Identity not found"})
         c.Abort()
         return
       }

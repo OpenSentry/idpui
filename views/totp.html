@@ -21,7 +21,7 @@ This is where you can setup two factor authentication for your profile.
 
 <img src="data:image/png;base64, {{ .qrcode }}" alt="QR Code" />
 
-<form action="/me/2fa" method="post">
+<form action="/me/totp" method="post">
   {{ .csrfField }}
 
   <input type="hidden" name="secret" value="{{ .secret }}">
