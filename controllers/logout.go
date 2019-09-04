@@ -7,6 +7,7 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
+  "github.com/charmixer/idp/identities"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -65,7 +66,7 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
 
     idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    var request = idp.LogoutRequest{
+    var request = identities.LogoutRequest{
       Challenge: form.Challenge,
     }
     logout, err := idp.Logout(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.logout"), idpClient, request)

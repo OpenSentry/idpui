@@ -8,7 +8,8 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
-  
+  "github.com/charmixer/idp/identities"
+
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 )
@@ -158,13 +159,13 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
 
       idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-      var profileRequest = idp.Profile{
+      var identityRequest = identities.IdentitiesRequest{
         Id: form.Username,
         Email: form.Email,
         Password: form.Password,
         Name: form.Name,
       }
-      profile, err := idp.CreateProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, profileRequest)
+      profile, err := idp.CreateIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, identityRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

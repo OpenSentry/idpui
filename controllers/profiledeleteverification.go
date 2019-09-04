@@ -11,6 +11,7 @@ import (
   oidc "github.com/coreos/go-oidc"
 
   idp "github.com/charmixer/idp/client"
+  "github.com/charmixer/idp/identities"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -145,12 +146,12 @@ func SubmitProfileDeleteVerification(env *environment.State, route environment.R
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
     idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
-    deleteRequest := idp.DeleteProfileVerificationRequest{
+    deleteRequest := identities.DeleteVerificationRequest{
       Id: idToken.Subject,
       VerificationCode: verificationCode,
       RedirectTo: config.GetString("idpui.public.url") + config.GetString("idp.public.endpoints.profile"),
     }
-    deleteResponse, err := idp.DeleteProfileVerification(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.deleteverification"), idpClient, deleteRequest)
+    deleteResponse, err := idp.DeleteIdentityVerification(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.deleteverification"), idpClient, deleteRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

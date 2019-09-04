@@ -15,22 +15,23 @@ import (
   oidc "github.com/coreos/go-oidc"
   "github.com/pquerna/otp/totp"
   idp "github.com/charmixer/idp/client"
+  "github.com/charmixer/idp/identities"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 )
 
 type totpForm struct {
-  Passcode string `form:"passcode"`
+  Otp string `form:"otp"`
   Secret string `form:"secret"`
 }
 
-func Show2Fa(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "Show2Fa",
+      "func": "ShowTotp",
     })
 
     // NOTE: Maybe session is not a good way to do this.
@@ -50,10 +51,10 @@ func Show2Fa(env *environment.State, route environment.Route) gin.HandlerFunc {
     idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    request := idp.IdentityRequest{
+    identityRequest := identities.IdentitiesRequest{
       Id: idToken.Subject,
     }
-    profile, err := idp.FetchProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
+    profile, err := idp.FetchIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, identityRequest)
     if err != nil {
       c.HTML(http.StatusNotFound, "2fa.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -121,9 +122,9 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
 
     errors := make(map[string][]string)
 
-    passcode := strings.TrimSpace(form.Passcode)
-    if passcode == "" {
-      errors["errorPasscode"] = append(errors["errorPasscode"], "Missing passcode")
+    otp := strings.TrimSpace(form.Otp)
+    if otp == "" {
+      errors["errorOtp"] = append(errors["errorOtp"], "Missing otp")
     }
 
     if len(errors) > 0 {
@@ -138,10 +139,10 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
       return
     }
 
-    // We need to validate that the user entered a correct passcode form the authenticator app before enabling 2fa on the profile. Or we risk locking the user out of the system.
+    // We need to validate that the user entered a correct otp form the authenticator app before enabling 2fa on the profile. Or we risk locking the user out of the system.
     // We should also generate a set of one time recovery codes and display to the user (simple generate a set of random codes and let the user print them)
     // see https://github.com/pquerna/otp, https://help.github.com/en/articles/configuring-two-factor-authentication-recovery-methods
-  	valid := totp.Validate(form.Passcode, form.Secret)
+  	valid := totp.Validate(form.Otp, form.Secret)
     if valid == true {
 
       var idToken *oidc.IDToken
@@ -159,19 +160,17 @@ func Submit2Fa(env *environment.State, route environment.Route) gin.HandlerFunc 
       log.WithFields(logrus.Fields{
         "id": idToken.Subject,
         /* DO NOT LOG THIS IS LIKE PASSWORDS
-        "passcode": form.Passcode,
+        "otp": form.Otp,
         "secret": form.Secret,
         */
-      }).Debug("Passcode verified")
+      }).Debug("Otp verified")
 
-      var profileRequest = idp.Profile{
+      var totpRequest = identities.TotpRequest{
         Id: idToken.Subject,
-        TwoFactor: idp.TwoFactor{
-          Required: true,
-          Secret: form.Secret,
-        },
+        TotpRequired: true,
+        TotpSecret: form.Secret,
       }
-      profile, err := idp.UpdateTwoFactor(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.2fa"), idpClient, profileRequest);
+      profile, err := idp.UpdateTotp(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.totp"), idpClient, totpRequest);
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

@@ -21,17 +21,17 @@ type AuthenticateResponse struct {
   Id              string            `json:"id"`
   NotFound        bool              `json:"not_found"`
   Authenticated   bool              `json:"authenticated"`
-  Require2Fa      bool              `json:"require_2fa"`
+  TotpRequired      bool              `json:"totp_required"`
   RedirectTo      string            `json:"redirect_to,omitempty"`
 }
 
-type PasscodeRequest struct {
+type OtpRequest struct {
   Id        string `json:"id" binding:"required"`
-  Passcode  string `json:"passcode" binding:"required"`
+  Otp  string `json:"otp" binding:"required"`
   Challenge string `json:"challenge" binding:"required"`
 }
 
-type PasscodeResponse struct {
+type OtpResponse struct {
   Id         string `json:"id" binding:"required"`
   Verified   bool   `json:"verifed" binding:"required"`
   RedirectTo string `json:"redirect_to" binding:"required"`
@@ -50,8 +50,8 @@ type IdentityRequest struct {
   Name          string          `json:"name,omitempty"`
   Email         string          `json:"email,omitempty"`
   Password      string          `json:"password,omitempty"`
-  Require2Fa    bool            `json:"require_2fa,omitempty"`
-  Secret2Fa     string          `json:"secret_2fa,omitempty"`
+  TotpRequired    bool            `json:"totp_required,omitempty"`
+  TotpSecret     string          `json:"totp_secret,omitempty"`
 }
 
 type IdentityResponse struct {
@@ -59,8 +59,8 @@ type IdentityResponse struct {
   Name          string          `json:"name,omitempty"`
   Email         string          `json:"email,omitempty"`
   Password      string          `json:"password,omitempty"`
-  Require2Fa    bool            `json:"require_2fa,omitempty"`
-  Secret2Fa     string          `json:"secret_2fa,omitempty"`
+  TotpRequired    bool            `json:"totp_required,omitempty"`
+  TotpSecret     string          `json:"totp_secret,omitempty"`
 }
 
 type RevokeConsentRequest struct {
@@ -208,8 +208,8 @@ func CreateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) 
     Email: identityResponse.Email,
     Password: identityResponse.Password,
     TwoFactor: TwoFactor{
-      Required: identityResponse.Require2Fa,
-      Secret: identityResponse.Secret2Fa,
+      Required: identityResponse.TotpRequired,
+      Secret: identityResponse.TotpSecret,
     },
   }
   return newProfile, nil
@@ -307,8 +307,8 @@ func UpdateProfile(identitiesUrl string, client *IdpApiClient, profile Profile) 
     Email: identityResponse.Email,
     Password: identityResponse.Password,
     TwoFactor: TwoFactor{
-      Required: identityResponse.Require2Fa,
-      Secret: identityResponse.Secret2Fa,
+      Required: identityResponse.TotpRequired,
+      Secret: identityResponse.TotpSecret,
     },
   }
   return updatedProfile, nil
@@ -320,8 +320,8 @@ func UpdateTwoFactor(identitiesUrl string, client *IdpApiClient, profile Profile
 
   identityRequest := IdentityRequest{
     Id: profile.Id,
-    Require2Fa: profile.TwoFactor.Required,
-    Secret2Fa: profile.TwoFactor.Secret,
+    TotpRequired: profile.TwoFactor.Required,
+    TotpSecret: profile.TwoFactor.Secret,
 
   }
   body, _ := json.Marshal(identityRequest)
@@ -351,8 +351,8 @@ func UpdateTwoFactor(identitiesUrl string, client *IdpApiClient, profile Profile
     Email: identityResponse.Email,
     Password: identityResponse.Password,
     TwoFactor: TwoFactor{
-      Required: identityResponse.Require2Fa,
-      Secret: identityResponse.Secret2Fa,
+      Required: identityResponse.TotpRequired,
+      Secret: identityResponse.TotpSecret,
     },
   }
   return updatedProfile, nil
@@ -393,8 +393,8 @@ func UpdatePassword(identitiesUrl string, client *IdpApiClient, profile Profile)
     Email: identityResponse.Email,
     Password: identityResponse.Password,
     TwoFactor: TwoFactor{
-      Required: identityResponse.Require2Fa,
-      Secret: identityResponse.Secret2Fa,
+      Required: identityResponse.TotpRequired,
+      Secret: identityResponse.TotpSecret,
     },
   }
   return updatedProfile, nil
@@ -458,8 +458,8 @@ func FetchProfile(url string, client *IdpApiClient, identityRequest IdentityRequ
     Email: identityResponse.Email,
     Password: identityResponse.Password,
     TwoFactor: TwoFactor{
-      Required: identityResponse.Require2Fa,
-      Secret: identityResponse.Secret2Fa,
+      Required: identityResponse.TotpRequired,
+      Secret: identityResponse.TotpSecret,
     },
   }
   return profile, nil
@@ -494,32 +494,32 @@ func Authenticate(authenticateUrl string, client *IdpApiClient, authenticateRequ
   return authenticateResponse, nil
 }
 
-func VerifyPasscode(passcodeUrl string, client *IdpApiClient, passcodeRequest PasscodeRequest) (PasscodeResponse, error) {
-  var passcodeResponse PasscodeResponse
+func VerifyOtp(otpUrl string, client *IdpApiClient, otpRequest OtpRequest) (OtpResponse, error) {
+  var otpResponse OtpResponse
 
-  body, _ := json.Marshal(passcodeRequest)
+  body, _ := json.Marshal(otpRequest)
 
   var data = bytes.NewBuffer(body)
 
-  request, _ := http.NewRequest("POST", passcodeUrl, data)
+  request, _ := http.NewRequest("POST", otpUrl, data)
 
   response, err := client.Do(request)
   if err != nil {
-    return passcodeResponse, err
+    return otpResponse, err
   }
 
   responseData, _ := ioutil.ReadAll(response.Body)
 
   if response.StatusCode != 200 {
-    return passcodeResponse, errors.New(string(responseData))
+    return otpResponse, errors.New(string(responseData))
   }
 
-  err = json.Unmarshal(responseData, &passcodeResponse)
+  err = json.Unmarshal(responseData, &otpResponse)
   if err != nil {
-    return passcodeResponse, err
+    return otpResponse, err
   }
 
-  return passcodeResponse, nil
+  return otpResponse, nil
 }
 
 func Recover(recoverUrl string, client *IdpApiClient, recoverRequest RecoverRequest) (RecoverResponse, error) {

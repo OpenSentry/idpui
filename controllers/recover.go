@@ -8,7 +8,8 @@ import (
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
-  
+  "github.com/charmixer/idp/identities"
+
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 )
@@ -88,7 +89,7 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
 
     idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
 
-    recoverRequest := idp.RecoverRequest{
+    recoverRequest := identities.RecoverRequest{
       Id: form.Identity,
     }
     recoverResponse, err := idp.Recover(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), idpClient, recoverRequest)
