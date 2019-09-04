@@ -215,7 +215,7 @@ func serve(env *environment.State) {
     ep.POST(routes["/me/deleteverification"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/deleteverification"], "openid"), controllers.SubmitProfileDeleteVerification(env, routes["/me/deleteverification"]))
 
     ep.GET(routes["/me/totp"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/totp"], "openid"), controllers.ShowTotp(env, routes["/me/totp"]))
-    ep.POST(routes["/me/totp"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/totp"], "openid"), controllers.Submit2Fa(env, routes["/me/totp"]))
+    ep.POST(routes["/me/totp"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/totp"], "openid"), controllers.SubmitTotp(env, routes["/me/totp"]))
 
     ep.GET(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.ShowPassword(env, routes["/password"]))
     ep.POST(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.SubmitPassword(env, routes["/password"]))
