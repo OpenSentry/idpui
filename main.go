@@ -17,10 +17,10 @@ import (
   "github.com/gin-contrib/sessions/cookie"
   "github.com/gorilla/csrf"
   "github.com/gwatts/gin-adapter"
-  "github.com/atarantini/ginrequestid"
+  "github.com/gofrs/uuid"
   oidc "github.com/coreos/go-oidc"
   "github.com/pborman/getopt"
-  idp "github.com/charmixer/idp/client"
+  //idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -58,7 +58,7 @@ func init() {
 
   gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
   gob.Register(&oidc.IDToken{})
-  gob.Register(&idp.Profile{})
+  //gob.Register(&idp.Profile{})
   gob.Register(make(map[string][]string))
 }
 
@@ -140,7 +140,7 @@ func serve(env *environment.State) {
   r := gin.New() // Clean gin to take control with logging.
   r.Use(gin.Recovery())
 
-  r.Use(ginrequestid.RequestId())
+  r.Use(requestId())
   r.Use(RequestLogger(env))
 
   store := cookie.NewStore([]byte(config.GetString("session.authKey")))
@@ -164,7 +164,7 @@ func serve(env *environment.State) {
   routes := map[string]environment.Route{
     "/":                      environment.Route{URL: "/",                      LogId: "idpui://"},
     "/authenticate":          environment.Route{URL: "/authenticate",          LogId: "idpui://authenticate"},
-    "/passcode":              environment.Route{URL: "/passcode",              LogId: "idpui://passcode"},
+    "/verify":                environment.Route{URL: "/verify",                LogId: "idpui://verify"},
     "/logout":                environment.Route{URL: "/logout",                LogId: "idpui://logout"},
     "/session/logout":        environment.Route{URL: "/session/logout",        LogId: "idpui://session/logout"},
     "/register":              environment.Route{URL: "/register",              LogId: "idpui://register"},
@@ -175,7 +175,7 @@ func serve(env *environment.State) {
     "/me/edit":               environment.Route{URL: "/me/edit",               LogId: "idpui://me/edit"},
     "/me/delete":             environment.Route{URL: "/me/delete",             LogId: "idpui://me/delete"},
     "/me/deleteverification": environment.Route{URL: "/me/deleteverification", LogId: "idpui://me/deleteverification"},
-    "/me/2fa":                environment.Route{URL: "/me/2fa",                LogId: "idpui://me/2fa"},
+    "/me/totp":               environment.Route{URL: "/me/totp",               LogId: "idpui://me/totp"},
     "/password":              environment.Route{URL: "/password",              LogId: "idpui://password"},
     "/consent":               environment.Route{URL: "/consent",               LogId: "idpui://consent"},
   }
@@ -186,8 +186,8 @@ func serve(env *environment.State) {
     ep.GET(routes["/"].URL, controllers.ShowAuthentication(env, routes["/"]))
     ep.GET(routes["/authenticate"].URL, controllers.ShowAuthentication(env, routes["/authenticate"]))
     ep.POST(routes["/authenticate"].URL, controllers.SubmitAuthentication(env, routes["/authenticate"]))
-    ep.GET(routes["/passcode"].URL, controllers.ShowPasscode(env, routes["/passcode"]))
-    ep.POST(routes["/passcode"].URL, controllers.SubmitPasscode(env, routes["/passcode"]))
+    ep.GET(routes["/verify"].URL, controllers.ShowVerify(env, routes["/verify"]))
+    ep.POST(routes["/verify"].URL, controllers.SubmitVerify(env, routes["/verify"]))
 
     ep.GET(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.ShowLogout(env, routes["/logout"]))
     ep.POST(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.SubmitLogout(env, routes["/logout"]))
@@ -214,8 +214,8 @@ func serve(env *environment.State) {
     ep.GET(routes["/me/deleteverification"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/deleteverification"], "openid"), controllers.ShowProfileDeleteVerification(env, routes["/me/deleteverification"]))
     ep.POST(routes["/me/deleteverification"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/deleteverification"], "openid"), controllers.SubmitProfileDeleteVerification(env, routes["/me/deleteverification"]))
 
-    ep.GET(routes["/me/2fa"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/2fa"], "openid"), controllers.Show2Fa(env, routes["/me/2fa"]))
-    ep.POST(routes["/me/2fa"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/2fa"], "openid"), controllers.Submit2Fa(env, routes["/me/2fa"]))
+    ep.GET(routes["/me/totp"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/totp"], "openid"), controllers.ShowTotp(env, routes["/me/totp"]))
+    ep.POST(routes["/me/totp"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/totp"], "openid"), controllers.Submit2Fa(env, routes["/me/totp"]))
 
     ep.GET(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.ShowPassword(env, routes["/password"]))
     ep.POST(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.SubmitPassword(env, routes["/password"]))
@@ -432,4 +432,24 @@ func authorizationRequired(env *environment.State, c *gin.Context, route environ
   strGrantedScopes := strings.Join(grantedScopes, ",")
   log.WithFields(logrus.Fields{"scopes": strGrantedScopes}).Debug("Found required scopes");
   return grantedScopes, nil
+}
+
+func requestId() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check for incoming header, use it if exists
+		requestID := c.Request.Header.Get("X-Request-Id")
+
+		// Create request id with UUID4
+		if requestID == "" {
+			uuid4, _ := uuid.NewV4()
+			requestID = uuid4.String()
+		}
+
+		// Expose it for use in the application
+		c.Set("RequestId", requestID)
+
+		// Set X-Request-Id header
+		c.Writer.Header().Set("X-Request-Id", requestID)
+		c.Next()
+	}
 }

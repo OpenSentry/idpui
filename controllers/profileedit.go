@@ -10,6 +10,7 @@ import (
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
+  "github.com/charmixer/idp/identities"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -46,10 +47,10 @@ func ShowProfileEdit(env *environment.State, route environment.Route) gin.Handle
     idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    request := idp.IdentityRequest{
+    request := identities.IdentitiesRequest{
       Id: idToken.Subject,
     }
-    profile, err := idp.FetchProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
+    profile, err := idp.FetchIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
     if err != nil {
       c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -169,12 +170,12 @@ func SubmitProfileEdit(env *environment.State, route environment.Route) gin.Hand
       return
     }
 
-    var profileRequest = idp.Profile{
+    var identityRequest = identities.IdentitiesRequest{
       Id: idToken.Subject,
       Email: form.Email,
       Name: form.Name,
     }
-    _ /* profile */, err = idp.UpdateProfile(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, profileRequest)
+    _ /* profile */, err = idp.UpdateIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, identityRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
