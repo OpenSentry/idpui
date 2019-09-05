@@ -20,7 +20,6 @@ import (
   "github.com/gofrs/uuid"
   oidc "github.com/coreos/go-oidc"
   "github.com/pborman/getopt"
-  //idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
