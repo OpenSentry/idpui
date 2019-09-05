@@ -2,15 +2,12 @@ package controllers
 
 import (
   "net/http"
-  "strings"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  idp "github.com/charmixer/idp/client"
-  "github.com/charmixer/idp/identities"
-  aap "github.com/charmixer/aap/client"
+  idp "github.com/charmixer/idpclient"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -38,36 +35,20 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
 
     var accessToken *oauth2.Token
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    request := identities.IdentitiesRequest{
+    identityRequest := &idp.IdentitiesReadRequest{
       Id: idToken.Subject,
     }
-    profile, err := idp.FetchIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, request)
+    profile, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
 
-    aapClient := aap.NewAapApiClient(env.AapApiConfig)
-
-    log.Debug("Please change idpui to only have one client credential that is allowed to call idp and aap")
-
     var consents string = "n/a"
-    consentRequest := aap.ConsentRequest{
-      Subject: idToken.Subject,
-      ClientId: env.AapApiConfig.ClientID,
-      // RequestedScopes: requestedScopes, // Only look for permissions that was requested (query optimization)
-    }
-    grantedScopes, err := aap.FetchConsents(config.GetString("aap.public.url") + config.GetString("aap.public.endpoints.authorizations"), aapClient, consentRequest)
-    if err != nil {
-      log.Debug(err)
-    } else {
-      consents = "client_id:"+consentRequest.ClientId+ ", scopes:" + strings.Join(grantedScopes, ",")
-    }
-
     var permissions string = "n/a"
 
     c.HTML(http.StatusOK, "profile.html", gin.H{
