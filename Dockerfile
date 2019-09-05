@@ -33,13 +33,6 @@ COPY . .
 
 RUN go build -o idpui .
 
-# Download all the dependencies
-# https://stackoverflow.com/questions/28031603/what-do-three-dots-mean-in-go-command-line-invocations
-# RUN go get -d -v ./...
-
-# Install the package
-# RUN go install -v ./...
-
 # This container exposes port 443 to the docker network
 EXPOSE 443
 
