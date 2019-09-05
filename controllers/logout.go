@@ -6,8 +6,7 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  idp "github.com/charmixer/idp/client"
-  "github.com/charmixer/idp/identities"
+  idp "github.com/charmixer/idpclient"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -64,12 +63,12 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
       return
     }
 
-    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
-    var request = identities.LogoutRequest{
+    logoutRequest := &idp.IdentitiesLogoutRequest{
       Challenge: form.Challenge,
     }
-    logout, err := idp.Logout(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.logout"), idpClient, request)
+    logout, err := idp.LogoutIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.logout"), logoutRequest)
     if err != nil {
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()

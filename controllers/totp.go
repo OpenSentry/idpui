@@ -14,8 +14,7 @@ import (
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
   "github.com/pquerna/otp/totp"
-  idp "github.com/charmixer/idp/client"
-  "github.com/charmixer/idp/identities"
+  idp "github.com/charmixer/idpclient"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -48,13 +47,13 @@ func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
 
     var accessToken *oauth2.Token
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    identityRequest := identities.IdentitiesRequest{
+    identityRequest := &idp.IdentitiesReadRequest{
       Id: idToken.Subject,
     }
-    profile, err := idp.FetchIdentity(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), idpClient, identityRequest)
+    profile, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       c.HTML(http.StatusNotFound, "totp.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -155,7 +154,7 @@ func SubmitTotp(env *environment.State, route environment.Route) gin.HandlerFunc
 
       var accessToken *oauth2.Token
       accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-      idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+      idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
       log.WithFields(logrus.Fields{
         "id": idToken.Subject,
@@ -165,12 +164,12 @@ func SubmitTotp(env *environment.State, route environment.Route) gin.HandlerFunc
         */
       }).Debug("Otp verified")
 
-      var totpRequest = identities.TotpRequest{
+      totpRequest := &idp.IdentitiesTotpRequest{
         Id: idToken.Subject,
         TotpRequired: true,
         TotpSecret: form.Secret,
       }
-      profile, err := idp.UpdateTotp(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.totp"), idpClient, totpRequest);
+      profile, err := idp.UpdateIdentityTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.totp"), totpRequest);
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
