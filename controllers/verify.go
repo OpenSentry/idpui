@@ -7,8 +7,7 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  idp "github.com/charmixer/idp/client"
-  "github.com/charmixer/idp/challenges"
+  idp "github.com/charmixer/idpclient"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -99,13 +98,13 @@ func SubmitVerify(env *environment.State, route environment.Route) gin.HandlerFu
     session := sessions.Default(c)
     errors := make(map[string][]string)
 
-    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
-    verifyRequest := challenges.VerifyRequest{
+    verifyRequest := &idp.ChallengeVerifyRequest{
       OtpChallenge: form.Challenge,
       Code: form.Code,
     }
-    verifyResponse, err := idp.VerifyChallenge(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.otp"), idpClient, verifyRequest)
+    verifyResponse, err := idp.VerifyChallenge(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.otp"), verifyRequest)
     if err != nil {
       log.Debug(err.Error())
       log.WithFields(logrus.Fields{

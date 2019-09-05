@@ -219,9 +219,6 @@ func serve(env *environment.State) {
 
     ep.GET(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.ShowPassword(env, routes["/password"]))
     ep.POST(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.SubmitPassword(env, routes["/password"]))
-
-    ep.GET(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.ShowConsent(env, routes["/consent"]))
-    ep.POST(routes["/consent"].URL, AuthenticationAndAuthorizationRequired(env, routes["/consent"], "openid"), controllers.SubmitConsent(env, routes["/consent"]))
   }
 
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))

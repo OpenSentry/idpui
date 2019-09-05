@@ -9,8 +9,7 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  idp "github.com/charmixer/idp/client"
-  "github.com/charmixer/idp/identities"
+  idp "github.com/charmixer/idpclient"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -138,16 +137,13 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
 
       var accessToken *oauth2.Token
       accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-      idpClient := idp.NewIdpApiClientWithUserAccessToken(env.HydraConfig, accessToken)
+      idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
-      //idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
-
-      var passwordRequest = identities.PasswordRequest{
+      passwordRequest := &idp.IdentitiesPasswordRequest{
         Id: idToken.Subject,
         Password: form.Password,
       }
-
-      profile, err := idp.UpdatePassword(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), idpClient, passwordRequest)
+      profile, err := idp.UpdateIdentityPassword(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), passwordRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

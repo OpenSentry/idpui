@@ -10,8 +10,7 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  idp "github.com/charmixer/idp/client"
-  "github.com/charmixer/idp/identities"
+  idp "github.com/charmixer/idpclient"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -48,22 +47,22 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
       return
     }
 
-    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
-    var authenticateRequest identities.AuthenticateRequest
+    var authenticateRequest *idp.IdentitiesAuthenticateRequest
     otpChallenge := c.Query("otp_challenge")
     if otpChallenge != "" {
-      authenticateRequest = identities.AuthenticateRequest{
+      authenticateRequest = &idp.IdentitiesAuthenticateRequest{
         Challenge: loginChallenge,
         //OtpChallenge: otpChallenge,
       }
     } else {
-      authenticateRequest = identities.AuthenticateRequest{
+      authenticateRequest = &idp.IdentitiesAuthenticateRequest{
         Challenge: loginChallenge,
       }
     }
 
-    authenticateResponse, err := idp.Authenticate(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), idpClient, authenticateRequest)
+    authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
     if err != nil {
       log.WithFields(logrus.Fields{
         "challenge": authenticateRequest.Challenge,
@@ -175,15 +174,15 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       return
     }
 
-    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
     // Ask idp to authenticate the user
-    var authenticateRequest = identities.AuthenticateRequest{
+    authenticateRequest := &idp.IdentitiesAuthenticateRequest{
       Id: username,
       Password: password,
       Challenge: form.Challenge,
     }
-    authenticateResponse, err := idp.Authenticate(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), idpClient, authenticateRequest)
+    authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
     if err != nil {
       log.WithFields(logrus.Fields{
         "id": authenticateRequest.Id,

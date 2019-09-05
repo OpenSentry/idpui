@@ -7,8 +7,7 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  idp "github.com/charmixer/idp/client"
-  "github.com/charmixer/idp/identities"
+  idp "github.com/charmixer/idpclient"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -87,12 +86,12 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
       errors["errorIdentity"] = append(errors["errorIdentity"], "Not found")
     }
 
-    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
-    recoverRequest := identities.RecoverRequest{
+    recoverRequest := &idp.IdentitiesRecoverRequest{
       Id: form.Identity,
     }
-    recoverResponse, err := idp.Recover(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), idpClient, recoverRequest)
+    recoverResponse, err := idp.RecoverIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       errors["errorIdentity"] = append(errors["errorIdentity"], "Not found")

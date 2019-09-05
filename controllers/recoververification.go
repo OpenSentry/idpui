@@ -7,8 +7,7 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  idp "github.com/charmixer/idp/client"
-  "github.com/charmixer/idp/identities"
+  idp "github.com/charmixer/idpclient"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -137,15 +136,15 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
       return
     }
 
-    idpClient := idp.NewIdpApiClient(env.IdpApiConfig)
+    idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
-    recoverRequest := identities.RecoverVerificationRequest{
+    recoverRequest := &idp.IdentitiesRecoverVerificationRequest{
       Id: username,
       VerificationCode: verificationCode,
       Password: password,
       RedirectTo: "/",
     }
-    recoverResponse, err := idp.RecoverVerification(config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recoververification"), idpClient, recoverRequest)
+    recoverResponse, err := idp.RecoverIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recoververification"), recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
