@@ -2,6 +2,7 @@ package controllers
 
 import (
   "net/http"
+  "net/url"
   "strings"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
@@ -104,7 +105,7 @@ func SubmitVerify(env *environment.State, route environment.Route) gin.HandlerFu
       OtpChallenge: form.Challenge,
       Code: form.Code,
     }
-    verifyResponse, err := idp.VerifyChallenge(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.otp"), verifyRequest)
+    verifyResponse, err := idp.VerifyChallenge(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.verify"), verifyRequest)
     if err != nil {
       log.Debug(err.Error())
       log.WithFields(logrus.Fields{
@@ -117,8 +118,26 @@ func SubmitVerify(env *environment.State, route environment.Route) gin.HandlerFu
     }
 
     if verifyResponse.Verified {
-      log.WithFields(logrus.Fields{"redirect_to": verifyResponse.RedirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, verifyResponse.RedirectTo)
+
+      // Append otp_challenge to redirect_to
+      u, err := url.Parse(verifyResponse.RedirectTo)
+      if err != nil {
+        log.WithFields(logrus.Fields{
+          "otp_challenge": verifyResponse.OtpChallenge,
+          "redirect_to": verifyResponse.RedirectTo,
+        }).Debug(err.Error())
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Redirect invalid. Hint: The challenge redirect_to url is invalid"})
+        c.Abort()
+        return;
+      }
+
+      q := u.Query()
+      q.Set("otp_challenge", verifyResponse.OtpChallenge)
+      u.RawQuery = q.Encode()
+      redirectTo := u.String()
+
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
       return
     }
