@@ -54,7 +54,7 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
     if otpChallenge != "" {
       authenticateRequest = &idp.IdentitiesAuthenticateRequest{
         Challenge: loginChallenge,
-        //OtpChallenge: otpChallenge,
+        OtpChallenge: otpChallenge,
       }
     } else {
       authenticateRequest = &idp.IdentitiesAuthenticateRequest{
