@@ -159,7 +159,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
         Password: form.Password,
         Name: form.Name,
       }
-      profile, err := idp.CreateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+      identity, err := idp.CreateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -175,8 +175,8 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       session.Delete("register.email")
       session.Delete("register.errors")
 
-      // Propagete username to authenticate controller
-      session.Set("authenticate.username", profile.Id)
+      // Propagate username to authenticate controller
+      session.Set("authenticate.username", identity.Subject)
 
       err = session.Save()
       if err != nil {
