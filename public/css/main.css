@@ -7,7 +7,7 @@ html {
 }
 
 h1 {
-  float: left;
+  /* float: left;*/
   display: inline-block;
   font-size: 18pt;
   color: #FFF;
