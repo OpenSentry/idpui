@@ -9,7 +9,7 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
   oidc "github.com/coreos/go-oidc"
-  idp "github.com/charmixer/idpclient"
+  idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
