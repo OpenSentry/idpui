@@ -3,6 +3,7 @@ module github.com/charmixer/idpui
 go 1.12
 
 require (
+	github.com/charmixer/idp v0.0.0-20190909125052-79b2fe65e9ab
 	github.com/charmixer/idpclient v0.0.0-20190905093815-b5a34202cc9f
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/gin-contrib/sessions v0.0.1
@@ -15,11 +16,9 @@ require (
 	github.com/pborman/getopt v0.0.0-20190409184431-ee0cd42419d3
 	github.com/pilu/config v0.0.0-20131214182432-3eb99e6c0b9a // indirect
 	github.com/pilu/fresh v0.0.0-20190826141211-0fa698148017 // indirect
-	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/pquerna/otp v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.4.0
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 )
