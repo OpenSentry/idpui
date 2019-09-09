@@ -41,7 +41,7 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     identityRequest := &idp.IdentitiesReadRequest{
       Id: idToken.Subject,
     }
-    profile, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -52,15 +52,16 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     var permissions string = "n/a"
 
     totpRequired := "No"
-    if profile.TotpRequired == true {
+    if identity.TotpRequired == true {
       totpRequired = "Yes"
     }
 
     c.HTML(http.StatusOK, "profile.html", gin.H{
       "__title": "Profile",
-      "user": idToken.Subject,
-      "name": profile.Name,
-      "email": profile.Email,
+      "id": idToken.Subject,
+      "user": identity.Subject,
+      "name": identity.Name,
+      "email": identity.Email,
       "totp_required": totpRequired,
       "consents": consents,
       "permissions": permissions,
