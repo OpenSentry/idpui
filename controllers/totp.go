@@ -88,6 +88,9 @@ func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
     embedQrCode := base64.StdEncoding.EncodeToString(buf.Bytes())
 
     c.HTML(http.StatusOK, "totp.html", gin.H{
+      "__links": []map[string]string{
+        {"href": "/public/css/main.css"},
+      },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "__title": "Two Factor Authentication",
       "user": idToken.Subject,
