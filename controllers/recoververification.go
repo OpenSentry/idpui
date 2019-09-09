@@ -111,17 +111,12 @@ func SubmitRecoverVerification(env *environment.State, route environment.Route) 
       errors["errorVerificationCode"] = append(errors["errorVerificationCode"], "Missing verification code")
     }
 
-    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Should we trim password?")
-    password := strings.TrimSpace(form.Password)
-    if password == "" {
-      errors["errorPassword"] = append(errors["errorPassword"], "Missing password")
+    password := form.Password
+    if strings.TrimSpace(password) == "" {
+      errors["errorPassword"] = append(errors["errorPassword"], "Missing password. Hint: Not allowed to be all whitespace")
     }
 
-    retypedPassword := strings.TrimSpace(form.PasswordRetyped)
-    if retypedPassword == "" {
-      errors["errorPasswordRetyped"] = append(errors["errorPasswordRetyped"], "Missing password")
-    }
-
+    retypedPassword := form.PasswordRetyped
     if retypedPassword != password {
       errors["errorPasswordRetyped"] = append(errors["errorPasswordRetyped"], "Must match password")
     }

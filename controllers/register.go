@@ -14,11 +14,11 @@ import (
 )
 
 type registrationForm struct {
-    Username string `form:"username"`
-    Name string `form:"display-name"`
-    Email string `form:"email"`
-    Password string `form:"password"`
-    PasswordRetyped string `form:"password_retyped"`
+    Username string `form:"username" binding:"required"`
+    Name string `form:"display-name" binding:"required"`
+    Email string `form:"email" binding:"required"`
+    Password string `form:"password" binding:"required"`
+    PasswordRetyped string `form:"password_retyped" binding:"required"`
 }
 
 func ShowRegistration(env *environment.State, route environment.Route) gin.HandlerFunc {
@@ -127,17 +127,12 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       errors["errorUsername"] = append(errors["errorUsername"], "Missing username")
     }
 
-    // FIXME: should we trim passwords?
-    password := strings.TrimSpace(form.Password)
-    if password == "" {
-      errors["errorPassword"] = append(errors["errorPassword"], "Missing password")
+    password := form.Password
+    if strings.TrimSpace(password) == "" {
+      errors["errorPassword"] = append(errors["errorPassword"], "Missing password. Hint: Not allowed to be all whitespace")
     }
 
-    retypedPassword := strings.TrimSpace(form.PasswordRetyped)
-    if retypedPassword == "" {
-      errors["errorPasswordRetyped"] = append(errors["errorPasswordRetyped"], "Missing password")
-    }
-
+    retypedPassword := form.PasswordRetyped
     if retypedPassword != password {
       errors["errorPasswordRetyped"] = append(errors["errorPasswordRetyped"], "Must match password")
     }
@@ -159,7 +154,7 @@ func SubmitRegistration(env *environment.State, route environment.Route) gin.Han
       idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
       identityRequest := &idp.IdentitiesCreateRequest{
-        Id: form.Username,
+        Subject: form.Username,
         Email: form.Email,
         Password: form.Password,
         Name: form.Name,

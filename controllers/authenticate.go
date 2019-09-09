@@ -155,10 +155,9 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       errors["errorUsername"] = append(errors["errorUsername"], "Missing username")
     }
 
-    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Should we trim password?")
-    password := strings.TrimSpace(form.Password)
-    if password == "" {
-      errors["errorPassword"] = append(errors["errorPassword"], "Missing password")
+    password := form.Password
+    if strings.TrimSpace(password) == "" {
+      errors["errorPassword"] = append(errors["errorPassword"], "Missing password. Hint: Not allowed to be all whitespace")
     }
 
     if len(errors) > 0 {
@@ -176,9 +175,25 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
 
     idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
+    identityRequest := &idp.IdentitiesReadRequest{
+      Subject: username,
+    }
+    identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    if err != nil {
+      log.WithFields(logrus.Fields{
+        "subject": identityRequest.Subject,
+        "challenge": form.Challenge,
+      }).Debug(err.Error())
+      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+      c.Abort()
+      return
+    }
+
+    log.WithFields(logrus.Fields{"id": identityResponse.Id, "subject": identityResponse.Subject, "email": identityResponse.Email}).Debug("Found Identity")
+
     // Ask idp to authenticate the user
     authenticateRequest := &idp.IdentitiesAuthenticateRequest{
-      Id: username,
+      Id: identityResponse.Id,
       Password: password,
       Challenge: form.Challenge,
     }
@@ -194,7 +209,7 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     }
 
     // User authenticated, redirect
-    if authenticateResponse.Authenticated {
+    if authenticateResponse.Authenticated == true {
 
       // Cleanup session
       session.Delete("authenticate.username")
@@ -217,7 +232,6 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     }
 
     // Deny by default
-
     if authenticateResponse.NotFound {
       errors["errorUsername"] = append(errors["errorUsername"], "Not found")
     } else {
