@@ -51,11 +51,17 @@ func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFun
     var consents string = "n/a"
     var permissions string = "n/a"
 
+    totpRequired := "No"
+    if profile.TotpRequired == true {
+      totpRequired = "Yes"
+    }
+
     c.HTML(http.StatusOK, "profile.html", gin.H{
       "__title": "Profile",
       "user": idToken.Subject,
       "name": profile.Name,
       "email": profile.Email,
+      "totp_required": totpRequired,
       "consents": consents,
       "permissions": permissions,
     })

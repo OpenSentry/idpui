@@ -24,6 +24,13 @@ We have registered the following data on you:
     <span>Email:</span>
     <span>{{ .email }}</span>
   </div>
+
+  <div style="margin:10px">
+    <span>Two factor:</span>
+    <span>{{ .totp_required }}</span>
+  </div>
+
+
 </div>
 
 <a href="/logout">Logout</a>
