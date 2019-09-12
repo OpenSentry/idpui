@@ -268,6 +268,9 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, route en
     "func": "StartAuthentication",
   })
 
+  // Redirect to after successful authentication
+  redirectTo := c.Request.RequestURI
+
   // Always generate a new authentication session state
   session := sessions.Default(c)
 
@@ -276,7 +279,9 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, route en
     log.Debug(err.Error())
     return nil, err
   }
+
   session.Set(environment.SessionStateKey, state)
+  session.Set(state, redirectTo)
   err = session.Save()
   if err != nil {
     log.Debug(err.Error())
@@ -284,11 +289,10 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, route en
   }
 
   logSession := log.WithFields(logrus.Fields{
-    "session.state.key": environment.SessionStateKey,
-    "session.state.state": state,
+    "redirect_to": redirectTo,
+    "state": state,
   })
-  logSession.Debug("Saved session")
-  logSession.Debug("Using session")
+  logSession.Debug("Started session")
   authUrl := env.HydraConfig.AuthCodeURL(state)
   u, err := url.Parse(authUrl)
   return u, err
