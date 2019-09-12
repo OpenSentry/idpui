@@ -31,6 +31,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
     sessionState := v.(string)
 
     log.WithFields(logrus.Fields{"fixme": 1}).Debug("Do we need to cleanup session state once consumed to ensure no reuse?")
+    log.WithFields(logrus.Fields{"state": sessionState}).Debug("Exchange Authorization Code")
 
     requestState := c.Query("state")
     if requestState == "" {
@@ -72,6 +73,13 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
 
     if token.Valid() == true {
 
+      // Look into session for redirect_to using state
+      var redirectTo string = config.GetString("oauth2.defaultRedirect")
+      redirect := session.Get(sessionState)
+      if redirect != nil {
+        redirectTo = redirect.(string)
+      }
+
       rawIdToken, ok := token.Extra("id_token").(string)
       if !ok {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "No id_token found with access token"})
@@ -95,10 +103,9 @@ func ExchangeAuthorizationCodeCallback(env *environment.State, route environment
       session := sessions.Default(c)
       session.Set(environment.SessionTokenKey, token)
       session.Set(environment.SessionIdTokenKey, idToken)
+      session.Delete(sessionState) // Cleanup session redirect.
       err = session.Save()
       if err == nil {
-        var redirectTo = config.GetString("oauth2.defaultRedirect")
-        log.WithFields(logrus.Fields{"fixme": 1}).Debug("Figure out where to redirect to.")
         log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
         c.Redirect(http.StatusFound, redirectTo)
         c.Abort()
