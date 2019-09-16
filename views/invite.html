@@ -1,0 +1,54 @@
+{{ template "htmlbegin" . }}
+
+<div id="top-spacer"></div>
+
+<div id="content-wrapper">
+  <h1 class="fingerprint">Identity Provider</h1>
+
+  <h2>Invite</h2>
+
+  <p>
+    Hi {{ .name }}<br><br>
+    You are about to create an invitation that grant access and follow you.<br></br>
+  </p>
+
+  <form action="/invite" method="post">
+    {{ .csrfField }}
+
+    <div class="input-group">
+      <input name="email" type="text" autocomplete="email" value="{{ .email }}" placeholder="Enter email" />
+      {{if .errorEmail}} <label for="email" class="error">{{ .errorEmail }}</label> {{end}}
+    </div>
+
+    <div class="input-group">
+      <input name="username" type="text" autocomplete="username" placeholder="Hint username" value="{{ .username }}" required>
+      {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
+    </div>
+
+    {{if .mayGrantScopes }}
+    <p>Which permissions should be granted in the invite</p>
+    <div class="input-group">
+      {{ range $key, $scope := .mayGrantScopes }}
+        <input type="checkbox" id="granted_scopes_{{ $key }}" name="granted_scopes[]" value="{{ $scope.name }}">
+        <label for="granted_scopes_{{ $key }}">{{ $scope.name }}</label>
+      {{ end }}
+    </div>
+    {{ end }}
+
+
+    <p>Recommend what to follow in the invite</p>
+    {{if .followIdentities }}
+    <div class="input-group">
+      {{ range $key, $follow := .followIdentities }}
+        <input type="checkbox" id="follow_identities_{{ $key }}" name="follow_identities[]" value="{{ $follow.id }}">
+        <label for="follow_identities_{{ $key }}">{{ $follow.name }}</label>
+      {{ end }}
+    </div>
+    {{ end }}
+
+    <input type="submit" name="submit" value="Invite" />
+  </form>
+
+</div>
+
+{{ template "htmlend" . }}

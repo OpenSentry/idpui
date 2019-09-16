@@ -3,7 +3,7 @@ module github.com/charmixer/idpui
 go 1.12
 
 require (
-	github.com/charmixer/idp v0.0.0-20190909185959-9596a7cbe603
+	github.com/charmixer/idp v0.0.0-20190912112817-987cd8fdbd2c
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/gin-contrib/sessions v0.0.1
 	github.com/gin-gonic/gin v1.4.0
@@ -18,3 +18,5 @@ require (
 	golang.org/x/net v0.0.0-20190909003024-a7b16738d86b
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 )
+
+replace github.com/charmixer/idp => /Users/mnk/projects/sso/idp
