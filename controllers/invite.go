@@ -141,7 +141,8 @@ func SubmitInvite(env *environment.State, route environment.Route) gin.HandlerFu
     }
 
     log.WithFields(logrus.Fields{"id":invite.Id}).Debug("Invite created")
-    c.HTML(http.StatusOK, "invite.html", gin.H{"id": invite.Id})
+    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Where to redirect to?")
+    c.Redirect(http.StatusFound, route.URL)
   }
   return gin.HandlerFunc(fn)
 }
