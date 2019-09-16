@@ -16,10 +16,8 @@ github.com/bradleypeabody/gorilla-sessions-memcache v0.0.0-20181103040241-659414
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/charmixer/hydra v0.0.0-20190904201757-b5aa25347016 h1:f5p6r1WKz8FPp0mJpoBHN2ox9kaFd/S49YSkdwJ0+4Y=
 github.com/charmixer/hydra v0.0.0-20190904201757-b5aa25347016/go.mod h1:lyCzw2EYfY+pmAuPCwRn179KOoBUoA9EkV29FYJu3L0=
-github.com/charmixer/idp v0.0.0-20190909182700-6f5d905bb7ab h1:fOx9pNwGpJMfSk0mIlRE/29gfx8YEg7i7l9DEBcEgXE=
-github.com/charmixer/idp v0.0.0-20190909182700-6f5d905bb7ab/go.mod h1:XuT4FTDwRcZ+KviYcoIftgbpQAPHSSHWfUibAtbKEFg=
-github.com/charmixer/idp v0.0.0-20190909185959-9596a7cbe603 h1:BXbF+hUKgvdglKFZ0iDQ8xgeR0F24lZYTiWSoe/XPH8=
-github.com/charmixer/idp v0.0.0-20190909185959-9596a7cbe603/go.mod h1:qNZW5gxv0/JOd1kN/GzYkiCSbOeu6FU2mBSLPil5NXE=
+github.com/charmixer/idp v0.0.0-20190912112817-987cd8fdbd2c h1:1zC5/ynFUUI6KLxrS8/SHzNLeFsesdDZHFHhRacyVzs=
+github.com/charmixer/idp v0.0.0-20190912112817-987cd8fdbd2c/go.mod h1:YSkTt8RnA8KviLSR7w+0XpDMEV8z+LCmwgjLXVIj/f4=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
@@ -31,6 +29,7 @@ github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfc
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dgrijalva/jwt-go v3.2.0+incompatible h1:7qlOGliEKZXTDg6OTjfoBKDXWrumCAMpl/TFQ4/5kLM=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=

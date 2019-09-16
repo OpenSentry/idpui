@@ -1,0 +1,49 @@
+{{ template "htmlbegin" . }}
+
+<div id="top-spacer"></div>
+
+<div id="content-wrapper">
+  <h1 class="fingerprint">Identity Provider</h1>
+
+  <h2>Accept Invite</h2>
+
+  <p>
+    Hi {{ .name }}<br><br>
+    You are about to accept an invitation to gain access rights<br></br>
+  </p>
+
+  <form action="/invite" method="post">
+    {{ .csrfField }}
+    <input type="hidden" name="id" value="{{ .inviteId }}" />
+
+    {{if .grantScopes }}
+    <p>You are about to gain access to</p>
+    <div class="input-group">
+      {{ range $key, $scope := .grantScopes }}
+        <input type="checkbox" id="granted_scopes_{{ $key }}" name="granted_scopes[]" value="{{ $scope.name }}">
+        <label for="granted_scopes_{{ $key }}">{{ $scope.name }}</label>
+      {{ end }}
+    </div>
+    {{ end }}
+
+
+    <p>You are about to follow</p>
+    {{if .followIdentities }}
+    <div class="input-group">
+      {{ range $key, $follow := .followIdentities }}
+        <input type="checkbox" id="follow_identities_{{ $key }}" name="follow_identities[]" value="{{ $follow.id }}">
+        <label for="follow_identities_{{ $key }}">{{ $follow.name }}</label>
+      {{ end }}
+    </div>
+    {{ end }}
+
+    <input type="submit" name="submit" value="Accept invite" />
+  </form>
+
+</div>
+
+<div id="debug-wrapper">
+  <span class="info">Invite: {{ .inviteId }}</span>
+<div>
+
+{{ template "htmlend" . }}

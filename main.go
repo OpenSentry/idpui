@@ -176,6 +176,7 @@ func serve(env *environment.State) {
     "/me/deleteverification": environment.Route{URL: "/me/deleteverification", LogId: "idpui://me/deleteverification"},
     "/me/totp":               environment.Route{URL: "/me/totp",               LogId: "idpui://me/totp"},
     "/password":              environment.Route{URL: "/password",              LogId: "idpui://password"},
+    "/invite":                environment.Route{URL: "/invite",                LogId: "idpui://invite"},
     "/consent":               environment.Route{URL: "/consent",               LogId: "idpui://consent"},
   }
 
@@ -207,6 +208,9 @@ func serve(env *environment.State) {
     ep.GET(routes["/me"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me"], "openid"), controllers.ShowProfile(env, routes["/me"]))
     ep.GET(routes["/me/edit"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/edit"], "openid"), controllers.ShowProfileEdit(env, routes["/me/edit"]))
     ep.POST(routes["/me/edit"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/edit"], "openid"), controllers.SubmitProfileEdit(env, routes["/me/edit"]))
+
+    ep.GET(routes["/invite"].URL, AuthenticationAndAuthorizationRequired(env, routes["/invite"], "openid"), controllers.ShowInvite(env, routes["/invite"]))
+    ep.POST(routes["/invite"].URL, AuthenticationAndAuthorizationRequired(env, routes["/invite"], "openid"), controllers.SubmitInvite(env, routes["/invite"]))
 
     ep.GET(routes["/me/delete"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/delete"], "openid"), controllers.ShowProfileDelete(env, routes["/me/delete"]))
     ep.POST(routes["/me/delete"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/delete"], "openid"), controllers.SubmitProfileDelete(env, routes["/me/delete"]))
