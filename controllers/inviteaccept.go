@@ -35,6 +35,9 @@ func ShowInviteAccept(env *environment.State, route environment.Route) gin.Handl
       return
     }
 
+    // Peek at invite. Iff anonymous require registration! redirect
+    // Iff not anonymous require authentication redirect
+
     session := sessions.Default(c)
 
     var idToken *oidc.IDToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
