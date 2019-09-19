@@ -1,4 +1,4 @@
-package controllers
+package credentials
 
 import (
   "net/http"
@@ -13,6 +13,7 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
 type passwordForm struct {
@@ -20,7 +21,7 @@ type passwordForm struct {
   PasswordRetyped string `form:"password_retyped"`
 }
 
-func ShowPassword(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowPassword(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -75,7 +76,7 @@ func ShowPassword(env *environment.State, route environment.Route) gin.HandlerFu
   return gin.HandlerFunc(fn)
 }
 
-func SubmitPassword(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitPassword(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -112,9 +113,16 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
       if err != nil {
         log.Debug(err.Error())
       }
-      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, route.URL)
-      c.Abort();
+
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, submitUrl)
+      c.Abort()
       return
     }
 
@@ -156,7 +164,14 @@ func SubmitPassword(env *environment.State, route environment.Route) gin.Handler
     }
 
     // Deny by default. Failed to fill in the form correctly.
-    c.Redirect(http.StatusFound, route.URL)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
     c.Abort()
   }
   return gin.HandlerFunc(fn)

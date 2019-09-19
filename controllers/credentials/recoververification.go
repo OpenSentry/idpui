@@ -1,4 +1,4 @@
-package controllers
+package credentials
 
 import (
   "net/http"
@@ -7,41 +7,33 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang.org/x/oauth2"
-  oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
-type profileDeleteVerificationForm struct {
+type verificationForm struct {
   Username         string `form:"username" binding:"required"`
   VerificationCode string `form:"verification_code" binding:"required"`
+  Password         string `form:"password" binding:"required"`
+  PasswordRetyped  string `form:"password_retyped" binding:"required"`
 }
 
-func ShowProfileDeleteVerification(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowRecoverVerification(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "ShowProfileDeleteVerification",
+      "func": "ShowRecoverVerification",
     })
 
     session := sessions.Default(c)
 
-    // NOTE: Maybe session is not a good way to do this.
-    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
-    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
-    var idToken *oidc.IDToken
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "profiledelete.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
-    }
+    username := session.Get("recoververification.username")
 
-    errors := session.Flashes("profiledeleteverification.errors")
+    errors := session.Flashes("recoververification.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
@@ -73,10 +65,13 @@ func ShowProfileDeleteVerification(env *environment.State, route environment.Rou
       }
     }
 
-    c.HTML(http.StatusOK, "profiledeleteverification.html", gin.H{
-      "__title": "Delete profile verification",
+    c.HTML(http.StatusOK, "recoververification.html", gin.H{
+      "__links": []map[string]string{
+        {"href": "/public/css/main.css"},
+      },
+      "__title": "Recover verification",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "username": idToken.Subject,
+      "username": username,
       "errorUsername": errorUsername,
       "errorVerificationCode": errorVerificationCode,
       "errorPassword": errorPassword,
@@ -86,15 +81,15 @@ func ShowProfileDeleteVerification(env *environment.State, route environment.Rou
   return gin.HandlerFunc(fn)
 }
 
-func SubmitProfileDeleteVerification(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "SubmitProfileDeleteVerification",
+      "func": "SubmitRecoverVerification",
     })
 
-    var form profileDeleteVerificationForm
+    var form verificationForm
     err := c.Bind(&form)
     if err != nil {
       log.Debug(err.Error())
@@ -117,39 +112,44 @@ func SubmitProfileDeleteVerification(env *environment.State, route environment.R
       errors["errorVerificationCode"] = append(errors["errorVerificationCode"], "Missing verification code")
     }
 
+    password := form.Password
+    if strings.TrimSpace(password) == "" {
+      errors["errorPassword"] = append(errors["errorPassword"], "Missing password. Hint: Not allowed to be all whitespace")
+    }
+
+    retypedPassword := form.PasswordRetyped
+    if retypedPassword != password {
+      errors["errorPasswordRetyped"] = append(errors["errorPasswordRetyped"], "Must match password")
+    }
+
     if len(errors) > 0 {
       session.AddFlash(errors, "recoververification.errors")
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
       }
-      redirectTo := route.URL
-      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, redirectTo)
-      c.Abort();
-      return
-    }
 
-    var idToken *oidc.IDToken
-
-
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "profiledeleteverification.html", gin.H{"error": "Identity not found"})
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
       return
     }
 
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
-    deleteRequest := &idp.IdentitiesDeleteVerificationRequest{
-      Id: idToken.Subject,
+    recoverRequest := &idp.IdentitiesRecoverVerificationRequest{
+      Id: username,
       VerificationCode: verificationCode,
-      RedirectTo: config.GetString("idpui.public.url") + config.GetString("idp.public.endpoints.profile"),
+      Password: password,
+      RedirectTo: "/",
     }
-    deleteResponse, err := idp.DeleteIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.deleteverification"), deleteRequest)
+    recoverResponse, err := idp.RecoverIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recoververification"), recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -157,33 +157,44 @@ func SubmitProfileDeleteVerification(env *environment.State, route environment.R
       return
     }
 
-    if deleteResponse.Verified == true && deleteResponse.RedirectTo != "" {
+    if recoverResponse.Verified == true && recoverResponse.RedirectTo != "" {
 
-      // Destroy user session
-      session.Clear()
+      // Cleanup session
+      session.Delete("recoververification.username")
+      session.Delete("recoververification.errors")
+
+      // Propagete username to authenticate controller
+      session.Set("authenticate.username", recoverResponse.Id)
+
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
       }
 
       log.WithFields(logrus.Fields{
-        "redirect_to": deleteResponse.RedirectTo,
+        "redirect_to": recoverResponse.RedirectTo,
       }).Debug("Redirecting");
-      c.Redirect(http.StatusFound, deleteResponse.RedirectTo)
+      c.Redirect(http.StatusFound, recoverResponse.RedirectTo)
       c.Abort()
       return
     }
 
     errors["errorVerificationCode"] = append(errors["errorVerificationCode"], "Invalid verification code")
-    session.AddFlash(errors, "profiledeleteverification.errors")
+    session.AddFlash(errors, "recoververification.errors")
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
     }
 
-    redirectTo := route.URL
-    log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, redirectTo)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
+    c.Abort()
   }
   return gin.HandlerFunc(fn)
 }

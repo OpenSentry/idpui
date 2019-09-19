@@ -1,4 +1,4 @@
-package controllers
+package credentials
 
 import (
   "strings"
@@ -11,9 +11,10 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
-type inviteRegisterForm struct {
+type registrationForm struct {
     Username string `form:"username" binding:"required"`
     Name string `form:"display-name" binding:"required"`
     Email string `form:"email" binding:"required"`
@@ -21,12 +22,12 @@ type inviteRegisterForm struct {
     PasswordRetyped string `form:"password_retyped" binding:"required"`
 }
 
-func ShowInviteRegister(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowRegistration(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "ShowInviteRegister",
+      "func": "ShowRegistration",
     })
 
     session := sessions.Default(c)
@@ -92,15 +93,15 @@ func ShowInviteRegister(env *environment.State, route environment.Route) gin.Han
   return gin.HandlerFunc(fn)
 }
 
-func SubmitInviteRegister(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitRegistration(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "SubmitInviteRegister",
+      "func": "SubmitRegistration",
     })
 
-    var form inviteRegisterForm
+    var form registrationForm
     err := c.Bind(&form)
     if err != nil {
       // Do better error handling in the application.
@@ -143,9 +144,16 @@ func SubmitInviteRegister(env *environment.State, route environment.Route) gin.H
       if err != nil {
         log.Debug(err.Error())
       }
-      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, route.URL)
-      c.Abort();
+
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, submitUrl)
+      c.Abort()
       return
     }
 
@@ -192,7 +200,14 @@ func SubmitInviteRegister(env *environment.State, route environment.Route) gin.H
     }
 
     // Deny by default. Failed to fill in the form correctly.
-    c.Redirect(http.StatusFound, route.URL)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
     c.Abort()
   }
   return gin.HandlerFunc(fn)

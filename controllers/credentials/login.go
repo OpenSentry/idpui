@@ -1,4 +1,4 @@
-package controllers
+package credentials
 
 import (
   "net/url"
@@ -22,19 +22,19 @@ type authenticationForm struct {
   Password string `form:"password" binding:"required"`
 }
 
-func ShowAuthentication(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowLogin(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "ShowAuthentication",
+      "func": "ShowLogin",
     })
 
     loginChallenge := c.Query("login_challenge")
     if loginChallenge == "" {
       // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
       // IdpUi should ask hydra for a challenge to login
-      initUrl, err := StartAuthenticationSession(env, c, route, log)
+      initUrl, err := StartAuthenticationSession(env, c, log)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -67,8 +67,7 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
       log.WithFields(logrus.Fields{
         "challenge": authenticateRequest.Challenge,
       }).Debug(err.Error())
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
@@ -107,7 +106,7 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
       }
     }
 
-    c.HTML(200, "authenticate.html", gin.H{
+    c.HTML(200, "login.html", gin.H{
       "__links": []map[string]string{
         {"href": "/public/css/main.css"},
       },
@@ -117,25 +116,27 @@ func ShowAuthentication(env *environment.State, route environment.Route) gin.Han
       "username": username,
       "errorUsername": errorUsername,
       "errorPassword": errorPassword,
+      "loginUrl": config.GetString("idpui.public.login"),
+      "recoverUrl": config.GetString("idpui.public.recover"),
+      "registerUrl": config.GetString("idpui.public.register"),
     })
   }
   return gin.HandlerFunc(fn)
 }
 
-func SubmitAuthentication(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitLogin(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "SubmitAuthentication",
+      "func": "SubmitLogin",
     })
 
     var form authenticationForm
     err := c.Bind(&form)
     if err != nil {
       log.Debug(err.Error())
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       return
     }
 
@@ -184,8 +185,7 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
         "subject": identityRequest.Subject,
         "challenge": form.Challenge,
       }).Debug(err.Error())
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       return
     }
 
@@ -203,8 +203,7 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
         "id": authenticateRequest.Id,
         "challenge": authenticateRequest.Challenge,
       }).Debug(err.Error())
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       return
     }
 
@@ -232,10 +231,10 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
     }
 
     // Deny by default
-    if authenticateResponse.NotFound {
-      errors["errorUsername"] = append(errors["errorUsername"], "Not found")
-    } else {
+    if authenticateResponse.IsPasswordInvalid == true {
       errors["errorUsername"] = append(errors["errorUsername"], "Invalid password")
+    } else {
+      errors["errorUsername"] = append(errors["errorUsername"], "Not found")
     }
     session.AddFlash(errors, "authenticate.errors")
     err = session.Save()
@@ -243,7 +242,19 @@ func SubmitAuthentication(env *environment.State, route environment.Route) gin.H
       log.Debug(err.Error())
     }
 
-    redirectTo := c.Request.URL.RequestURI() + "?login_challenge=" + form.Challenge
+    u, err := url.Parse( c.Request.RequestURI )
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    q := u.Query()
+    if q.Get("login_challenge") == "" {
+      q.Add("login_challenge", form.Challenge)
+    }
+    u.RawQuery = q.Encode()
+
+    redirectTo := u.String()
     log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
     c.Redirect(http.StatusFound, redirectTo)
     c.Abort()
@@ -260,7 +271,7 @@ func CreateRandomStringWithNumberOfBytes(numberOfBytes int) (string, error) {
   return base64.StdEncoding.EncodeToString(st), nil
 }
 
-func StartAuthenticationSession(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry) (*url.URL, error) {
+func StartAuthenticationSession(env *environment.State, c *gin.Context, log *logrus.Entry) (*url.URL, error) {
   var state string
   var err error
 
@@ -274,11 +285,17 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, route en
   // Always generate a new authentication session state
   session := sessions.Default(c)
 
-  state, err = CreateRandomStringWithNumberOfBytes(64);
+  // Create random bytes that are based64 encoded to prevent character problems with the session store.
+  // The base 64 means that more than 64 bytes are stored! Which can cause "securecookie: the value is too long"
+  // To prevent this we need to use a filesystem store instead of broser cookies.
+  state, err = CreateRandomStringWithNumberOfBytes(32);
   if err != nil {
     log.Debug(err.Error())
     return nil, err
   }
+
+  log.Debug(state)
+  log.Debug(redirectTo)
 
   session.Set(environment.SessionStateKey, state)
   session.Set(state, redirectTo)

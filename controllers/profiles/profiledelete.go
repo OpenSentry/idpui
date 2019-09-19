@@ -1,4 +1,4 @@
-package controllers
+package profiles
 
 import (
   "strings"
@@ -13,13 +13,14 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
 type profileDeleteForm struct {
   RiskAccepted string `form:"risk_accepted"`
 }
 
-func ShowProfileDelete(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowProfileDelete(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -60,6 +61,7 @@ func ShowProfileDelete(env *environment.State, route environment.Route) gin.Hand
 
       }
     }
+    
 
     c.HTML(http.StatusOK, "profiledelete.html", gin.H{
       "__title": "Delete profile",
@@ -72,7 +74,7 @@ func ShowProfileDelete(env *environment.State, route environment.Route) gin.Hand
   return gin.HandlerFunc(fn)
 }
 
-func SubmitProfileDelete(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitProfileDelete(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -150,9 +152,16 @@ func SubmitProfileDelete(env *environment.State, route environment.Route) gin.Ha
     if err != nil {
       log.Debug(err.Error())
     }
-    log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, route.URL)
-    c.Abort();
+
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
+    c.Abort()
     return
 
   }
