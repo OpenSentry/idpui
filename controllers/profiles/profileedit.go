@@ -1,4 +1,4 @@
-package controllers
+package profiles
 
 import (
   "strings"
@@ -13,6 +13,7 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
 type profileEditForm struct {
@@ -20,7 +21,7 @@ type profileEditForm struct {
   Email string `form:"email"`
 }
 
-func ShowProfileEdit(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowProfileEdit(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -113,7 +114,7 @@ func ShowProfileEdit(env *environment.State, route environment.Route) gin.Handle
   return gin.HandlerFunc(fn)
 }
 
-func SubmitProfileEdit(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -163,9 +164,16 @@ func SubmitProfileEdit(env *environment.State, route environment.Route) gin.Hand
       if err != nil {
         log.Debug(err.Error())
       }
-      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, route.URL)
-      c.Abort();
+
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, submitUrl)
+      c.Abort()
       return
     }
 
@@ -195,14 +203,18 @@ func SubmitProfileEdit(env *environment.State, route environment.Route) gin.Hand
     }
 
     // Registration successful, return to create new ones, but with success message
-    log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, route.URL)
-    return
+    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Where to redirect to after successful profile edit?")
 
     // Deny by default. Failed to fill in the form correctly.
-    /*log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, route.URL)
-    c.Abort()*/
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
+    c.Abort()
   }
   return gin.HandlerFunc(fn)
 }

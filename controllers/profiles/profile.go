@@ -1,4 +1,4 @@
-package controllers
+package profiles
 
 import (
   "net/http"
@@ -13,7 +13,7 @@ import (
   "github.com/charmixer/idpui/environment"
 )
 
-func ShowProfile(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowProfile(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)

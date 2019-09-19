@@ -1,4 +1,4 @@
-package controllers
+package credentials
 
 import (
   "net/http"
@@ -19,7 +19,7 @@ type verifyForm struct {
   Code string `form:"code" binding:"required"`
 }
 
-func ShowVerify(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowVerify(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -82,7 +82,7 @@ func ShowVerify(env *environment.State, route environment.Route) gin.HandlerFunc
   return gin.HandlerFunc(fn)
 }
 
-func SubmitVerify(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitVerify(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)

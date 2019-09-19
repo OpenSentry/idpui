@@ -1,4 +1,4 @@
-package controllers
+package credentials
 
 import (
   "net/http"
@@ -18,6 +18,7 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
 type totpForm struct {
@@ -25,7 +26,7 @@ type totpForm struct {
   Secret string `form:"secret"`
 }
 
-func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowTotp(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -103,12 +104,12 @@ func ShowTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
   }
   return gin.HandlerFunc(fn)
 }
-func SubmitTotp(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitTotp(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "Submit2Fa",
+      "func": "SubmitTotp",
     })
 
     var form totpForm
@@ -135,9 +136,16 @@ func SubmitTotp(env *environment.State, route environment.Route) gin.HandlerFunc
       if err != nil {
         log.Debug(err.Error())
       }
-      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, route.URL)
-      c.Abort();
+
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, submitUrl)
+      c.Abort()
       return
     }
 
@@ -184,11 +192,19 @@ func SubmitTotp(env *environment.State, route environment.Route) gin.HandlerFunc
 
       log.WithFields(logrus.Fields{"redirect_to": "/me"}).Debug("Redirecting")
       c.Redirect(http.StatusFound, "/me")
+      c.Abort()
       return
     }
 
     // Deny by default. Failed to fill in the form correctly.
-    c.Redirect(http.StatusFound, route.URL)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
     c.Abort()
   }
   return gin.HandlerFunc(fn)

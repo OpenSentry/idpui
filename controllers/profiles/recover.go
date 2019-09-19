@@ -1,4 +1,4 @@
-package controllers
+package profiles
 
 import (
   "net/http"
@@ -11,13 +11,14 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
 type recoverForm struct {
     Identity string `form:"identity" binding:"required"`
 }
 
-func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowRecover(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -60,7 +61,7 @@ func ShowRecover(env *environment.State, route environment.Route) gin.HandlerFun
   return gin.HandlerFunc(fn)
 }
 
-func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitRecover(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -106,9 +107,16 @@ func SubmitRecover(env *environment.State, route environment.Route) gin.HandlerF
       if err != nil {
         log.Debug(err.Error())
       }
-      log.WithFields(logrus.Fields{"redirect_to": route.URL}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, route.URL)
-      c.Abort();
+
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, submitUrl)
+      c.Abort()
       return
     }
 

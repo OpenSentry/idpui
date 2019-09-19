@@ -1,10 +1,11 @@
-package main
+package utils
 
 import (
   "bytes"
   "strings"
   "net"
   "net/http"
+  "net/url"
 )
 
 type IpData struct {
@@ -12,7 +13,7 @@ type IpData struct {
   Port string
 }
 
-func getRequestIpData(r *http.Request) (IpData, error) {
+func GetRequestIpData(r *http.Request) (IpData, error) {
   ip, port, err := net.SplitHostPort(r.RemoteAddr)
   if err != nil {
   	return IpData{}, err
@@ -24,7 +25,7 @@ func getRequestIpData(r *http.Request) (IpData, error) {
   return ret, nil
 }
 
-func getForwardedForIpData(r *http.Request) (IpData, error) {
+func GetForwardedForIpData(r *http.Request) (IpData, error) {
   ip, port := detectForwardedForIpAndPort(r)
 
   ret := IpData{
@@ -107,4 +108,13 @@ func detectForwardedForIpAndPort(r *http.Request) (string, string) {
         }
     }
     return "", ""
+}
+
+func FetchSubmitUrlFromRequest(req *http.Request) (string, error) {
+  u, err := url.Parse(req.RequestURI)
+  if err != nil {
+    return "", err
+  }
+  u.RawQuery = ""
+  return u.String(), nil
 }

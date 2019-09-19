@@ -1,4 +1,4 @@
-package controllers
+package profiles
 
 import (
   "net/http"
@@ -16,7 +16,7 @@ type logoutForm struct {
   Challenge string `form:"challenge" binding:"required"`
 }
 
-func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowLogout(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -46,7 +46,7 @@ func ShowLogout(env *environment.State, route environment.Route) gin.HandlerFunc
 }
 
 
-func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitLogout(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -86,7 +86,7 @@ func SubmitLogout(env *environment.State, route environment.Route) gin.HandlerFu
   return gin.HandlerFunc(fn)
 }
 
-func ShowLogoutSession(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowLogoutSession(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -102,7 +102,7 @@ func ShowLogoutSession(env *environment.State, route environment.Route) gin.Hand
   return gin.HandlerFunc(fn)
 }
 
-func SubmitLogoutSession(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitLogoutSession(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
