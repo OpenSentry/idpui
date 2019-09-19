@@ -3,6 +3,8 @@ package profiles
 import (
   "strings"
   "net/http"
+  "reflect"
+  "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
@@ -17,8 +19,8 @@ import (
 )
 
 type profileEditForm struct {
-  Name string `form:"display-name"`
-  Email string `form:"email"`
+  Name string `form:"display-name" validate:"required,notblank"`
+  Email string `form:"email" validate:"required,email"`
 }
 
 func ShowProfileEdit(env *environment.State) gin.HandlerFunc {
@@ -89,19 +91,23 @@ func ShowProfileEdit(env *environment.State) gin.HandlerFunc {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
 
-        if k == "errorEmail" && len(v) > 0 {
+        if k == "email" && len(v) > 0 {
           errorEmail = strings.Join(v, ", ")
         }
 
-        if k == "errorDisplayName" && len(v) > 0 {
+        if k == "display-name" && len(v) > 0 {
           errorDisplayName = strings.Join(v, ", ")
         }
       }
     }
 
     c.HTML(http.StatusOK, "profileedit.html", gin.H{
-      "__title": "Edit profile",
+      "title": "Profile",
+      "links": []map[string]string{
+        {"href": "/public/css/dashboard.css"},
+      },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "profileEditUrl": "/me/edit",
       "user": idToken.Subject,
       "displayName": displayName,
       "email": email,
@@ -112,6 +118,13 @@ func ShowProfileEdit(env *environment.State) gin.HandlerFunc {
     })
   }
   return gin.HandlerFunc(fn)
+}
+
+func NotBlank(fl validator.FieldLevel) bool {
+  if strings.TrimSpace(fl.Field().String()) == "" {
+    return false;
+  }
+  return true
 }
 
 func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
@@ -157,6 +170,50 @@ func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
     }
 
     errors := make(map[string][]string)
+    validate := validator.New()
+    validate.RegisterValidation("notblank", NotBlank)
+    err = validate.Struct(form)
+    if err != nil {
+
+      // Validation syntax is invalid
+      if err,ok := err.(*validator.InvalidValidationError); ok{
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      reflected := reflect.ValueOf(form) // Use reflector to reverse engineer struct
+      for _, err := range err.(validator.ValidationErrors){
+
+        // Attempt to find field by name and get json tag name
+        field,_ := reflected.Type().FieldByName(err.StructField())
+        var name string
+
+        // If form tag doesn't exist, use lower case of name
+        if name = field.Tag.Get("form"); name == ""{
+          name = strings.ToLower(err.StructField())
+        }
+
+        switch err.Tag() {
+        case "required":
+            errors[name] = append(errors[name], "Field is required")
+            break
+        case "email":
+            errors[name] = append(errors[name], "Field must be a valid email")
+            break
+        case "eqfield":
+            errors[name] = append(errors[name], "Field should be equal to the "+err.Param())
+            break
+        case "notblank":
+          errors[name] = append(errors[name], "Field is not allowed to be blank")
+          break
+        default:
+            errors[name] = append(errors[name], "Field is invalid")
+            break
+        }
+      }
+
+    }
 
     if len(errors) > 0 {
       session.AddFlash(errors, "profileedit.errors")
@@ -182,28 +239,29 @@ func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
       Email: form.Email,
       Name: form.Name,
     }
-    _ /* profile */, err = idp.UpdateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    updateIdentity, err := idp.UpdateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
     // Cleanup session
     session.Delete("profileedit.display-name")
     session.Delete("profileedit.email")
-
-    // Register success message
-    session.AddFlash(1, "profileedit.success")
-
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
     }
 
-    // Registration successful, return to create new ones, but with success message
-    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Where to redirect to after successful profile edit?")
+    if updateIdentity != nil {
+      log.WithFields(logrus.Fields{"id": updateIdentity.Id}).Debug("Identity updated")
+      redirectTo := "/"
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
+      c.Abort()
+      return
+    }
 
     // Deny by default. Failed to fill in the form correctly.
     submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
