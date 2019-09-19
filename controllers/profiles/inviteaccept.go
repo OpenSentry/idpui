@@ -1,4 +1,4 @@
-package controllers
+package profiles
 
 import (
   "net/http"
@@ -13,13 +13,14 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
 type inviteAcceptForm struct {
   Id string `form:"id" binding:"required"`
 }
 
-func ShowInviteAccept(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowInviteAccept(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -94,7 +95,7 @@ func ShowInviteAccept(env *environment.State, route environment.Route) gin.Handl
   return gin.HandlerFunc(fn)
 }
 
-func SubmitInviteAccept(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitInviteAccept(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -127,17 +128,22 @@ func SubmitInviteAccept(env *environment.State, route environment.Route) gin.Han
     inviteRequest := &idp.IdentitiesInviteUpdateRequest{
       Id: form.Id,
     }
-    invite, err := idp.UpdateInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    _ /*invite*/, err = idp.UpdateInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
     if err != nil {
       log.WithFields(logrus.Fields{"id": inviteRequest.Id}).Debug(err.Error())
-      c.HTML(http.StatusNotFound, "inviteaccept.html", gin.H{"error": "Invite not found"})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Invite not found"})
       return
     }
 
-    redirectTo := route.URL
-    log.WithFields(logrus.Fields{"id": invite.Id, "redirect_to": redirectTo}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, redirectTo)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
+    c.Abort()
   }
   return gin.HandlerFunc(fn)
 }

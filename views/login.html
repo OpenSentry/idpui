@@ -5,7 +5,7 @@
 <div id="content-wrapper">
   <h1 class="fingerprint">Identity Provider</h1>
 
-  <form action="/authenticate" method="post">
+  <form action="{{ .loginUrl }}" method="post">
     {{ .csrfField }}
     <input type="hidden" name="challenge" value="{{ .challenge }}" />
 
@@ -22,8 +22,8 @@
     <input type="submit" name="submit" value="Connect" />
   </form>
 
-  <span class="info">Forgot your credentials? <a href="/recover">Recover</a></span>
-  <span class="info">Don't have an account yet? <a href="/register">Sign up</a></span>
+  <span class="info">Forgot your credentials? <a href="{{ .recoverUrl }}">Recover</a></span>
+  <span class="info">Don't have an account yet? <a href="{{ .registerUrl }}">Sign up</a></span>
 
 </div>
 

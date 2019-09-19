@@ -1,4 +1,4 @@
-package controllers
+package profiles
 
 import (
   "net/http"
@@ -12,6 +12,7 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/utils"
 )
 
 type inviteForm struct {
@@ -21,7 +22,7 @@ type inviteForm struct {
   FollowIdentities []string `form:"follow_identities[]"`
 }
 
-func ShowInvite(env *environment.State, route environment.Route) gin.HandlerFunc {
+func ShowInvite(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -92,7 +93,7 @@ func ShowInvite(env *environment.State, route environment.Route) gin.HandlerFunc
   return gin.HandlerFunc(fn)
 }
 
-func SubmitInvite(env *environment.State, route environment.Route) gin.HandlerFunc {
+func SubmitInvite(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -141,8 +142,16 @@ func SubmitInvite(env *environment.State, route environment.Route) gin.HandlerFu
     }
 
     log.WithFields(logrus.Fields{"id":invite.Id}).Debug("Invite created")
-    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Where to redirect to?")
-    c.Redirect(http.StatusFound, route.URL)
+
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
+    c.Abort()
   }
   return gin.HandlerFunc(fn)
 }

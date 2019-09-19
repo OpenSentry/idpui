@@ -23,7 +23,22 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
-  "github.com/charmixer/idpui/controllers"
+  "github.com/charmixer/idpui/utils"
+  "github.com/charmixer/idpui/controllers/credentials"
+  "github.com/charmixer/idpui/controllers/callbacks"
+  "github.com/charmixer/idpui/controllers/profiles"
+)
+
+const app = "idpui"
+
+var (
+  logDebug int // Set to 1 to enable debug
+  logFormat string // Current only supports default and json
+
+  log *logrus.Logger
+
+  appFields logrus.Fields
+  sessionKeys environment.SessionKeys
 )
 
 func init() {
@@ -55,22 +70,15 @@ func init() {
     "log.format": logFormat,
   }
 
+  sessionKeys = environment.SessionKeys{
+    SessionAppStore: app,
+  }
+
   gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
   gob.Register(&oidc.IDToken{})
   //gob.Register(&idp.Profile{})
   gob.Register(make(map[string][]string))
 }
-
-const app = "idpui"
-
-var (
-  logDebug int // Set to 1 to enable debug
-  logFormat string // Current only supports default and json
-
-  log *logrus.Logger
-
-  appFields logrus.Fields
-)
 
 func main() {
 
@@ -80,12 +88,16 @@ func main() {
     return
   }
 
+  endpoint := provider.Endpoint()
+  endpoint.AuthStyle = 2 // Force basic secret, so token exchange does not auto to post which we did not allow.
+
+
   // IdpApi needs to be able to act as an App using its client_id to bootstrap Authorization Code flow
   // Eg. Users accessing /me directly from browser.
   hydraConfig := &oauth2.Config{
     ClientID:     config.GetString("oauth2.client.id"),
     ClientSecret: config.GetString("oauth2.client.secret"),
-    Endpoint:     provider.Endpoint(),
+    Endpoint:     endpoint,
     RedirectURL:  config.GetString("oauth2.callback"),
     Scopes:       config.GetStringSlice("oauth2.scopes.required"),
   }
@@ -111,6 +123,7 @@ func main() {
 
   // Setup app state variables. Can be used in handler functions by doing closures see exchangeAuthorizationCodeCallback
   env := &environment.State{
+    SessionKeys: &sessionKeys,
     Provider: provider,
     HydraConfig: hydraConfig,
     IdpApiConfig: idpConfig,
@@ -150,7 +163,7 @@ func serve(env *environment.State) {
     Secure: true,
     HttpOnly: true,
   })
-  r.Use(sessions.Sessions(environment.SessionStoreKey, store))
+  r.Use(sessions.Sessions(env.SessionKeys.SessionAppStore, store))
 
   // Use CSRF on all idpui forms.
   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.GetString("csrf.authKey")), csrf.Secure(true)))
@@ -159,69 +172,62 @@ func serve(env *environment.State) {
   r.Static("/public", "public")
   r.LoadHTMLGlob("views/*")
 
-  // Setup routes to use, this defines log for debug log
-  routes := map[string]environment.Route{
-    "/":                      environment.Route{URL: "/",                      LogId: "idpui://"},
-    "/authenticate":          environment.Route{URL: "/authenticate",          LogId: "idpui://authenticate"},
-    "/verify":                environment.Route{URL: "/verify",                LogId: "idpui://verify"},
-    "/logout":                environment.Route{URL: "/logout",                LogId: "idpui://logout"},
-    "/session/logout":        environment.Route{URL: "/session/logout",        LogId: "idpui://session/logout"},
-    "/register":              environment.Route{URL: "/register",              LogId: "idpui://register"},
-    "/recover":               environment.Route{URL: "/recover",               LogId: "idpui://recover"},
-    "/recoververification":   environment.Route{URL: "/recoververification",   LogId: "idpui://recoververification"},
-    "/callback":              environment.Route{URL: "/callback",              LogId: "idpui://callback"},
-    "/me":                    environment.Route{URL: "/me",                    LogId: "idpui://me"},
-    "/me/edit":               environment.Route{URL: "/me/edit",               LogId: "idpui://me/edit"},
-    "/me/delete":             environment.Route{URL: "/me/delete",             LogId: "idpui://me/delete"},
-    "/me/deleteverification": environment.Route{URL: "/me/deleteverification", LogId: "idpui://me/deleteverification"},
-    "/me/totp":               environment.Route{URL: "/me/totp",               LogId: "idpui://me/totp"},
-    "/password":              environment.Route{URL: "/password",              LogId: "idpui://password"},
-    "/invite":                environment.Route{URL: "/invite",                LogId: "idpui://invite"},
-    "/consent":               environment.Route{URL: "/consent",               LogId: "idpui://consent"},
-  }
-
   ep := r.Group("/")
   ep.Use(adapterCSRF)
   {
-    ep.GET(routes["/"].URL, controllers.ShowAuthentication(env, routes["/"]))
-    ep.GET(routes["/authenticate"].URL, controllers.ShowAuthentication(env, routes["/authenticate"]))
-    ep.POST(routes["/authenticate"].URL, controllers.SubmitAuthentication(env, routes["/authenticate"]))
-    ep.GET(routes["/verify"].URL, controllers.ShowVerify(env, routes["/verify"]))
-    ep.POST(routes["/verify"].URL, controllers.SubmitVerify(env, routes["/verify"]))
+    // Token exchange
+    // FIXME: Must be public accessible until we figure out to enfore that only hydra client may make callbacks
+    ep.GET("/callback", callbacks.ExchangeAuthorizationCodeCallback(env) )
 
-    ep.GET(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.ShowLogout(env, routes["/logout"]))
-    ep.POST(routes["/logout"].URL, AuthenticationAndAuthorizationRequired(env, routes["/logout"], "openid"), controllers.SubmitLogout(env, routes["/logout"]))
+    // Signin
+    ep.GET(  "/login", credentials.ShowLogin(env) )
+    ep.POST( "/login", credentials.SubmitLogin(env) )
 
-    ep.GET(routes["/session/logout"].URL, controllers.ShowLogoutSession(env, routes["/session/logout"])) // These does not require authentication as its like doing delete in browser on cookies.
-    ep.POST(routes["/session/logout"].URL, controllers.SubmitLogoutSession(env, routes["/session/logout"]))
+    // Verify OTP code
+    ep.GET(  "/verify", credentials.ShowVerify(env) )
+    ep.POST( "/verify", credentials.SubmitVerify(env) )
 
-    ep.GET(routes["/register"].URL, controllers.ShowRegistration(env, routes["/register"]))
-    ep.POST(routes["/register"].URL, controllers.SubmitRegistration(env, routes["/register"]))
+    // Verify OTP code
+    ep.GET(  "/me/totp", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowTotp(env) )
+    ep.POST( "/me/totp", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.SubmitTotp(env) )
 
-    ep.GET(routes["/recover"].URL, controllers.ShowRecover(env, routes["/recover"]))
-    ep.POST(routes["/recover"].URL, controllers.SubmitRecover(env, routes["/recover"]))
-    ep.GET(routes["/recoververification"].URL, controllers.ShowRecoverVerification(env, routes["/recoververification"]))
-    ep.POST(routes["/recoververification"].URL, controllers.SubmitRecoverVerification(env, routes["/recoververification"]))
+    // Change password
+    ep.GET(  "/password", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowPassword(env) )
+    ep.POST( "/password", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.SubmitPassword(env) )
 
-    ep.GET(routes["/callback"].URL, controllers.ExchangeAuthorizationCodeCallback(env, routes["/callback"])) // token exhange endpoint.
+    // Signup
+    ep.GET(  "/register", credentials.ShowRegistration(env) )
+    ep.POST( "/register", credentials.SubmitRegistration(env) )
 
-    ep.GET(routes["/me"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me"], "openid"), controllers.ShowProfile(env, routes["/me"]))
-    ep.GET(routes["/me/edit"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/edit"], "openid"), controllers.ShowProfileEdit(env, routes["/me/edit"]))
-    ep.POST(routes["/me/edit"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/edit"], "openid"), controllers.SubmitProfileEdit(env, routes["/me/edit"]))
+    // Profile
+    ep.GET(  "/",        AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfile(env) )
+    ep.GET(  "/me",      AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfile(env) )
+    ep.GET(  "/me/edit", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfileEdit(env) )
+    ep.POST( "/me/edit", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitProfileEdit(env) )
 
-    ep.GET(routes["/invite"].URL, AuthenticationAndAuthorizationRequired(env, routes["/invite"], "openid"), controllers.ShowInvite(env, routes["/invite"]))
-    ep.POST(routes["/invite"].URL, AuthenticationAndAuthorizationRequired(env, routes["/invite"], "openid"), controllers.SubmitInvite(env, routes["/invite"]))
+    // Signoff
+    ep.GET(  "/logout", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowLogout(env) )
+    ep.POST( "/logout", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitLogout(env) )
 
-    ep.GET(routes["/me/delete"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/delete"], "openid"), controllers.ShowProfileDelete(env, routes["/me/delete"]))
-    ep.POST(routes["/me/delete"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/delete"], "openid"), controllers.SubmitProfileDelete(env, routes["/me/delete"]))
-    ep.GET(routes["/me/deleteverification"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/deleteverification"], "openid"), controllers.ShowProfileDeleteVerification(env, routes["/me/deleteverification"]))
-    ep.POST(routes["/me/deleteverification"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/deleteverification"], "openid"), controllers.SubmitProfileDeleteVerification(env, routes["/me/deleteverification"]))
+    // These does not require authentication as its like doing delete in browser on cookies.
+    // FIXME: Read up on Front Channel logout and Backchannel logout in Hydra an use that.
+    ep.GET(  "/session/logout", profiles.ShowLogoutSession(env) )
+    ep.POST( "/session/logout", profiles.SubmitLogoutSession(env) )
 
-    ep.GET(routes["/me/totp"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/totp"], "openid"), controllers.ShowTotp(env, routes["/me/totp"]))
-    ep.POST(routes["/me/totp"].URL, AuthenticationAndAuthorizationRequired(env, routes["/me/totp"], "openid"), controllers.SubmitTotp(env, routes["/me/totp"]))
 
-    ep.GET(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.ShowPassword(env, routes["/password"]))
-    ep.POST(routes["/password"].URL, AuthenticationAndAuthorizationRequired(env, routes["/password"], "openid"), controllers.SubmitPassword(env, routes["/password"]))
+    ep.GET(  "/recover", profiles.ShowRecover(env) )
+    ep.POST( "/recover", profiles.SubmitRecover(env) )
+    ep.GET(  "/recoververification", credentials.ShowRecoverVerification(env) )
+    ep.POST( "/recoververification", credentials.SubmitRecoverVerification(env) )
+
+    ep.GET(  "/invite", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowInvite(env) )
+    ep.POST( "/invite", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitInvite(env) )
+
+    ep.GET(  "/me/delete",             AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfileDelete(env) )
+    ep.POST( "/me/delete",             AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitProfileDelete(env) )
+    ep.GET(  "/me/deleteverification", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowProfileDeleteVerification(env) )
+    ep.POST( "/me/deleteverification", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.SubmitProfileDeleteVerification(env) )
+
   }
 
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))
@@ -247,14 +253,14 @@ func RequestLogger(env *environment.State) gin.HandlerFunc {
 		stop := time.Now()
 		latency := stop.Sub(start)
 
-    ipData, err := getRequestIpData(c.Request)
+    ipData, err := utils.GetRequestIpData(c.Request)
     if err != nil {
       log.WithFields(appFields).WithFields(logrus.Fields{
         "func": "RequestLogger",
       }).Debug(err.Error())
     }
 
-    forwardedForIpData, err := getForwardedForIpData(c.Request)
+    forwardedForIpData, err := utils.GetForwardedForIpData(c.Request)
     if err != nil {
       log.WithFields(appFields).WithFields(logrus.Fields{
         "func": "RequestLogger",
@@ -298,7 +304,7 @@ func RequestLogger(env *environment.State) gin.HandlerFunc {
 // 3. Is the access token granted the required scopes?
 // 4. Is the user or client giving the grants in the access token authorized to operate the scopes granted?
 // 5. Is the access token revoked?
-func AuthenticationAndAuthorizationRequired(env *environment.State, route environment.Route, requiredScopes ...string) gin.HandlerFunc {
+func AuthenticationAndAuthorizationRequired(env *environment.State, requiredScopes ...string) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -307,16 +313,15 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
     })
 
     // Authentication
-    token, err := authenticationRequired(env, c, route, log)
+    token, err := authenticationRequired(env, c, log)
     if err != nil {
       // Require authentication to access resources. Init oauth2 Authorization code flow with idpui as the client.
       log.Debug(err.Error())
 
-      initUrl, err := controllers.StartAuthenticationSession(env, c, route, log)
+      initUrl, err := credentials.StartAuthenticationSession(env, c, log)
       if err != nil {
         log.Debug(err.Error())
-        c.HTML(http.StatusInternalServerError, "", gin.H{"error": err.Error()})
-        c.Abort()
+        c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
       c.Redirect(http.StatusFound, initUrl.String())
@@ -326,7 +331,7 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
     c.Set(environment.AccessTokenKey, token) // Authenticated, so use it forward.
 
     // Authorization
-    _ /* grantedScopes */, err = authorizationRequired(env, c, route, log, requiredScopes)
+    _ /* grantedScopes */, err = authorizationRequired(env, c, log, requiredScopes)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
@@ -344,7 +349,7 @@ func AuthenticationAndAuthorizationRequired(env *environment.State, route enviro
   return gin.HandlerFunc(fn)
 }
 
-func authenticationRequired(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry) (*oauth2.Token, error) {
+func authenticationRequired(env *environment.State, c *gin.Context, log *logrus.Entry) (*oauth2.Token, error) {
   session := sessions.Default(c)
 
   log = log.WithFields(logrus.Fields{
@@ -369,8 +374,8 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
     logWithSession.Debug("Looking for access token")
     v := session.Get(environment.SessionTokenKey)
     if v != nil {
-      token = v.(*oauth2.Token)
       logWithSession.Debug("Found access token")
+      token = v.(*oauth2.Token)
     }
     log = logWithSession
   }
@@ -380,16 +385,12 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
   if err != nil {
     return nil, err
   }
-
   if newToken.AccessToken != token.AccessToken {
     log.Debug("Refreshed access token. Session updated")
     session.Set(environment.SessionTokenKey, newToken)
     session.Save()
     token = newToken
   }
-/*
-  client := oauth2.NewClient(oauth2.NoContext, tokenSource)
-  resp, err := client.Get(url)*/
 
   // See #2 of QTNA
   // https://godoc.org/golang.org/x/oauth2#Token.Valid
@@ -406,7 +407,7 @@ func authenticationRequired(env *environment.State, c *gin.Context, route enviro
   return nil, errors.New("Invalid access token")
 }
 
-func authorizationRequired(env *environment.State, c *gin.Context, route environment.Route, log *logrus.Entry, requiredScopes []string) ([]string, error) {
+func authorizationRequired(env *environment.State, c *gin.Context, log *logrus.Entry, requiredScopes []string) ([]string, error) {
 
   log = log.WithFields(logrus.Fields{
     "func": "authorizationRequired",

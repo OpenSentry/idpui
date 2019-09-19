@@ -6,8 +6,11 @@ import (
   oidc "github.com/coreos/go-oidc"
 )
 
+type SessionKeys struct {
+  SessionAppStore string
+}
+
 const (
-  SessionStoreKey string = "idpui"
   SessionStateKey string = "state"
   SessionTokenKey string = "token"
   SessionIdTokenKey string = "idtoken"
@@ -18,13 +21,9 @@ const (
 )
 
 type State struct {
+  SessionKeys *SessionKeys
   Provider *oidc.Provider
   IdpApiConfig *clientcredentials.Config
   AapApiConfig *clientcredentials.Config
   HydraConfig *oauth2.Config
-}
-
-type Route struct {
-  URL string
-  LogId string
 }
