@@ -48,23 +48,18 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    var consents string = "n/a"
-    var permissions string = "n/a"
-
-    totpRequired := "No"
-    if identity.TotpRequired == true {
-      totpRequired = "Yes"
-    }
-
     c.HTML(http.StatusOK, "profile.html", gin.H{
-      "__title": "Profile",
+      "title": "Profile",
+      "links": []map[string]string{
+        {"href": "/public/css/dashboard.css"},
+      },
+
       "id": idToken.Subject,
       "user": identity.Subject,
+      "password": identity.Password,
       "name": identity.Name,
       "email": identity.Email,
-      "totp_required": totpRequired,
-      "consents": consents,
-      "permissions": permissions,
+      "totp_required": identity.TotpRequired,
     })
   }
   return gin.HandlerFunc(fn)

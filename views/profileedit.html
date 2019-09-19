@@ -1,52 +1,60 @@
 {{ template "htmlbegin" . }}
 
-<h1>Greetings, {{ .registeredDisplayName }}</h1>
-<p>
-This is where you can edit your profile data, like email and name.
-</p>
+<div class="grid-container">
 
-<h2>Profile</h2>
+  {{ template "header" . }}
 
-<p>We have registered the following data on you:</p>
-<div>
-  <div style="margin:10px">
-    <span>Username:</span>
-    <span>{{ .user }}</span>
-  </div>
+  {{ template "sidenav" . }}
 
-  <div style="margin:10px">
-    <span>Name:</span>
-    <span>{{ .registeredDisplayName }}</span>
-  </div>
+  <main class="main">
+    <div class="main__header">
+      <div class="main-header__heading">Hello {{ .name }}</div>
+      <div class="main-header__updates">Recent Events</div>
+    </div>
 
-  <div style="margin:10px">
-    <span>Email:</span>
-    <span>{{ .registeredEmail }}</span>
-  </div>
+    <div class="main__cards">
+        <h1>{{ .title }}</h1>
+
+        <p>You are about to edit your personal information.</p>
+
+        <div class="ui segments">
+
+          <div class="ui segment">
+
+            <form class="ui form" action="{{ .profileEditUrl }}" method="post">
+              {{ .csrfField }}
+
+              <div class="field">
+                <label>Name</label>
+                <input type="text" name="display-name" autocomplete="name" placeholder="Enter your full name" value="{{ .displayName }}">
+                {{if .errorDisplayName}}
+                <div class="ui pointing red basic label">
+                  {{ .errorDisplayName }}
+                </div>
+                {{end}}
+              </div>
+
+              <div class="required field {{if .errorEmail}}error{{end}}">
+                <label>Email</label>
+                <input type="text" name="email" autocomplete="email" placeholder="Enter your email" value="{{ .email }}">
+                {{if .errorEmail}}
+                <div class="ui pointing red basic label">
+                  {{ .errorEmail }}
+                </div>
+                {{end}}
+              </div>
+
+              <button class="ui green button" type="submit"><i class="save icon"></i> Apply changes</button>
+            </form>
+
+          </div>
+
+        </div>
+
+    </div>
+  </main>
+
+  {{ template "footer" . }}
 </div>
 
-<p>Edit:</p>
-<form action="/me/edit" method="post">
-  {{ .csrfField }}
-
-  <div style="margin:10px">
-    <span>Username:</span>
-    <span>{{ .user }}</span>
-  </div>
-
-  <div style="margin:10px">
-    <label for="display-name">Name:</label>
-    <input name="display-name" type="text" autocomplete="name" value="{{ .displayName }}" placeholder="Enter your full name">
-    {{if .errorDisplayName}} <div class="error">{{ .errorDisplayName }}</div> {{end}}
-  </div>
-
-  <div style="margin:10px">
-    <label for="email">Email:</label>
-    <input name="email" type="text" autocomplete="email" value="{{ .email }}" placeholder="Enter your email" />
-    {{if .errorEmail}} <div class="error">{{ .errorEmail }}</div> {{end}}
-  </div>
-
-  <input type="submit" name="submit" value="Save edits" />
-</form>
-
-{{ template "htmlbegin" . }}
+{{ template "htmlend" . }}
