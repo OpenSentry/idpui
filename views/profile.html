@@ -1,69 +1,116 @@
 {{ template "htmlbegin" . }}
 
-<h1>Greetings, {{ .name }}</h1>
-<p>
-This is where you can view your profile data, like email and name, or view which apps you consented access to your data.
-</p>
+<div class="grid-container">
 
-<h2>Profile</h2>
-<p>
-We have registered the following data on you:
+  {{ template "header" . }}
 
-<div>
-  <div style="margin:10px">
-    <span>Id:</span>
-    <span>{{ .id }}</span>
-  </div>
+  {{ template "sidenav" . }}
 
-  <div style="margin:10px">
-    <span>Username:</span>
-    <span>{{ .user }}</span>
-  </div>
+  <main class="main">
+    <div class="main__header">
+      <div class="main-header__heading">Hello {{ .name }}</div>
+      <div class="main-header__updates">Recent Events</div>
+    </div>
 
-  <div style="margin:10px">
-    <span>Name:</span>
-    <span>{{ .name }}</span>
-  </div>
+    <div class="main__cards">
+        <h1>{{ .title }}</h1>
 
-  <div style="margin:10px">
-    <span>Email:</span>
-    <span>{{ .email }}</span>
-  </div>
+        <a href="/me/edit" style="margin-top:5px" class="ui green label"><i class="edit icon"></i> Edit</a>
+        <a href="/password" style="margin-top:5px" class="ui green label"><i class="user secret icon"></i> Change Password</a>
+        <a href="/logout" style="margin-top:5px" class="ui green label"><i class="sign-out icon"></i> Signout</a>
 
-  <div style="margin:10px">
-    <span>Two factor:</span>
-    <span>{{ .totp_required }}</span>
-  </div>
+        {{ if .totp_required }}{{ else }}<a href="/totp" style="margin-top:5px" class="ui green label"><i class="mobile alternate icon"></i> Enable Two-factor Authentication</a>{{ end }}
 
+        <div class="ui segments">
 
+          <div class="ui segment">
+
+            <div class="ui teal ribbon label">
+              <i class="user icon"></i> Personal
+            </div>
+            <span>Information accessible only to you</span>
+
+            <div class="ui list">
+              <div class="item">
+                <i class="user icon"></i>
+                <div class="content">
+                  <span title="The name we use to address you">{{ .name }}</span>
+                </div>
+              </div>
+              <div class="item">
+                <i class="user circle icon"></i>
+                <div class="content">
+                  <span title="The username you selected">{{ .user }}</span>
+                </div>
+              </div>
+              <div class="item">
+                <i class="mail icon"></i>
+                <div class="content">
+                  <a href="mailto:{{ .email }}" title="Identity recovery email">{{ .email }}</a>
+                </div>
+              </div>
+              <div class="ui divider"></div>
+              <div class="item">
+                <i class="mobile alternate icon"></i>
+                <div class="content">
+                  <span title="Two factor authenticaton">{{ if .totp_required }}You have enabled two-factor authentication{{ else }}No two-factor authentication<span class="ui left pointing red basic label">You should really enable this!</span></span>{{ end }}
+                </div>
+              </div>
+              <div class="ui divider"></div>
+              <div class="item">
+                <i class="user secret icon"></i>
+                <div class="content">
+                  <span title="Your password hash">{{ if .password }}{{ .password }}{{ else }}n/a{{ end }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="ui hidden divider"></div>
+            <div class="ui visible grey tiny message">
+              <p><i class="bullhorn icon"></i>Access to your personal information requires your consent.</p>
+            </div>
+
+            <div class="ui hidden divider"></div>
+
+            <div class="ui blue ribbon label">
+              <i class="globe icon"></i> Public
+            </div>
+            <span>Information accessible to everyone</span>
+            <p></p>
+
+            <div class="ui list">
+              <div class="item">
+                <i class="linkify icon"></i>
+                <div class="content">
+                  <a href="https://id.localhost/profile?id={{ .id }}" title="Your public profile">id.localhost/profile?id={{ .id }}</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="ui hidden divider"></div>
+
+            <div class="ui grey ribbon label">
+              <i class="server icon"></i> System
+            </div>
+            <span>The identifier representing you in the system</span>
+            <div class="ui list">
+              <div class="item">
+                <i class="key icon"></i>
+                <div class="content">
+                  <span title="The identifier for you in the system">{{ .id }}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <a href="/me/delete" style="margin-top:5px" class="ui red label"><i class="power off icon"></i> Delete Profile</a>
+
+    </div>
+  </main>
+
+  {{ template "footer" . }}
 </div>
-
-<a href="/logout">Logout</a>
-<a href="/password">Change password</a>
-<a href="/me/edit">Edit profile</a>
-<a href="/me/totp">Two factor</a>
-<a href="/me/delete">Delete identity</a>
-
-<h2>Managing</h2>
-<p>
-You manage the following people and systems:
-<br><br>
-n/a
-</p>
-
-<h2>Permission</h2>
-<p>
-You are granted the following access to apps:
-<br></br>
-{{ .permissions }}
-</p>
-
-<h2>Consent</h2>
-<p>
-You have granted the following apps access to your data:
-<br><br>
-{{ .consents }}
-</p>
-<a href="/consent">Revoke consent to all apps</a>
 
 {{ template "htmlend" . }}

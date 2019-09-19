@@ -4,20 +4,20 @@
 
   <meta charset="utf-8">
 
-  <title>{{ .__title }}</title>
-  <meta name="description" content="{{ .__title }}">
+  <title>{{ .title }}</title>
+  <meta name="description" content="{{ .title }}">
   <meta name="author" content="CharMixer">
 
-  <link rel="stylesheet" type="text/css" href="/public/css/reset.css">
-  <link rel="stylesheet" type="text/css" href="/public/lib/fontawesome/css/all.css"> <!--load all styles -->
+  <link rel="stylesheet" type="text/css" href="/public/lib/semanticui/semantic.min.css"> <!--load all styles -->
   <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
 
-  {{ range $value := .__links }}
+  {{ range $value := .links }}
     <link rel="{{ or $value.rel "stylesheet" }}" type="{{ or $value.type "text/css" }}" href="{{ $value.href }}">
   {{ end }}
 
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-  {{ range $value := .__scripts }}
+  <script src="/public/lib/semanticui/semantic.min.js"></script>
+  {{ range $value := .scripts }}
     <script type="{{ or $value.type "text/javascript" }}" src="{{ $value.src }}"></script>
   {{ end }}
 
@@ -32,7 +32,9 @@
 
 <header class="header">
   <div class="header__search">Search...</div>
-  <div class="header__avatar">Your face</div>
+  <div class="header__avatar">
+    <img src="https://via.placeholder.com/150" class="circle" height="30px" />
+  </div>
 </header>
 {{ end }}
 
@@ -43,16 +45,21 @@
   </div>
 
   <div class="sidenav__identity">
-    <img src="https://via.placeholder.com/150" class="circle" height="50px" />
-    <span class="name">Lasse Nielsen</span>
+    <img class="ui avatar mini image" src="https://via.placeholder.com/150" />
+    <span>{{ .name }}</span>
   </div>
 
   <ul class="sidenav__list">
-    <li class="sidenav__list-item">Item One</li>
-    <li class="sidenav__list-item">Item Two</li>
-    <li class="sidenav__list-item">Item Three</li>
-    <li class="sidenav__list-item">Item Four</li>
-    <li class="sidenav__list-item">Item Five</li>
+
+    <li class="sidenav__list-seperator">Identity</li>
+    <li class="sidenav__list-item"><a href="/me">Profile</a></li>
+    <li class="sidenav__list-item"><a href="/organizations">Orgranizations</a></li>
+
+    <li class="sidenav__list-seperator">Access & Authorization</li>
+    <li class="sidenav__list-item"><a href="/authorizations">Authorizations</a></li>
+    <li class="sidenav__list-item"><a href="/permissions">Permissions</a></li>
+    <li class="sidenav__list-item"><a href="/roles">Roles</a></li>
+
   </ul>
   <div class="sidenav__close-icon">
     <i class="fas fa-times"></i>
@@ -91,6 +98,7 @@
 <footer class="footer">
   <div class="footer__copyright">&copy; 2019</div>
   <div class="footer__signature">Made with love by pure genius</div>
+
 </footer>
 {{ end }}
 
