@@ -187,9 +187,9 @@ func serve(env *environment.State) {
     ep.GET(  "/verify", credentials.ShowVerify(env) )
     ep.POST( "/verify", credentials.SubmitVerify(env) )
 
-    // Verify OTP code
-    ep.GET(  "/me/totp", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowTotp(env) )
-    ep.POST( "/me/totp", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.SubmitTotp(env) )
+    // Enable TOTP
+    ep.GET(  "/totp", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowTotp(env) )
+    ep.POST( "/totp", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.SubmitTotp(env) )
 
     // Change password
     ep.GET(  "/password", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowPassword(env) )
