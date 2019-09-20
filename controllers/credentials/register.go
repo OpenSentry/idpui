@@ -3,6 +3,8 @@ package credentials
 import (
   "strings"
   "net/http"
+  "reflect"
+  "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
@@ -12,14 +14,15 @@ import (
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
+  "github.com/charmixer/idpui/validators"
 )
 
 type registrationForm struct {
-    Username string `form:"username" binding:"required"`
-    Name string `form:"display-name" binding:"required"`
-    Email string `form:"email" binding:"required"`
-    Password string `form:"password" binding:"required"`
-    PasswordRetyped string `form:"password_retyped" binding:"required"`
+    Username string `form:"username" binding:"required" validate:"required,notblank"`
+    Name string `form:"display-name" binding:"required" validate:"required,notblank"`
+    Email string `form:"email" binding:"required" validate:"required,email"`
+    Password string `form:"password" binding:"required" validate:"required,notblank"`
+    PasswordRetyped string `form:"password_retyped" binding:"required" validate:"required,notblank"`
 }
 
 func ShowRegistration(env *environment.State) gin.HandlerFunc {
@@ -52,34 +55,38 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
-        if k == "errorUsername" && len(v) > 0 {
+        if k == "username" && len(v) > 0 {
           errorUsername = strings.Join(v, ", ")
         }
 
-        if k == "errorPassword" && len(v) > 0 {
+        if k == "password" && len(v) > 0 {
           errorPassword = strings.Join(v, ", ")
         }
 
-        if k == "errorPasswordRetyped" && len(v) > 0 {
+        if k == "password_retyped" && len(v) > 0 {
           errorPasswordRetyped = strings.Join(v, ", ")
         }
 
-        if k == "errorEmail" && len(v) > 0 {
+        if k == "email" && len(v) > 0 {
           errorEmail = strings.Join(v, ", ")
         }
 
-        if k == "errorDisplayName" && len(v) > 0 {
+        if k == "display-name" && len(v) > 0 {
           errorDisplayName = strings.Join(v, ", ")
         }
       }
     }
 
     c.HTML(200, "register.html", gin.H{
-      "links": []map[string]string{
-        {"href": "/public/css/main.css"},
-      },
       "title": "Register",
+      "links": []map[string]string{
+        {"href": "/public/css/credentials.css"},
+      },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "provider": "Identity Provider",
+      "provideraction": "Register for an identity in the system",
+      "registerUrl": config.GetString("idpui.public.endpoints.register"),
+      "loginUrl": config.GetString("idpui.public.endpoints.login"),
       "username": username,
       "displayName": displayName,
       "email": email,
@@ -122,20 +129,50 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
     }
 
     errors := make(map[string][]string)
+    validate := validator.New()
+    validate.RegisterValidation("notblank", validators.NotBlank)
+    err = validate.Struct(form)
+    if err != nil {
 
-    username := strings.TrimSpace(form.Username)
-    if username == "" {
-      errors["errorUsername"] = append(errors["errorUsername"], "Missing username")
+      // Validation syntax is invalid
+      if err,ok := err.(*validator.InvalidValidationError); ok{
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      reflected := reflect.ValueOf(form) // Use reflector to reverse engineer struct
+      for _, err := range err.(validator.ValidationErrors){
+
+        // Attempt to find field by name and get json tag name
+        field,_ := reflected.Type().FieldByName(err.StructField())
+        var name string
+
+        // If form tag doesn't exist, use lower case of name
+        if name = field.Tag.Get("form"); name == ""{
+          name = strings.ToLower(err.StructField())
+        }
+
+        switch err.Tag() {
+        case "required":
+            errors[name] = append(errors[name], "Required")
+            break
+        case "eqfield":
+            errors[name] = append(errors[name], "Field should be equal to the "+err.Param())
+            break
+        case "notblank":
+          errors[name] = append(errors[name], "Not Blank")
+          break
+        default:
+            errors[name] = append(errors[name], "Invalid")
+            break
+        }
+      }
+
     }
 
-    password := form.Password
-    if strings.TrimSpace(password) == "" {
-      errors["errorPassword"] = append(errors["errorPassword"], "Missing password. Hint: Not allowed to be all whitespace")
-    }
-
-    retypedPassword := form.PasswordRetyped
-    if retypedPassword != password {
-      errors["errorPasswordRetyped"] = append(errors["errorPasswordRetyped"], "Must match password")
+    if form.Password != form.PasswordRetyped {
+      errors["password_retyped"] = append(errors["password_retyped"], "No Match")
     }
 
     if len(errors) > 0 {
@@ -157,7 +194,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    if password == retypedPassword { // Just for safety is caught in the input error detection.
+    if form.Password == form.PasswordRetyped { // Just for safety is caught in the input error detection.
 
       idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
