@@ -114,6 +114,7 @@ func ShowProfileEdit(env *environment.State) gin.HandlerFunc {
       "email": email,
       "errorEmail": errorEmail,
       "errorDisplayName": errorDisplayName,
+      "name": profile.Name,
       "registeredDisplayName": profile.Name,
       "registeredEmail": profile.Email,
     })
