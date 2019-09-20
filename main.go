@@ -205,6 +205,8 @@ func serve(env *environment.State) {
     ep.GET(  "/me/edit", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfileEdit(env) )
     ep.POST( "/me/edit", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitProfileEdit(env) )
 
+    ep.GET(  "/profile", profiles.ShowPublicProfile(env) )
+
     // Signoff
     ep.GET(  "/logout", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowLogout(env) )
     ep.POST( "/logout", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitLogout(env) )
