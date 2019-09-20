@@ -34,7 +34,7 @@
               <div class="item">
                 <i class="user icon"></i>
                 <div class="content">
-                  <span title="The name we use to address you">{{ .name }}</span>
+                  <span title="The name used to address you">{{ .name }}</span>
                 </div>
               </div>
               <div class="item">
@@ -60,7 +60,7 @@
               <div class="item">
                 <i class="user secret icon"></i>
                 <div class="content">
-                  <span title="Your password hash">{{ if .password }}{{ .password }}{{ else }}n/a{{ end }}</span>
+                  <span title="The secret password hash used to authenticate you">{{ if .password }}{{ .password }}{{ else }}n/a{{ end }}</span>
                 </div>
               </div>
             </div>
