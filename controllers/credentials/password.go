@@ -66,7 +66,10 @@ func ShowPassword(env *environment.State) gin.HandlerFunc {
     }
 
     c.HTML(http.StatusOK, "password.html", gin.H{
-      "__title": "Password",
+      "links": []map[string]string{
+        {"href": "/public/css/main.css"},
+      },
+      "title": "Password",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "id": idToken.Subject,
       "errorPassword": errorPassword,

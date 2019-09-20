@@ -36,7 +36,10 @@ func ShowLogout(env *environment.State) gin.HandlerFunc {
 
     logoutError := c.Query("logout_error")
     c.HTML(http.StatusOK, "logout.html", gin.H{
-      "__title": "Logout",
+      "title": "Logout",
+      "links": []map[string]string{
+        {"href": "/public/css/dashboard.css"},
+      },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "challenge": logoutChallenge,
       "logout_error": logoutError,

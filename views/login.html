@@ -1,34 +1,95 @@
 {{ template "htmlbegin" . }}
 
-<div id="top-spacer"></div>
+<div class="ui middle aligned center aligned grid">
+  <div class="column">
 
-<div id="content-wrapper">
-  <h1 class="fingerprint">Identity Provider</h1>
+    <h2 class="ui left aligned inverted header">
+      <img class="ui large image" src="/public/images/fingerprint.svg" />
+      <div class="content">
+        Identity Provider
+        <div class="sub header">Identify yourself to gain access to your profile</div>
+      </div>
+    </h2>
 
-  <form action="{{ .loginUrl }}" method="post">
-    {{ .csrfField }}
-    <input type="hidden" name="challenge" value="{{ .challenge }}" />
+    <div class="ui divider hidden"></div>
 
-    <div class="input-group">
-      <input name="username" type="text" autocomplete="username" placeholder="Enter your username" value="{{ .username }}" required>
-      {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
-    </div>
+    <form class="ui large form" action="{{ .loginUrl }}" method="post">
+      {{ .csrfField }}
+      <input type="hidden" name="challenge" value="{{ .challenge }}" />
 
-    <div class="input-group">
-      <input name="password" type="password" autocomplete="current-password" placeholder="Enter your password, sshhh..." required>
-      {{if .errorPassword}} <label for="password" class="error">{{ .errorPassword }}</label> {{end}}
-    </div>
+      <!--
+      {{if .errorEmail}}
+        <div class="required field {{if .errorEmail}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="mail icon"></i>
+            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
+            <div class="ui red tag label">
+              {{ .errorEmail }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="mail icon"></i>
+            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
+          </div>
+        </div>
+      {{end}}
+      -->
 
-    <input type="submit" name="submit" value="Connect" />
-  </form>
+      {{if .errorUsername}}
+        <div class="required field {{if .errorUsername}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="user icon"></i>
+            <input type="text" name="username" autocomplete="username" placeholder="Username" value="{{.username}}" required />
+            <div class="ui red tag label">
+              {{ .errorUsername }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="user icon"></i>
+            <input type="text" name="username" autocomplete="username" placeholder="Username" value="{{.username}}" required />
+          </div>
+        </div>
+      {{end}}
 
-  <span class="info">Forgot your credentials? <a href="{{ .recoverUrl }}">Recover</a></span>
-  <span class="info">Don't have an account yet? <a href="{{ .registerUrl }}">Sign up</a></span>
+      {{if .errorPassword}}
+        <div class="required field {{if .errorPassword}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="lock icon"></i>
+            <input type="password" name="password" autocomplete="current-password" placeholder="Password" required />
+            <div class="ui red tag label">
+              {{ .errorPassword }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="lock icon"></i>
+            <input type="password" name="password" autocomplete="current-password" placeholder="Password" required />
+          </div>
+        </div>
+      {{end}}
 
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Login" />
+
+    </form>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Forgot your credentials? <a class="white" href="{{ .recoverUrl }}">Recover</a></div>
+    <div class="white">Don't have an account yet? <a class="white" href="{{ .registerUrl }}">Sign up</a></div>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Login challenge: {{ .challenge }}</div>
+
+  </div>
 </div>
-
-<div id="debug-wrapper">
-  <span class="info">Login challenge: {{ .challenge }}</span>
-<div>
 
 {{ template "htmlend" . }}
