@@ -28,8 +28,7 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
       return
     }
 
@@ -43,8 +42,7 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
     }
     identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
-      c.HTML(http.StatusNotFound, "profile.html", gin.H{"error": "Identity not found"})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
       return
     }
 
@@ -53,7 +51,6 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
       "links": []map[string]string{
         {"href": "/public/css/dashboard.css"},
       },
-
       "id": idToken.Subject,
       "user": identity.Subject,
       "password": identity.Password,

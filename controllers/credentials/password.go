@@ -3,6 +3,8 @@ package credentials
 import (
   "net/http"
   "strings"
+  "reflect"
+  "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
@@ -14,11 +16,12 @@ import (
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
+  "github.com/charmixer/idpui/validators"
 )
 
 type passwordForm struct {
-  Password string `form:"password"`
-  PasswordRetyped string `form:"password_retyped"`
+  Password string `form:"password" binding:"required" validate:"required,notblank"`
+  PasswordRetyped string `form:"password_retyped" binding:"required" validate:"required,notblank"`
 }
 
 func ShowPassword(env *environment.State) gin.HandlerFunc {
@@ -34,12 +37,9 @@ func ShowPassword(env *environment.State) gin.HandlerFunc {
     var idToken *oidc.IDToken
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "password.html", gin.H{"error": "Identity not found"})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
       return
     }
-
-    log.Debug(idToken)
 
     errors := session.Flashes("password.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -54,11 +54,11 @@ func ShowPassword(env *environment.State) gin.HandlerFunc {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
 
-        if k == "errorPassword" && len(v) > 0 {
+        if k == "password" && len(v) > 0 {
           errorPassword = strings.Join(v, ", ")
         }
 
-        if k == "errorPasswordRetyped" && len(v) > 0 {
+        if k == "password_retyped" && len(v) > 0 {
           errorPasswordRetyped = strings.Join(v, ", ")
         }
 
@@ -66,12 +66,15 @@ func ShowPassword(env *environment.State) gin.HandlerFunc {
     }
 
     c.HTML(http.StatusOK, "password.html", gin.H{
-      "links": []map[string]string{
-        {"href": "/public/css/main.css"},
-      },
       "title": "Password",
+      "links": []map[string]string{
+        {"href": "/public/css/credentials.css"},
+      },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "provider": "Identity Provider",
+      "provideraction": "Change your password",
       "id": idToken.Subject,
+      "passwordUrl": config.GetString("idpui.public.endpoints.password"),
       "errorPassword": errorPassword,
       "errorPasswordRetyped": errorPasswordRetyped,
     })
@@ -99,16 +102,52 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     errors := make(map[string][]string)
+    validate := validator.New()
+    validate.RegisterValidation("notblank", validators.NotBlank)
+    err = validate.Struct(form)
+    if err != nil {
 
-    password := form.Password
-    if strings.TrimSpace(password) == "" {
-      errors["errorPassword"] = append(errors["errorPassword"], "Missing password. Hint: Not allowed to be all whitespace")
+      // Validation syntax is invalid
+      if err,ok := err.(*validator.InvalidValidationError); ok{
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      reflected := reflect.ValueOf(form) // Use reflector to reverse engineer struct
+      for _, err := range err.(validator.ValidationErrors){
+
+        // Attempt to find field by name and get json tag name
+        field,_ := reflected.Type().FieldByName(err.StructField())
+        var name string
+
+        // If form tag doesn't exist, use lower case of name
+        if name = field.Tag.Get("form"); name == ""{
+          name = strings.ToLower(err.StructField())
+        }
+
+        switch err.Tag() {
+        case "required":
+            errors[name] = append(errors[name], "Required")
+            break
+        case "eqfield":
+            errors[name] = append(errors[name], "Field should be equal to the "+err.Param())
+            break
+        case "notblank":
+          errors[name] = append(errors[name], "Not Blank")
+          break
+        default:
+            errors[name] = append(errors[name], "Invalid")
+            break
+        }
+      }
+
     }
 
-    retypedPassword := form.PasswordRetyped
-    if retypedPassword != password {
-      errors["errorPasswordRetyped"] = append(errors["errorPasswordRetyped"], "Must match password")
+    if form.Password != form.PasswordRetyped {
+      errors["password_retyped"] = append(errors["password_retyped"], "No Match")
     }
+
 
     if len(errors) > 0 {
       session.AddFlash(errors, "password.errors")
@@ -129,7 +168,7 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    if password == retypedPassword { // Just for safety is caught in the input error detection.
+    if form.Password == form.PasswordRetyped { // Just for safety is caught in the input error detection.
 
       var idToken *oidc.IDToken
       idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
