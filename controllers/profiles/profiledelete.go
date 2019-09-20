@@ -36,7 +36,21 @@ func ShowProfileDelete(env *environment.State) gin.HandlerFunc {
     var idToken *oidc.IDToken
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "profiledelete.html", gin.H{"error": "Identity not found"})
+      c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
+      c.Abort()
+      return
+    }
+
+    var accessToken *oauth2.Token
+    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
+    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+
+    identityRequest := &idp.IdentitiesReadRequest{
+      Id: idToken.Subject,
+    }
+    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    if err != nil {
+      c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
       c.Abort()
       return
     }
@@ -44,10 +58,11 @@ func ShowProfileDelete(env *environment.State) gin.HandlerFunc {
     riskAccepted := session.Get("profiledelete.risk_accepted")
 
     errors := session.Flashes("profiledelete.errors")
-    err := session.Save() // Remove flashes read, and save submit fields
+    err = session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
     }
+
 
     var errorRiskAccepted string
 
@@ -70,8 +85,10 @@ func ShowProfileDelete(env *environment.State) gin.HandlerFunc {
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "username": idToken.Subject,
+      "name": identity.Name,
       "RiskAccepted": riskAccepted,
       "errorRiskAccepted": errorRiskAccepted,
+      "profileDeleteUrl": "/me/delete",
     })
   }
   return gin.HandlerFunc(fn)
