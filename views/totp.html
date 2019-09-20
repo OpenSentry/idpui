@@ -1,37 +1,83 @@
 {{ template "htmlbegin" . }}
 
-<div id="top-spacer"></div>
+<div class="ui middle aligned center aligned grid">
+  <div class="column">
 
-<div id="content-wrapper">
-  <h1 class="fingerprint">Identity Provider</h1>
+    {{ template "providerheader" . }}
 
-  <h2>Two Factor Authentication</h2>
+    <div class="ui divider hidden"></div>
 
-  <p>
-    Welcome {{ .name }}<br><br>
-    To better protect your Identity, we strongly recommend you enable two factor authentication using an Authenticator App.<br><br>
-    Scan the QR-code and verify your setup by entering a generated passcode from the App.<br><br>
-    Stay safe.<br><br>
+    <form class="ui large form" action="{{ .totpUrl }}" method="post">
+      {{ .csrfField }}
+      <input type="hidden" name="secret" value="{{ .secret }}">
 
-    <img style="display:block;" src="data:image/png;base64, {{ .qrcode }}" alt="QR Code" />
+      <div class="ui left aligned segment totp">
 
-    <span style="display:block;padding-top:10px">Secret: {{ .secret }}</span>
-    <span style="display:block;">Issuer: {{ .issuer }}</span>
+      <div class="ui tiny fluid vertical steps">
+        <div class="step">
+          <i class="mobile alternate icon"></i>
+          <div class="content">
+            <div class="title">Install Authenticator</div>
+            <div class="description">Download Authenticator App on your Phone</div>
+          </div>
+        </div>
 
-  </p>
+        <div class="step">
+          <i class="qrcode icon"></i>
+          <div class="content">
+            <div class="title">Scan QR-code</div>
+            <div class="description">Scan the QR-code with the Authenticator App</div>
+          </div>
+        </div>
+      </div>
 
-  <form action="/me/totp" method="post">
-    {{ .csrfField }}
-    <input type="hidden" name="secret" value="{{ .secret }}">
+      <div class="image">
+        <img class="ui centered image" src="data:image/png;base64, {{ .qrcode }}" alt="{{.secret}}" />
+        <div class="white" style="text-align:center;margin-top:4px">Secret: {{ .secret }}</div>
+      </div>
 
-    <div class="input-group">
-      <input name="otp" type="password" placeholder="Enter passcode" required>
-      {{if .errorOtp}} <label for="otp" class="error">{{ .errorOtp }}</label> {{end}}
-    </div>
+      <div class="ui tiny fluid vertical steps">
+        <div class="step">
+          <i class="handshake icon"></i>
+          <div class="content">
+            <div class="title">Verify installation</div>
+            <div class="description">Enter code from Authenticator App to verify installation</div>
+          </div>
+        </div>
 
-    <input type="submit" name="submit" value="Verify" />
-  </form>
+      </div>
 
+      {{if .errorTotp}}
+      <div class="required field {{if .errorTotp}}error{{end}}">
+        <div class="ui right labeled left icon input focus">
+          <i class="lock icon"></i>
+          <input type="password" name="totp" placeholder="Enter code" required />
+          <div class="ui red tag label">
+            {{ .errorTotp }}
+          </div>
+        </div>
+      </div>
+      {{else}}
+      <div class="required field">
+        <div class="ui left icon input focus">
+          <i class="lock icon"></i>
+          <input type="password" name="totp" placeholder="Enter code" required />
+        </div>
+      </div>
+      {{end}}
+
+      </div>
+
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Verify" />
+
+    </form>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Id: {{ .id }}</div>
+
+  </div>
 </div>
 
 {{ template "htmlend" . }}
+

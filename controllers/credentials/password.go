@@ -173,8 +173,7 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
       var idToken *oidc.IDToken
       idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
       if idToken == nil {
-        c.HTML(http.StatusNotFound, "password.html", gin.H{"error": "Identity not found"})
-        c.Abort()
+        c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Missing id_token"})
         return
       }
 
@@ -188,19 +187,17 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
         Id: idToken.Subject,
         Password: form.Password,
       }
-      profile, err := idp.UpdateIdentityPassword(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), passwordRequest)
+      _ /* updatedIdentity */, err := idp.UpdateIdentityPassword(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), passwordRequest)
       if err != nil {
         log.Debug(err.Error())
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        c.Abort()
+        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
       }
 
-      log.Debug(profile)
-
       log.WithFields(logrus.Fields{"fixme":1}).Debug("Redirect to where we came from")
-      log.WithFields(logrus.Fields{"redirect_to": "/me"}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, "/me")
+      redirectTo := "/me"
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
       return
     }
