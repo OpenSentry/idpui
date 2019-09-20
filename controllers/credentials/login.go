@@ -6,6 +6,8 @@ import (
   "crypto/rand"
   "encoding/base64"
   "strings"
+  "reflect"
+  "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
@@ -14,12 +16,13 @@ import (
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/validators"
 )
 
 type authenticationForm struct {
   Challenge string `form:"challenge" binding:"required"`
-  Username string `form:"username" binding:"required"`
-  Password string `form:"password" binding:"required"`
+  Username string `form:"username" binding:"required" validate:"required,notblank"`
+  Password string `form:"password" binding:"required" validate:"required,notblank"`
 }
 
 func ShowLogin(env *environment.State) gin.HandlerFunc {
@@ -96,10 +99,10 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
 
-        if k == "errorUsername" && len(v) > 0 {
+        if k == "username" && len(v) > 0 {
           errorUsername = strings.Join(v, ", ")
         }
-        if k == "errorPassword" && len(v) > 0 {
+        if k == "password" && len(v) > 0 {
           errorPassword = strings.Join(v, ", ")
         }
 
@@ -107,18 +110,18 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
     }
 
     c.HTML(200, "login.html", gin.H{
-      "__links": []map[string]string{
-        {"href": "/public/css/main.css"},
+      "links": []map[string]string{
+        {"href": "/public/css/credentials.css"},
       },
-      "__title": "Authenticate",
+      "title": "Authenticate",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "challenge": loginChallenge,
       "username": username,
       "errorUsername": errorUsername,
       "errorPassword": errorPassword,
-      "loginUrl": config.GetString("idpui.public.login"),
-      "recoverUrl": config.GetString("idpui.public.recover"),
-      "registerUrl": config.GetString("idpui.public.register"),
+      "loginUrl": config.GetString("idpui.public.endpoints.login"),
+      "recoverUrl": config.GetString("idpui.public.endpoints.recover"),
+      "registerUrl": config.GetString("idpui.public.endpoints.register"),
     })
   }
   return gin.HandlerFunc(fn)
@@ -149,16 +152,51 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
       log.Debug(err.Error())
     }
 
+
     errors := make(map[string][]string)
+    validate := validator.New()
+    validate.RegisterValidation("notblank", validators.NotBlank)
+    err = validate.Struct(form)
+    if err != nil {
 
-    username := strings.TrimSpace(form.Username)
-    if username == "" {
-      errors["errorUsername"] = append(errors["errorUsername"], "Missing username")
-    }
+      // Validation syntax is invalid
+      if err,ok := err.(*validator.InvalidValidationError); ok{
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
 
-    password := form.Password
-    if strings.TrimSpace(password) == "" {
-      errors["errorPassword"] = append(errors["errorPassword"], "Missing password. Hint: Not allowed to be all whitespace")
+      reflected := reflect.ValueOf(form) // Use reflector to reverse engineer struct
+      for _, err := range err.(validator.ValidationErrors){
+
+        // Attempt to find field by name and get json tag name
+        field,_ := reflected.Type().FieldByName(err.StructField())
+        var name string
+
+        // If form tag doesn't exist, use lower case of name
+        if name = field.Tag.Get("form"); name == ""{
+          name = strings.ToLower(err.StructField())
+        }
+
+        switch err.Tag() {
+        case "required":
+            errors[name] = append(errors[name], "Required")
+            break
+        case "email":
+            errors[name] = append(errors[name], "Not an E-mail")
+            break
+        case "eqfield":
+            errors[name] = append(errors[name], "Field should be equal to the "+err.Param())
+            break
+        case "notblank":
+          errors[name] = append(errors[name], "Not Blank")
+          break
+        default:
+            errors[name] = append(errors[name], "Invalid")
+            break
+        }
+      }
+
     }
 
     if len(errors) > 0 {
@@ -177,7 +215,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
     idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
     identityRequest := &idp.IdentitiesReadRequest{
-      Subject: username,
+      Subject: form.Username,
     }
     identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
@@ -194,7 +232,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
     // Ask idp to authenticate the user
     authenticateRequest := &idp.IdentitiesAuthenticateRequest{
       Id: identityResponse.Id,
-      Password: password,
+      Password: form.Password,
       Challenge: form.Challenge,
     }
     authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
@@ -232,9 +270,9 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
 
     // Deny by default
     if authenticateResponse.IsPasswordInvalid == true {
-      errors["errorUsername"] = append(errors["errorUsername"], "Invalid password")
+      errors["password"] = append(errors["password"], "Invalid")
     } else {
-      errors["errorUsername"] = append(errors["errorUsername"], "Not found")
+      errors["username"] = append(errors["username"], "Not found")
     }
     session.AddFlash(errors, "authenticate.errors")
     err = session.Save()

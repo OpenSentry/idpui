@@ -75,7 +75,10 @@ func ShowProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
     }
 
     c.HTML(http.StatusOK, "profiledeleteverification.html", gin.H{
-      "__title": "Delete profile verification",
+      "links": []map[string]string{
+        {"href": "/public/css/main.css"},
+      },
+      "title": "Delete profile verification",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "username": idToken.Subject,
       "errorUsername": errorUsername,

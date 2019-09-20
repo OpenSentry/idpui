@@ -75,10 +75,10 @@ func ShowInviteRegister(env *environment.State) gin.HandlerFunc {
     }
 
     c.HTML(200, "register.html", gin.H{
-      "__links": []map[string]string{
-        {"href": "/public/css/main.css"},
+      "title": "Register",
+      "links": []map[string]string{
+        {"href": "/public/css/dashboard.css"},
       },
-      "__title": "Register",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "username": username,
       "displayName": displayName,
