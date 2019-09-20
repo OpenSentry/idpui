@@ -1,42 +1,119 @@
 {{ template "htmlbegin" . }}
 
-<div id="top-spacer"></div>
+<div class="ui middle aligned center aligned grid">
+  <div class="column">
 
-<div id="content-wrapper">
-  <h1 class="fingerprint">Identity Provider</h1>
+    {{ template "providerheader" . }}
 
-  <form action="/register" method="post">
-    {{ .csrfField }}
+    <div class="ui divider hidden"></div>
 
-    <div class="input-group">
-      <input name="username" type="text" autocomplete="username" placeholder="Enter your username" value="{{ .username }}" required>
-      {{if .errorUsername}} <label for="username" class="error">{{ .errorUsername }}</label> {{end}}
-    </div>
+    <form class="ui large form" action="{{ .registerUrl }}" method="post">
+      {{ .csrfField }}
 
-    <div class="input-group">
-      <input name="display-name" type="text" autocomplete="name" value="{{ .displayName }}" placeholder="Enter your full name">
-      {{if .errorDisplayName}} <label for="display-name" class="error">{{ .errorDisplayName }}</label> {{end}}
-    </div>
+      {{if .errorDisplayName}}
+        <div class="required field {{if .errorDisplayName}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="user icon"></i>
+            <input type="text" name="display-name" autocomplete="name" placeholder="Name" value="{{.displayName}}" required />
+            <div class="ui red tag label">
+              {{ .errorDisplayName }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="user icon"></i>
+            <input type="text" name="display-name" autocomplete="name" placeholder="Name" value="{{.displayName}}" required />
+          </div>
+        </div>
+      {{end}}
 
-    <div class="input-group">
-      <input name="email" type="text" autocomplete="email" value="{{ .email }}" placeholder="Enter your email" />
-      {{if .errorEmail}} <label for="email" class="error">{{ .errorEmail }}</label> {{end}}
-    </div>
+      {{if .errorUsername}}
+        <div class="required field {{if .errorUsername}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="user circle icon"></i>
+            <input type="text" name="username" autocomplete="username" placeholder="Username" value="{{.username}}" required />
+            <div class="ui red tag label">
+              {{ .errorUsername }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="user circle icon"></i>
+            <input type="text" name="username" autocomplete="username" placeholder="Username" value="{{.username}}" required />
+          </div>
+        </div>
+      {{end}}
 
-    <div class="input-group">
-      <input name="password" type="password" autocomplete="new-password" placeholder="Enter your NEW password, sshhh..." required>
-      {{if .errorPassword}} <label for="password" class="error">{{ .errorPassword }}</label> {{end}}
-    </div>
+      {{if .errorEmail}}
+        <div class="required field {{if .errorEmail}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="mail icon"></i>
+            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
+            <div class="ui red tag label">
+              {{ .errorEmail }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="mail icon"></i>
+            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
+          </div>
+        </div>
+      {{end}}
 
-    <div class="input-group">
-      <input name="password_retyped" type="password" autocomplete="new-password" placeholder="Enter your NEW password again, just checking..." required>
-      {{if .errorPasswordRetyped}} <label for="password_retyped" class="error">{{ .errorPasswordRetyped }}</label> {{end}}
-    </div>
+      {{if .errorPassword}}
+        <div class="required field {{if .errorPassword}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="lock icon"></i>
+            <input type="password" name="password" autocomplete="new-password" placeholder="Password" required />
+            <div class="ui red tag label">
+              {{ .errorPassword }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="lock icon"></i>
+            <input type="password" name="password" autocomplete="new-password" placeholder="Password" required />
+          </div>
+        </div>
+      {{end}}
 
-    <input type="submit" name="submit" value="Register" />
-  </form>
+      {{if .errorPasswordRetyped}}
+        <div class="required field {{if .errorPasswordRetyped}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="lock icon"></i>
+            <input type="password" name="password_retyped" autocomplete="new-password" placeholder="Password retyped" required />
+            <div class="ui red tag label">
+              {{ .errorPasswordRetyped }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="lock icon"></i>
+            <input type="password" name="password_retyped" autocomplete="new-password" placeholder="Password retyped" required />
+          </div>
+        </div>
+      {{end}}
 
-  <span class="info">Already have an account? <a href="/authenticate">Authenticate</a></span>
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Register" />
+
+    </form>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Already have an account? <a class="white" href="{{ .loginUrl }}">Login</a></div>
+
+  </div>
 </div>
 
 {{ template "htmlend" . }}
