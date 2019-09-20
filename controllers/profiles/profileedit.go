@@ -16,6 +16,7 @@ import (
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
+  "github.com/charmixer/idpui/validators"
 )
 
 type profileEditForm struct {
@@ -120,13 +121,6 @@ func ShowProfileEdit(env *environment.State) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func NotBlank(fl validator.FieldLevel) bool {
-  if strings.TrimSpace(fl.Field().String()) == "" {
-    return false;
-  }
-  return true
-}
-
 func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -171,7 +165,7 @@ func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
 
     errors := make(map[string][]string)
     validate := validator.New()
-    validate.RegisterValidation("notblank", NotBlank)
+    validate.RegisterValidation("notblank", validators.NotBlank)
     err = validate.Struct(form)
     if err != nil {
 

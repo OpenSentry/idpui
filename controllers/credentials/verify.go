@@ -70,10 +70,10 @@ func ShowVerify(env *environment.State) gin.HandlerFunc {
     }
 
     c.HTML(200, "verify.html", gin.H{
-      "__links": []map[string]string{
+      "links": []map[string]string{
         {"href": "/public/css/main.css"},
       },
-      "__title": "OTP verification",
+      "title": "OTP verification",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "challenge": otpChallenge,
       "errorCode": errorCode,

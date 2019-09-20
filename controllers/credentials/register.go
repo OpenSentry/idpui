@@ -75,10 +75,10 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
     }
 
     c.HTML(200, "register.html", gin.H{
-      "__links": []map[string]string{
+      "links": []map[string]string{
         {"href": "/public/css/main.css"},
       },
-      "__title": "Register",
+      "title": "Register",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "username": username,
       "displayName": displayName,

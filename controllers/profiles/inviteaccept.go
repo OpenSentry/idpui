@@ -82,10 +82,10 @@ func ShowInviteAccept(env *environment.State) gin.HandlerFunc {
     }
 
     c.HTML(http.StatusOK, "inviteaccept.html", gin.H{
-      "__links": []map[string]string{
-        {"href": "/public/css/main.css"},
+      "title": "Invite accept",
+      "links": []map[string]string{
+        {"href": "/public/css/dashboard.css"},
       },
-      "__title": "Invite accept",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "grantedScopes": grantScopes,
       "followIdentities": followIdentities,
