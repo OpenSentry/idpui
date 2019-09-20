@@ -25,6 +25,16 @@
   <body>
 {{ end }}
 
+{{ define "providerheader" }}
+<h2 class="ui left aligned inverted header">
+  <img class="ui large image" src="/public/images/fingerprint.svg" />
+  <div class="content">
+    {{ .provider }}
+    <div class="sub header">{{ .provideraction }}</div>
+  </div>
+</h2>
+{{ end}}
+
 {{ define "header" }}
 <div class="menu-icon">
   <i class="fas fa-bars"></i>
