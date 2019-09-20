@@ -1,32 +1,65 @@
 {{ template "htmlbegin" . }}
 
-<div id="top-spacer"></div>
+<div class="grid-container">
 
-<div id="content-wrapper">
-  <h1 class="fingerprint">Identity Provider</h1>
+  {{ template "header" . }}
 
-  <h2>Delete Identity</h2>
+  {{ template "sidenav" . }}
 
-  <p>
-    If you wish to delete your identity, you can start the process here. You must accept the risk to start the process.<br><br>
-    Beware this is a non recoverable action. Meaning we cannot restore your identity once deleted.<br><br>
-    All information will be lost.<br><br>
-    We will send you an email with a verification code, which must be entered when prompted for the deletion to happen.<br><br>
-    Stay safe.
-  </p>
-
-  <form action="/me/delete" method="post">
-    {{ .csrfField }}
-
-    <div class="input-group">
-      <input name="risk_accepted" type="checkbox" value="accept">
-      <label for="risk_accepted">I accept the risk of deleting my profile</label>
-      {{if .errorRiskAccepted}} <label for="risk_accepted" class="error">{{ .errorRiskAccepted }}</label> {{end}}
+  <main class="main">
+    <div class="main__header">
+      <div class="main-header__heading">Hello {{ .name }}</div>
+      <div class="main-header__updates">Recent Events</div>
     </div>
 
-    <input type="submit" name="submit" value="Delete profile" />
-  </form>
+    <div class="main__cards">
+        <h1>{{ .title }}</h1>
 
+        <div class="ui segments">
+
+          <div class="ui segment">
+
+            <form class="ui form" action="{{ .profileDeleteUrl }}" method="post">
+              {{ .csrfField }}
+
+              <p>You are about to delete your profile.</p>
+              <p>
+                If you wish to delete your identity, you can start the process here. You must accept the risk to start the process.<br><br>
+                Beware this is a non recoverable action. Meaning we cannot restore your profile once deleted.<br><br>
+                All information will be lost.<br><br>
+                We will send you an email with a verification code, which must be entered when prompted for the deletion to happen.<br><br>
+                Stay safe.
+              </p>
+
+              {{if .errorRiskAccepted}}
+                <div class="required field {{if .errorRiskAccepted}}error{{end}}">
+                  <div class="ui right labeled checkbox">
+                    <input type="checkbox" tabindex="0" name="risk_accepted" value="accept">
+                    <label for="risk_accepted">I accept the risk of deleting my profile</label>
+                  </div>
+                  <div class="ui red tag label" style="margin-left: 20px;">
+                    {{ .errorRiskAccepted }}
+                  </div>
+                </div>
+              {{else}}
+                <div class="required field">
+                  <div class="ui checkbox">
+                    <input type="checkbox" tabindex="0" name="risk_accepted" value="accept">
+                    <label for="risk_accepted">I accept the risk of deleting my profile</label>
+                  </div>
+                </div>
+              {{end}}
+
+              <button class="ui red button" type="submit"><i class="power icon"></i> Delete Identity</button>
+            </form>
+
+          </div>
+
+        </div>
+
+    </div>
+  </main>
+
+  {{ template "footer" . }}
 </div>
 
-{{ template "htmlend" . }}
