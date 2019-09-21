@@ -110,11 +110,17 @@ func detectForwardedForIpAndPort(r *http.Request) (string, string) {
     return "", ""
 }
 
-func FetchSubmitUrlFromRequest(req *http.Request) (string, error) {
+func FetchSubmitUrlFromRequest(req *http.Request, q *url.Values) (string, error) {
   u, err := url.Parse(req.RequestURI)
   if err != nil {
     return "", err
   }
-  u.RawQuery = ""
+
+  if q != nil {
+    u.RawQuery = q.Encode()
+  } else {
+    u.RawQuery = ""
+  }
+
   return u.String(), nil
 }

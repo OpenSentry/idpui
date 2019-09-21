@@ -146,7 +146,7 @@ func SubmitInviteRegister(env *environment.State) gin.HandlerFunc {
       }
 
       // Failed to fill in the form correctly.
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatus(http.StatusInternalServerError)
@@ -201,7 +201,7 @@ func SubmitInviteRegister(env *environment.State) gin.HandlerFunc {
     }
 
     // Deny by default. Failed to fill in the form correctly.
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
