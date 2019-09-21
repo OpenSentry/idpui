@@ -140,7 +140,7 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
 
     log.WithFields(logrus.Fields{"id":invite.Id}).Debug("Invite created")
 
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
