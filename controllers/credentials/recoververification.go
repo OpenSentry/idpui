@@ -35,6 +35,11 @@ func ShowRecoverVerification(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     id := session.Get("recoververification.id")
+    if id == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Missing Identity"})
+      return
+    }
 
     errors := session.Flashes("recoververification.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -180,11 +185,8 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
     if recoverResponse.Verified == true && recoverResponse.RedirectTo != "" {
 
       // Cleanup session
-      session.Delete("recoververification.username")
+      session.Delete("recoververification.id")
       session.Delete("recoververification.errors")
-
-      // Propagete username to authenticate controller
-      session.Set("authenticate.username", recoverResponse.Id)
 
       err = session.Save()
       if err != nil {
@@ -199,7 +201,7 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    errors["errorVerificationCode"] = append(errors["errorVerificationCode"], "Invalid verification code")
+    errors["verification_code"] = append(errors["verification_code"], "Invalid")
     session.AddFlash(errors, "recoververification.errors")
     err = session.Save()
     if err != nil {
