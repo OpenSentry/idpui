@@ -34,15 +34,16 @@ func ShowLogout(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    logoutError := c.Query("logout_error")
     c.HTML(http.StatusOK, "logout.html", gin.H{
-      "title": "Logout",
       "links": []map[string]string{
-        {"href": "/public/css/dashboard.css"},
+        {"href": "/public/css/credentials.css"},
       },
+      "title": "Logout",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "provider": "Identity Provider",
+      "provideraction": "Logout of the system",
       "challenge": logoutChallenge,
-      "logout_error": logoutError,
+      "logoutUrl": config.GetString("idpui.public.endpoints.logout"),
     })
   }
   return gin.HandlerFunc(fn)
@@ -73,14 +74,19 @@ func SubmitLogout(env *environment.State) gin.HandlerFunc {
     }
     logout, err := idp.LogoutIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.logout"), logoutRequest)
     if err != nil {
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
     session := sessions.Default(c)
     session.Clear()
-    session.Save()
+    err = session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
 
     log.WithFields(logrus.Fields{"redirect_to": logout.RedirectTo}).Debug("Redirecting")
     c.Redirect(http.StatusFound, logout.RedirectTo)
@@ -98,8 +104,14 @@ func ShowLogoutSession(env *environment.State) gin.HandlerFunc {
     })
 
     c.HTML(200, "session-logout.html", gin.H{
-      "__title": "Session logout",
+      "links": []map[string]string{
+        {"href": "/public/css/credentials.css"},
+      },
+      "title": "Session",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
+      "provider": "Identity Provider",
+      "provideraction": "Reset login session",
+      "sessionLogoutUrl": config.GetString("idpui.public.endpoints.session.logout"),
     })
   }
   return gin.HandlerFunc(fn)
@@ -115,9 +127,14 @@ func SubmitLogoutSession(env *environment.State) gin.HandlerFunc {
 
     session := sessions.Default(c)
     session.Clear()
-    session.Save()
-    log.WithFields(logrus.Fields{"redirect_to": "/me"}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, "/me")
+    err := session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": "/"}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, "/")
     c.Abort()
   }
   return gin.HandlerFunc(fn)
