@@ -1,7 +1,6 @@
 package main
 
 import (
-  "errors"
   "strings"
   "net/url"
   "net/http"
@@ -27,6 +26,7 @@ import (
   "github.com/charmixer/idpui/controllers/credentials"
   "github.com/charmixer/idpui/controllers/callbacks"
   "github.com/charmixer/idpui/controllers/profiles"
+  "github.com/charmixer/idpui/controllers/invites"
 )
 
 const app = "idpui"
@@ -172,12 +172,17 @@ func serve(env *environment.State) {
   r.Static("/public", "public")
   r.LoadHTMLGlob("views/*")
 
+  // Public endpoints
   ep := r.Group("/")
   ep.Use(adapterCSRF)
   {
     // Token exchange
     // FIXME: Must be public accessible until we figure out to enfore that only hydra client may make callbacks
     ep.GET("/callback", callbacks.ExchangeAuthorizationCodeCallback(env) )
+
+    // Signup
+    ep.GET(  "/register", credentials.ShowRegistration(env) )
+    ep.POST( "/register", credentials.SubmitRegistration(env) )
 
     // Signin
     ep.GET(  "/login", credentials.ShowLogin(env) )
@@ -187,49 +192,50 @@ func serve(env *environment.State) {
     ep.GET(  "/verify", credentials.ShowVerify(env) )
     ep.POST( "/verify", credentials.SubmitVerify(env) )
 
-    // Enable TOTP
-    ep.GET(  "/totp", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowTotp(env) )
-    ep.POST( "/totp", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.SubmitTotp(env) )
-
-    // Change password
-    ep.GET(  "/password", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowPassword(env) )
-    ep.POST( "/password", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.SubmitPassword(env) )
-
-    // Signup
-    ep.GET(  "/register", credentials.ShowRegistration(env) )
-    ep.POST( "/register", credentials.SubmitRegistration(env) )
-
-    // Profile
-    ep.GET(  "/",        AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfile(env) )
-    ep.GET(  "/me",      AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfile(env) )
-    ep.GET(  "/me/edit", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfileEdit(env) )
-    ep.POST( "/me/edit", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitProfileEdit(env) )
-
     ep.GET(  "/profile", profiles.ShowPublicProfile(env) )
 
-    // Signoff
-    ep.GET(  "/logout", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowLogout(env) )
-    ep.POST( "/logout", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitLogout(env) )
-
-    // These does not require authentication as its like doing delete in browser on cookies.
-    // FIXME: Read up on Front Channel logout and Backchannel logout in Hydra an use that.
-    ep.GET(  "/session/logout", profiles.ShowLogoutSession(env) )
-    ep.POST( "/session/logout", profiles.SubmitLogoutSession(env) )
-
-
+    // Recover
     ep.GET(  "/recover", credentials.ShowRecover(env) )
     ep.POST( "/recover", credentials.SubmitRecover(env) )
     ep.GET(  "/recoververification", credentials.ShowRecoverVerification(env) )
     ep.POST( "/recoververification", credentials.SubmitRecoverVerification(env) )
 
-    ep.GET(  "/invite", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowInvite(env) )
-    ep.POST( "/invite", AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitInvite(env) )
+    // These does not require authentication as its like doing delete in browser on cookies.
+    // FIXME: Read up on Front Channel logout and Backchannel logout in Hydra an use that.
+    ep.GET(  "/session/logout", profiles.ShowLogoutSession(env) )
+    ep.POST( "/session/logout", profiles.SubmitLogoutSession(env) )
+  }
 
-    ep.GET(  "/me/delete",             AuthenticationAndAuthorizationRequired(env, "openid"), profiles.ShowProfileDelete(env) )
-    ep.POST( "/me/delete",             AuthenticationAndAuthorizationRequired(env, "openid"), profiles.SubmitProfileDelete(env) )
-    ep.GET(  "/me/deleteverification", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.ShowProfileDeleteVerification(env) )
-    ep.POST( "/me/deleteverification", AuthenticationAndAuthorizationRequired(env, "openid"), credentials.SubmitProfileDeleteVerification(env) )
+  // Endpoints that require Authentication and Authorization
+  ep = r.Group("/")
+  ep.Use(adapterCSRF)
+  ep.Use( AuthenticationRequired(env) )
+  {
+    // Change password
+    ep.GET(  "/password", AuthorizationRequired(env, "openid"), credentials.ShowPassword(env) )
+    ep.POST( "/password", AuthorizationRequired(env, "openid"), credentials.SubmitPassword(env) )
 
+    // Enable TOTP
+    ep.GET(  "/totp", AuthorizationRequired(env, "openid"), credentials.ShowTotp(env) )
+    ep.POST( "/totp", AuthorizationRequired(env, "openid"), credentials.SubmitTotp(env) )
+
+    // Profile
+    ep.GET(  "/",                      AuthorizationRequired(env, "openid"), profiles.ShowProfile(env) )
+    ep.GET(  "/me",                    AuthorizationRequired(env, "openid"), profiles.ShowProfile(env) )
+    ep.GET(  "/me/edit",               AuthorizationRequired(env, "openid"), profiles.ShowProfileEdit(env) )
+    ep.POST( "/me/edit",               AuthorizationRequired(env, "openid"), profiles.SubmitProfileEdit(env) )
+    ep.GET(  "/me/delete",             AuthorizationRequired(env, "openid"), profiles.ShowProfileDelete(env) )
+    ep.POST( "/me/delete",             AuthorizationRequired(env, "openid"), profiles.SubmitProfileDelete(env) )
+    ep.GET(  "/me/deleteverification", AuthorizationRequired(env, "openid"), credentials.ShowProfileDeleteVerification(env) )
+    ep.POST( "/me/deleteverification", AuthorizationRequired(env, "openid"), credentials.SubmitProfileDeleteVerification(env) )
+
+    // Invites
+    ep.GET(  "/invite", AuthorizationRequired(env, "openid"), invites.ShowInvite(env) )
+    ep.POST( "/invite", AuthorizationRequired(env, "openid"), invites.SubmitInvite(env) )
+
+    // Signoff
+    ep.GET(  "/logout", AuthorizationRequired(env, "openid"), profiles.ShowLogout(env) )
+    ep.POST( "/logout", AuthorizationRequired(env, "openid"), profiles.SubmitLogout(env) )
   }
 
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))
@@ -249,11 +255,11 @@ func RequestLogger(env *environment.State) gin.HandlerFunc {
     })
     c.Set(environment.LogKey, requestLog)
 
-		c.Next()
+  c.Next()
 
-		// Stop timer
-		stop := time.Now()
-		latency := stop.Sub(start)
+  // Stop timer
+  stop := time.Now()
+  latency := stop.Sub(start)
 
     ipData, err := utils.GetRequestIpData(c.Request)
     if err != nil {
@@ -269,23 +275,23 @@ func RequestLogger(env *environment.State) gin.HandlerFunc {
       }).Debug(err.Error())
     }
 
-		method := c.Request.Method
-		statusCode := c.Writer.Status()
-		errorMessage := c.Errors.ByType(gin.ErrorTypePrivate).String()
+  method := c.Request.Method
+  statusCode := c.Writer.Status()
+  errorMessage := c.Errors.ByType(gin.ErrorTypePrivate).String()
 
-		bodySize := c.Writer.Size()
+  bodySize := c.Writer.Size()
 
     var fullpath string = path
-		if raw != "" {
-			fullpath = path + "?" + raw
-		}
+  if raw != "" {
+  fullpath = path + "?" + raw
+  }
 
     // if public data is requested successfully, then dont log it since its just spam when debugging
     if strings.Contains(path, "/public/") && ( statusCode == http.StatusOK || statusCode == http.StatusNotModified ) {
      return
     }
 
-		log.WithFields(appFields).WithFields(logrus.Fields{
+  log.WithFields(appFields).WithFields(logrus.Fields{
       "latency": latency,
       "forwarded_for.ip": forwardedForIpData.Ip,
       "forwarded_for.port": forwardedForIpData.Port,
@@ -311,153 +317,161 @@ func RequestLogger(env *environment.State) gin.HandlerFunc {
 // 3. Is the access token granted the required scopes?
 // 4. Is the user or client giving the grants in the access token authorized to operate the scopes granted?
 // 5. Is the access token revoked?
-func AuthenticationAndAuthorizationRequired(env *environment.State, requiredScopes ...string) gin.HandlerFunc {
+
+func AuthenticationRequired(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "AuthenticationAndAuthorizationRequired",
+      "func": "AuthenticationRequired",
     })
 
-    // Authentication
-    token, err := authenticationRequired(env, c, log)
-    if err != nil {
-      // Require authentication to access resources. Init oauth2 Authorization code flow with idpui as the client.
-      log.Debug(err.Error())
+    session := sessions.Default(c)
 
-      initUrl, err := credentials.StartAuthenticationSession(env, c, log)
+    // Authenticate by looking for valid access token
+    var token *oauth2.Token
+
+    token = authenticateWithBearer(c.Request)
+    if token != nil {
+      log = log.WithFields(logrus.Fields{"authorization": "bearer"})
+      log.Debug("Access token found")
+    } else {
+
+      token = authenticateWithSession(session, environment.SessionTokenKey)
+      if token != nil {
+        log = log.WithFields(logrus.Fields{"authorization": "session"})
+        log.Debug("Access token found")
+      }
+
+    }
+
+    if token != nil {
+
+      tokenSource := env.HydraConfig.TokenSource(oauth2.NoContext, token)
+      newToken, err := tokenSource.Token()
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
-      c.Redirect(http.StatusFound, initUrl.String())
-      c.Abort()
-      return
-    }
-    c.Set(environment.AccessTokenKey, token) // Authenticated, so use it forward.
 
-    // Authorization
-    _ /* grantedScopes */, err = authorizationRequired(env, c, log, requiredScopes)
+      if newToken.AccessToken != token.AccessToken {
+        log.Debug("Access token refreshed")
+        token = newToken
+      }
+
+      // See #2 of QTNA
+      // https://godoc.org/golang.org/x/oauth2#Token.Valid
+      if token.Valid() == true {
+        log.Debug("Access token valid")
+
+        // See #5 of QTNA
+        log.WithFields(logrus.Fields{"fixme": 1, "qtna": 5}).Debug("Missing check against token-revoked-list to check if token is revoked") // Call token revoked list to check if token is revoked.
+
+        session.Set(environment.SessionTokenKey, token)
+        err = session.Save()
+        if err != nil {
+          log.Debug(err.Error())
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+
+        log.Debug("Authenticated")
+        c.Next()
+        return
+      }
+
+    }
+
+    // Deny by default
+    log.Debug("Unauthorized")
+
+    initUrl, err := credentials.StartAuthenticationSession(env, c, log)
     if err != nil {
       log.Debug(err.Error())
-      c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-      c.Abort()
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-
-    log.WithFields(logrus.Fields{"fixme":1}).Debug("Missing id_token. Write code to find it correctly")
-    idToken := &oauth2.Token{}
-    c.Set(environment.IdTokenKey, idToken) // Authorized
-
-    c.Next() // Authentication and authorization successful, continue.
+    c.Redirect(http.StatusFound, initUrl.String())
+    c.Abort()
     return
   }
   return gin.HandlerFunc(fn)
 }
 
-func authenticationRequired(env *environment.State, c *gin.Context, log *logrus.Entry) (*oauth2.Token, error) {
-  session := sessions.Default(c)
+func AuthorizationRequired(env *environment.State, requiredScopes ...string) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "func": "AuthorizationRequired",
+    })
 
-  log = log.WithFields(logrus.Fields{
-    "func": "authenticationRequired",
-  })
+    strRequiredScopes := strings.Join(requiredScopes, " ")
+    log.WithFields(logrus.Fields{"scope": strRequiredScopes}).Debug("Required Scopes");
 
-  logWithBearer := log.WithFields(logrus.Fields{"authorization": "bearer"})
-  logWithSession := log.WithFields(logrus.Fields{"authorization": "session"})
+    var grantedScopes []string = requiredScopes
 
-  logWithBearer.Debug("Looking for access token")
-  var token *oauth2.Token
-  auth := c.Request.Header.Get("Authorization")
+    // See #3 of QTNA
+    log.WithFields(logrus.Fields{"fixme": 1, "qtna": 3}).Debug("Missing check if access token is granted the required scopes")
+
+    // See #4 of QTNA
+    log.WithFields(logrus.Fields{"fixme": 1, "qtna": 4}).Debug("Missing check if the user or client giving the grants in the access token  isauthorized to operate the granted scopes")
+
+    if len(grantedScopes) == len(requiredScopes) {
+
+      strGrantedScopes := strings.Join(grantedScopes, " ")
+      log.WithFields(logrus.Fields{"scope": strGrantedScopes}).Debug("Granted Scopes");
+
+      log.Debug("Authorized")
+      c.Next()
+      return
+    }
+
+    // Deny by Default
+    log.Debug("Forbidden")
+    c.AbortWithStatus(http.StatusForbidden)
+    return
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func authenticateWithBearer(req *http.Request) (*oauth2.Token) {
+  auth := req.Header.Get("Authorization")
   split := strings.SplitN(auth, " ", 2)
   if len(split) == 2 || strings.EqualFold(split[0], "bearer") {
-    logWithBearer.Debug("Found access token")
-    token = &oauth2.Token{
+    token := &oauth2.Token{
       AccessToken: split[1],
       TokenType: split[0],
     }
-    log = logWithBearer
-  } else {
-    logWithSession.Debug("Looking for access token")
-    v := session.Get(environment.SessionTokenKey)
-    if v != nil {
-      logWithSession.Debug("Found access token")
-      token = v.(*oauth2.Token)
-    }
-    log = logWithSession
+    return token
   }
-
-  tokenSource := env.HydraConfig.TokenSource(oauth2.NoContext, token)
-  newToken, err := tokenSource.Token()
-  if err != nil {
-    return nil, err
-  }
-  if newToken.AccessToken != token.AccessToken {
-    log.Debug("Refreshed access token. Session updated")
-    session.Set(environment.SessionTokenKey, newToken)
-    session.Save()
-    token = newToken
-  }
-
-  // See #2 of QTNA
-  // https://godoc.org/golang.org/x/oauth2#Token.Valid
-  if token.Valid() == true {
-    log.Debug("Valid access token")
-
-    // See #5 of QTNA
-    log.WithFields(logrus.Fields{"fixme": 1, "qtna": 5}).Debug("Missing check against token-revoked-list to check if token is revoked") // Call token revoked list to check if token is revoked.
-
-    return token, nil
-  }
-
-  // Deny by default
-  return nil, errors.New("Invalid access token")
+  return nil
 }
 
-func authorizationRequired(env *environment.State, c *gin.Context, log *logrus.Entry, requiredScopes []string) ([]string, error) {
-
-  log = log.WithFields(logrus.Fields{
-    "func": "authorizationRequired",
-  })
-
-  strRequiredScopes := strings.Join(requiredScopes, ",")
-  log.WithFields(logrus.Fields{"scopes": strRequiredScopes}).Debug("Looking for required scopes");
-
-  var grantedScopes []string
-
-  // See #3 of QTNA
-  log.WithFields(logrus.Fields{"fixme": 1, "qtna": 3}).Debug("Missing check if access token is granted the required scopes")
-
-  /*aapClient := aap.NewAapApiClient(env.AapApiConfig)
-  grantedScopes, err := aap.IsRequiredScopesGrantedForToken(config.aap.AuthorizationsUrl, aapClient, requiredScopes)
-  if err != nil {
-    return nil, err
-  }*/
-
-  // See #4 of QTNA
-  log.WithFields(logrus.Fields{"fixme": 1, "qtna": 4}).Debug("Missing check if the user or client giving the grants in the access token  isauthorized to operate the granted scopes")
-
-  strGrantedScopes := strings.Join(grantedScopes, ",")
-  log.WithFields(logrus.Fields{"scopes": strGrantedScopes}).Debug("Found required scopes");
-  return grantedScopes, nil
+func authenticateWithSession(session sessions.Session, tokenKey string) (*oauth2.Token) {
+  v := session.Get(tokenKey)
+  if v != nil {
+    return v.(*oauth2.Token)
+  }
+  return nil
 }
 
 func requestId() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Check for incoming header, use it if exists
-		requestID := c.Request.Header.Get("X-Request-Id")
+  return func(c *gin.Context) {
+  // Check for incoming header, use it if exists
+  requestID := c.Request.Header.Get("X-Request-Id")
 
-		// Create request id with UUID4
-		if requestID == "" {
-			uuid4, _ := uuid.NewV4()
-			requestID = uuid4.String()
-		}
+  // Create request id with UUID4
+  if requestID == "" {
+  uuid4, _ := uuid.NewV4()
+  requestID = uuid4.String()
+  }
 
-		// Expose it for use in the application
-		c.Set("RequestId", requestID)
+  // Expose it for use in the application
+  c.Set("RequestId", requestID)
 
-		// Set X-Request-Id header
-		c.Writer.Header().Set("X-Request-Id", requestID)
-		c.Next()
-	}
+  // Set X-Request-Id header
+  c.Writer.Header().Set("X-Request-Id", requestID)
+  c.Next()
+  }
 }
