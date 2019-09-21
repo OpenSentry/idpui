@@ -19,6 +19,7 @@ import (
   "github.com/gofrs/uuid"
   oidc "github.com/coreos/go-oidc"
   "github.com/pborman/getopt"
+  idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
@@ -210,6 +211,7 @@ func serve(env *environment.State) {
   ep = r.Group("/")
   ep.Use(adapterCSRF)
   ep.Use( AuthenticationRequired(env) )
+  ep.Use( LoadIdentity(env) )
   {
     // Change password
     ep.GET(  "/password", AuthorizationRequired(env, "openid"), credentials.ShowPassword(env) )
@@ -304,6 +306,44 @@ func RequestLogger(env *environment.State) gin.HandlerFunc {
       "path": fullpath,
       "request.id": requestId,
     }).Info("")
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func LoadIdentity(env *environment.State) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+
+    var idToken *oidc.IDToken
+
+    session := sessions.Default(c)
+    t := session.Get(environment.SessionIdTokenKey)
+    if t == nil {
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
+      return
+    }
+
+    idToken = t.(*oidc.IDToken)
+    if idToken == nil {
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
+      return
+    }
+
+    var accessToken *oauth2.Token
+    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
+    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+
+    // Look up profile information for user.
+    identityRequest := &idp.IdentitiesReadRequest{
+      Id: idToken.Subject,
+    }
+    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    if err != nil {
+      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+      return
+    }
+
+    c.Set("identity", identity)
+    c.Next()
   }
   return gin.HandlerFunc(fn)
 }
