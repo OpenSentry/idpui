@@ -1,15 +1,20 @@
 {{ template "htmlbegin" . }}
 
-  <div id="top-spacer"></div>
+<div class="ui middle aligned center aligned grid">
+  <div class="column">
 
-  <div id="content-wrapper">
-    <h1>Logout session</h1>
+    {{ template "providerheader" . }}
 
-    <form action="/session/logout" method="post">
+    <div class="ui divider hidden"></div>
+
+    <form class="ui large form" action="{{ .sessionLogoutUrl }}" method="post">
       {{ .csrfField }}
-      <input type="submit" name="submit" value="Logout" />
+
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Reset" />
+
     </form>
 
   </div>
+</div>
 
 {{ template "htmlend" . }}
