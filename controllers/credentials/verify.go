@@ -186,9 +186,8 @@ func SubmitVerify(env *environment.State) gin.HandlerFunc {
           "otp_challenge": verifyResponse.OtpChallenge,
           "redirect_to": verifyResponse.RedirectTo,
         }).Debug(err.Error())
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Redirect invalid. Hint: The challenge redirect_to url is invalid"})
-        c.Abort()
-        return;
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
       }
 
       q := u.Query()
