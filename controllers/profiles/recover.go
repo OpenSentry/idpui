@@ -108,7 +108,7 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
         log.Debug(err.Error())
       }
 
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request)
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatus(http.StatusInternalServerError)
