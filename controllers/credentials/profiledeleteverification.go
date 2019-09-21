@@ -3,6 +3,8 @@ package credentials
 import (
   "net/http"
   "strings"
+  "reflect"
+  "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
@@ -14,11 +16,11 @@ import (
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
+  "github.com/charmixer/idpui/validators"
 )
 
 type profileDeleteVerificationForm struct {
-  Username         string `form:"username" binding:"required"`
-  VerificationCode string `form:"verification_code" binding:"required"`
+  VerificationCode string `form:"verification_code" binding:"required" validate:"required,notblank"`
 }
 
 func ShowProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
@@ -37,8 +39,7 @@ func ShowProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
     var idToken *oidc.IDToken
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "profiledelete.html", gin.H{"error": "Identity not found"})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Missing id_token"})
       return
     }
 
@@ -48,43 +49,29 @@ func ShowProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       log.Debug(err.Error())
     }
 
-    var errorUsername string
     var errorVerificationCode string
-    var errorPassword string
-    var errorPasswordRetyped string
 
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
 
-        if k == "errorUsername" && len(v) > 0 {
-          errorUsername = strings.Join(v, ", ")
-        }
-
-        if k == "errorVerificationCode" && len(v) > 0 {
+        if k == "verification_code" && len(v) > 0 {
           errorVerificationCode = strings.Join(v, ", ")
-        }
-        if k == "errorPassword" && len(v) > 0 {
-          errorPassword = strings.Join(v, ", ")
-        }
-        if k == "errorPasswordRetyped" && len(v) > 0 {
-          errorPasswordRetyped = strings.Join(v, ", ")
         }
 
       }
     }
 
     c.HTML(http.StatusOK, "profiledeleteverification.html", gin.H{
+      "title": "Delete Profile",
       "links": []map[string]string{
-        {"href": "/public/css/main.css"},
+        {"href": "/public/css/credentials.css"},
       },
-      "title": "Delete profile verification",
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "username": idToken.Subject,
-      "errorUsername": errorUsername,
+      "provider": "Identity Provider",
+      "provideraction": "Verify deletion of your profile",
+      "id": idToken.Subject,
       "errorVerificationCode": errorVerificationCode,
-      "errorPassword": errorPassword,
-      "errorPasswordRetyped": errorPasswordRetyped,
     })
   }
   return gin.HandlerFunc(fn)
@@ -110,16 +97,48 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     errors := make(map[string][]string)
+    validate := validator.New()
+    validate.RegisterValidation("notblank", validators.NotBlank)
+    err = validate.Struct(form)
+    if err != nil {
 
-    username := strings.TrimSpace(form.Username)
-    if username == "" {
-      errors["errorUsername"] = append(errors["errorUsername"], "Missing username")
+      // Validation syntax is invalid
+      if err,ok := err.(*validator.InvalidValidationError); ok{
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      reflected := reflect.ValueOf(form) // Use reflector to reverse engineer struct
+      for _, err := range err.(validator.ValidationErrors){
+
+        // Attempt to find field by name and get json tag name
+        field,_ := reflected.Type().FieldByName(err.StructField())
+        var name string
+
+        // If form tag doesn't exist, use lower case of name
+        if name = field.Tag.Get("form"); name == ""{
+          name = strings.ToLower(err.StructField())
+        }
+
+        switch err.Tag() {
+        case "required":
+            errors[name] = append(errors[name], "Required")
+            break
+        case "eqfield":
+            errors[name] = append(errors[name], "Field should be equal to the "+err.Param())
+            break
+        case "notblank":
+          errors[name] = append(errors[name], "Not Blank")
+          break
+        default:
+            errors[name] = append(errors[name], "Invalid")
+            break
+        }
+      }
+
     }
 
-    verificationCode := strings.TrimSpace(form.VerificationCode)
-    if verificationCode == "" {
-      errors["errorVerificationCode"] = append(errors["errorVerificationCode"], "Missing verification code")
-    }
 
     if len(errors) > 0 {
       session.AddFlash(errors, "recoververification.errors")
@@ -141,12 +160,9 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
     }
 
     var idToken *oidc.IDToken
-
-
     idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
-      c.HTML(http.StatusNotFound, "profiledeleteverification.html", gin.H{"error": "Identity not found"})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Missing id_token"})
       return
     }
 
@@ -156,7 +172,7 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
 
     deleteRequest := &idp.IdentitiesDeleteVerificationRequest{
       Id: idToken.Subject,
-      VerificationCode: verificationCode,
+      VerificationCode: form.VerificationCode,
       RedirectTo: config.GetString("idpui.public.url") + config.GetString("idp.public.endpoints.profile"),
     }
     deleteResponse, err := idp.DeleteIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.deleteverification"), deleteRequest)
@@ -184,7 +200,7 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    errors["errorVerificationCode"] = append(errors["errorVerificationCode"], "Invalid verification code")
+    errors["verification_code"] = append(errors["verification_code"], "Invalid")
     session.AddFlash(errors, "profiledeleteverification.errors")
     err = session.Save()
     if err != nil {
