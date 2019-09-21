@@ -1,4 +1,4 @@
-package profiles
+package invites
 
 import (
   "net/http"
@@ -13,7 +13,7 @@ import (
   "github.com/charmixer/idpui/environment"
 )
 
-func ShowProfile(env *environment.State) gin.HandlerFunc {
+func ShowInvites(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
@@ -26,12 +26,7 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
     // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
     var idToken *oidc.IDToken
     session := sessions.Default(c)
-    t := session.Get(environment.SessionIdTokenKey)
-    if t == nil {
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
-      return
-    }
-    idToken = t.(*oidc.IDToken)
+    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
     if idToken == nil {
       c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
       return
@@ -51,17 +46,14 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    c.HTML(http.StatusOK, "profile.html", gin.H{
-      "title": "Profile",
+    c.HTML(http.StatusOK, "invites.html", gin.H{
+      "title": "Invites",
       "links": []map[string]string{
         {"href": "/public/css/dashboard.css"},
       },
       "id": idToken.Subject,
       "user": identity.Subject,
-      "password": identity.Password,
       "name": identity.Name,
-      "email": identity.Email,
-      "totp_required": identity.TotpRequired,
     })
   }
   return gin.HandlerFunc(fn)

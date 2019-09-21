@@ -1,4 +1,4 @@
-package profiles
+package invites
 
 import (
   "net/http"
