@@ -217,8 +217,8 @@ func serve(env *environment.State) {
     ep.POST( "/session/logout", profiles.SubmitLogoutSession(env) )
 
 
-    ep.GET(  "/recover", profiles.ShowRecover(env) )
-    ep.POST( "/recover", profiles.SubmitRecover(env) )
+    ep.GET(  "/recover", credentials.ShowRecover(env) )
+    ep.POST( "/recover", credentials.SubmitRecover(env) )
     ep.GET(  "/recoververification", credentials.ShowRecoverVerification(env) )
     ep.POST( "/recoververification", credentials.SubmitRecoverVerification(env) )
 
