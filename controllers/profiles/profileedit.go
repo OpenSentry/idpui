@@ -34,90 +34,76 @@ func ShowProfileEdit(env *environment.State) gin.HandlerFunc {
 
     session := sessions.Default(c)
 
-    // NOTE: Maybe session is not a good way to do this.
-    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
-    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
-    var idToken *oidc.IDToken
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
-    }
+    identity, exists := c.Get("identity")
+    if exists == true {
 
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+      identity := identity.(*idp.IdentitiesReadResponse)
 
-    // Look up profile information for user.
-    identityRequest := &idp.IdentitiesReadRequest{
-      Id: idToken.Subject,
-    }
-    profile, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
-    if err != nil {
-      c.HTML(http.StatusNotFound, "profileedit.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
-    }
+      // Retain the values that was submittet
+      submittetName := session.Get("profileedit.display-name")
+      submittetEmail := session.Get("profileedit.email")
 
-    // Retain the values that was submittet
-    submittetName := session.Get("profileedit.display-name")
-    submittetEmail := session.Get("profileedit.email")
+      errors := session.Flashes("profileedit.errors")
+      err := session.Save() // Remove flashes read, and save submit fields
+      if err != nil {
+        log.Debug(err.Error())
+      }
 
-    errors := session.Flashes("profileedit.errors")
-    err = session.Save() // Remove flashes read, and save submit fields
-    if err != nil {
-      log.Debug(err.Error())
-    }
+      // Use submittet value from flash or default from db.
+      var displayName string
+      if submittetName == nil {
+        displayName = identity.Name
+      } else {
+        displayName = submittetName.(string)
+      }
 
-    // Use submittet value from flash or default from db.
-    var displayName string
-    if submittetName == nil {
-      displayName = profile.Name
-    } else {
-      displayName = submittetName.(string)
-    }
+      var email string
+      if submittetEmail == nil {
+        email = identity.Email
+      } else {
+        email = submittetEmail.(string)
+      }
 
-    var email string
-    if submittetEmail == nil {
-      email = profile.Email
-    } else {
-      email = submittetEmail.(string)
-    }
+      var errorEmail string
+      var errorDisplayName string
 
-    var errorEmail string
-    var errorDisplayName string
+      if len(errors) > 0 {
+        errorsMap := errors[0].(map[string][]string)
+        for k, v := range errorsMap {
 
-    if len(errors) > 0 {
-      errorsMap := errors[0].(map[string][]string)
-      for k, v := range errorsMap {
+          if k == "email" && len(v) > 0 {
+            errorEmail = strings.Join(v, ", ")
+          }
 
-        if k == "email" && len(v) > 0 {
-          errorEmail = strings.Join(v, ", ")
-        }
-
-        if k == "display-name" && len(v) > 0 {
-          errorDisplayName = strings.Join(v, ", ")
+          if k == "display-name" && len(v) > 0 {
+            errorDisplayName = strings.Join(v, ", ")
+          }
         }
       }
+
+      c.HTML(http.StatusOK, "profileedit.html", gin.H{
+        "title": "Profile",
+        "links": []map[string]string{
+          {"href": "/public/css/dashboard.css"},
+        },
+        csrf.TemplateTag: csrf.TemplateField(c.Request),
+        "profileEditUrl": "/me/edit",
+        "user": identity.Id,
+        "displayName": displayName,
+        "email": email,
+        "errorEmail": errorEmail,
+        "errorDisplayName": errorDisplayName,
+        "name": identity.Name,
+        "registeredDisplayName": identity.Name,
+        "registeredEmail": identity.Email,
+      })
+      return
     }
 
-    c.HTML(http.StatusOK, "profileedit.html", gin.H{
-      "title": "Profile",
-      "links": []map[string]string{
-        {"href": "/public/css/dashboard.css"},
-      },
-      csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "profileEditUrl": "/me/edit",
-      "user": idToken.Subject,
-      "displayName": displayName,
-      "email": email,
-      "errorEmail": errorEmail,
-      "errorDisplayName": errorDisplayName,
-      "name": profile.Name,
-      "registeredDisplayName": profile.Name,
-      "registeredEmail": profile.Email,
-    })
+    // Deny by default
+    log.Debug("Missing Identity in Context")
+    c.AbortWithStatus(http.StatusForbidden)
+    return
   }
   return gin.HandlerFunc(fn)
 }
