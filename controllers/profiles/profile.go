@@ -4,12 +4,12 @@ import (
   "net/http"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
-  "github.com/gin-contrib/sessions"
-  "golang.org/x/oauth2"
-  oidc "github.com/coreos/go-oidc"
+  //"github.com/gin-contrib/sessions"
+  //"golang.org/x/oauth2"
+  //oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
 
-  "github.com/charmixer/idpui/config"
+  //"github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 )
 
@@ -21,48 +21,28 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
       "func": "ShowProfile",
     })
 
-    // NOTE: Maybe session is not a good way to do this.
-    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
-    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
-    var idToken *oidc.IDToken
-    session := sessions.Default(c)
-    t := session.Get(environment.SessionIdTokenKey)
-    if t == nil {
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
-      return
-    }
-    idToken = t.(*oidc.IDToken)
-    if idToken == nil {
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
-      return
-    }
+    identity, exists := c.Get("identity")
+    if exists == true {
 
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
-
-    // Look up profile information for user.
-    identityRequest := &idp.IdentitiesReadRequest{
-      Id: idToken.Subject,
-    }
-    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
-    if err != nil {
-      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+      identity := identity.(*idp.IdentitiesReadResponse)
+      c.HTML(http.StatusOK, "profile.html", gin.H{
+        "title": "Profile",
+        "links": []map[string]string{
+          {"href": "/public/css/dashboard.css"},
+        },
+        "id": identity.Id,
+        "user": identity.Subject,
+        "password": identity.Password,
+        "name": identity.Name,
+        "email": identity.Email,
+        "totp_required": identity.TotpRequired,
+      })
       return
     }
 
-    c.HTML(http.StatusOK, "profile.html", gin.H{
-      "title": "Profile",
-      "links": []map[string]string{
-        {"href": "/public/css/dashboard.css"},
-      },
-      "id": idToken.Subject,
-      "user": identity.Subject,
-      "password": identity.Password,
-      "name": identity.Name,
-      "email": identity.Email,
-      "totp_required": identity.TotpRequired,
-    })
+    log.Debug("Missing Identity in Context")
+    c.AbortWithStatus(http.StatusForbidden)
+    return
   }
   return gin.HandlerFunc(fn)
 }
