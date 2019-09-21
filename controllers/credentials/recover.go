@@ -17,87 +17,76 @@ import (
   "github.com/charmixer/idpui/validators"
 )
 
-type verificationForm struct {
-  Id               string `form:"id" binding:"required" validate:"required,notblank"`
-  VerificationCode string `form:"verification_code" binding:"required" validate:"required,notblank"`
-  Password         string `form:"password" binding:"required" validate:"required,notblank"`
-  PasswordRetyped  string `form:"password_retyped" binding:"required" validate:"required,notblank"`
+type recoverForm struct {
+    Email string `form:"email" binding:"required" validate:"required,email"`
 }
 
-func ShowRecoverVerification(env *environment.State) gin.HandlerFunc {
+func ShowRecover(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "ShowRecoverVerification",
+      "func": "ShowRecover",
     })
 
     session := sessions.Default(c)
 
-    id := session.Get("recoververification.id")
-
-    errors := session.Flashes("recoververification.errors")
+    errors := session.Flashes("recover.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
     }
 
-    var errorVerificationCode string
-    var errorPassword string
-    var errorPasswordRetyped string
+    var errorEmail string
 
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
-
-        if k == "verification_code" && len(v) > 0 {
-          errorVerificationCode = strings.Join(v, ", ")
+        if k == "email" && len(v) > 0 {
+          errorEmail = strings.Join(v, ", ")
         }
-        if k == "password" && len(v) > 0 {
-          errorPassword = strings.Join(v, ", ")
-        }
-        if k == "password_retyped" && len(v) > 0 {
-          errorPasswordRetyped = strings.Join(v, ", ")
-        }
-
       }
     }
 
-    c.HTML(http.StatusOK, "recoververification.html", gin.H{
-      "title": "Recover Profile",
+    c.HTML(200, "recover.html", gin.H{
+      "title": "Register",
       "links": []map[string]string{
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
-      "provideraction": "Verify recovery of your profile ",
-      "id": id,
-      "errorVerificationCode": errorVerificationCode,
-      "errorPassword": errorPassword,
-      "errorPasswordRetyped": errorPasswordRetyped,
+      "provideraction": "Recover an identity registered in the system",
+      "recoverUrl": config.GetString("idpui.public.endpoints.recover"),
+      "loginUrl": config.GetString("idpui.public.endpoints.login"),
+      "errorEmail": errorEmail,
     })
   }
   return gin.HandlerFunc(fn)
 }
 
-func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
+func SubmitRecover(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "SubmitRecoverVerification",
+      "func": "SubmitRecover",
     })
 
-    var form verificationForm
+    var form recoverForm
     err := c.Bind(&form)
     if err != nil {
-      log.Debug(err.Error())
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       return
     }
 
     session := sessions.Default(c)
+
+    // Save values if submit fails
+    session.Set("recover.email", form.Email)
+    err = session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+    }
 
     errors := make(map[string][]string)
     validate := validator.New()
@@ -142,8 +131,21 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
 
     }
 
+    idpClient := idp.NewIdpClient(env.IdpApiConfig)
+
+    identityRequest := &idp.IdentitiesReadRequest{
+      Email: form.Email,
+    }
+    identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    if err != nil {
+      log.WithFields(logrus.Fields{
+        "email": form.Email,
+      }).Debug(err.Error())
+      errors["email"] = append(errors["email"], "Not Found")
+    }
+
     if len(errors) > 0 {
-      session.AddFlash(errors, "recoververification.errors")
+      session.AddFlash(errors, "recover.errors")
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
@@ -161,59 +163,34 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    idpClient := idp.NewIdpClient(env.IdpApiConfig)
+    log.WithFields(logrus.Fields{"id": identityResponse.Id, "subject": identityResponse.Subject, "email": identityResponse.Email}).Debug("Found Identity")
 
-    recoverRequest := &idp.IdentitiesRecoverVerificationRequest{
-      Id: form.Id,
-      VerificationCode: form.VerificationCode,
-      Password: form.Password,
-      RedirectTo: "/",
+    recoverRequest := &idp.IdentitiesRecoverRequest{
+      Id: identityResponse.Id,
     }
-    recoverResponse, err := idp.RecoverIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recoververification"), recoverRequest)
-    if err != nil {
-      log.Debug(err.Error())
-      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      c.Abort()
-      return
-    }
-
-    if recoverResponse.Verified == true && recoverResponse.RedirectTo != "" {
-
-      // Cleanup session
-      session.Delete("recoververification.username")
-      session.Delete("recoververification.errors")
-
-      // Propagete username to authenticate controller
-      session.Set("authenticate.username", recoverResponse.Id)
-
-      err = session.Save()
-      if err != nil {
-        log.Debug(err.Error())
-      }
-
-      log.WithFields(logrus.Fields{
-        "redirect_to": recoverResponse.RedirectTo,
-      }).Debug("Redirecting");
-      c.Redirect(http.StatusFound, recoverResponse.RedirectTo)
-      c.Abort()
-      return
-    }
-
-    errors["errorVerificationCode"] = append(errors["errorVerificationCode"], "Invalid verification code")
-    session.AddFlash(errors, "recoververification.errors")
-    err = session.Save()
-    if err != nil {
-      log.Debug(err.Error())
-    }
-
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
+    recoverResponse, err := idp.RecoverIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, submitUrl)
+
+    // Propagate selected user to verification controller to keep urls clean
+    session.Set("recoververification.id", recoverResponse.Id)
+
+    // Cleanup session
+    session.Delete("recover.email")
+    session.Delete("recover.errors")
+
+    err = session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+    }
+
+    log.WithFields(logrus.Fields{
+      "redirect_to": recoverResponse.RedirectTo,
+    }).Debug("Redirecting");
+    c.Redirect(http.StatusFound, recoverResponse.RedirectTo)
     c.Abort()
   }
   return gin.HandlerFunc(fn)

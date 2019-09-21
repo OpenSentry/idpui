@@ -1,31 +1,60 @@
 {{ template "htmlbegin" . }}
 
-<div id="top-spacer"></div>
+<div class="ui middle aligned center aligned grid">
+  <div class="column">
 
-<div id="content-wrapper">
-  <h1 class="fingerprint">Identity Provider</h1>
+    {{ template "providerheader" . }}
 
-  <h2>Recover Identity</h2>
-  <p>
-    If you have lost access to your identity, you can start the process of recovering it here using the email registered to the identity.<br><br>
-    You are prompted for the username or email of the identity you want to recover.<br><br>
-    We will send a verification code to the email registered to the identity and you will be prompted to enter this verification code along with the new password.<br><br>
-    If entered correctly the password of the identity will be updated and you will be prompted to login with the new password.<br><br>
-    Stay safe.
-  </p>
+    <div class="ui divider hidden"></div>
 
-  <form action="/recover" method="post">
-    {{ .csrfField }}
+    <form class="ui large form" action="{{ .recoverUrl }}" method="post">
+      {{ .csrfField }}
 
-    <div class="input-group">
-      <input name="identity" type="text" placeholder="Enter username or email" value="{{ .username }}" required>
-      {{if .errorIdentity}} <label for="identity" class="error">{{ .errorIdentity }}</label> {{end}}
-    </div>
+      <div class="ui left aligned segment totp">
 
-    <input type="submit" name="submit" value="Recover" />
-  </form>
+        <div class="ui tiny fluid vertical steps">
+          <div class="step">
+            <i class="mail icon"></i>
+            <div class="content">
+              <div class="title">Recover using Email</div>
+              <div class="description">Enter the email of the identity you want to recover</div>
+            </div>
+          </div>
+        </div>
 
-  <span class="info">Go to <a href="/authenticate">authentication</a></span>
+      </div>
+
+
+      {{if .errorEmail}}
+        <div class="required field {{if .errorEmail}}error{{end}}">
+          <div class="ui right labeled left icon input focus">
+            <i class="mail icon"></i>
+            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
+            <div class="ui red tag label">
+              {{ .errorEmail }}
+            </div>
+          </div>
+        </div>
+      {{else}}
+        <div class="required field">
+          <div class="ui left icon input focus">
+            <i class="mail icon"></i>
+            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
+          </div>
+        </div>
+      {{end}}
+
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Recover" />
+
+    </form>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Already have an account? <a class="white" href="{{ .loginUrl }}">Login</a></div>
+
+  </div>
 </div>
 
 {{ template "htmlend" . }}
+
+
