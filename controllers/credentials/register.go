@@ -11,6 +11,7 @@ import (
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
@@ -196,7 +197,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
 
     if form.Password == form.PasswordRetyped { // Just for safety is caught in the input error detection.
 
-      idpClient := idp.NewIdpClient(env.IdpApiConfig)
+      idpClient := app.IdpClientUsingClientCredentials(env, c)
 
       identityRequest := &idp.IdentitiesCreateRequest{
         Subject: form.Username,
