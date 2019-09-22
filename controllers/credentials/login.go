@@ -3,8 +3,6 @@ package credentials
 import (
   "net/url"
   "net/http"
-  "crypto/rand"
-  "encoding/base64"
   "strings"
   "reflect"
   "gopkg.in/go-playground/validator.v9"
@@ -14,6 +12,7 @@ import (
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/validators"
@@ -37,7 +36,7 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
     if loginChallenge == "" {
       // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
       // IdpUi should ask hydra for a challenge to login
-      initUrl, err := StartAuthenticationSession(env, c, log)
+      initUrl, err := app.StartAuthenticationSession(env, c, log)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -50,7 +49,7 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    idpClient := idp.NewIdpClient(env.IdpApiConfig)
+    idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     var authenticateRequest *idp.IdentitiesAuthenticateRequest
     otpChallenge := c.Query("otp_challenge")
@@ -214,7 +213,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    idpClient := idp.NewIdpClient(env.IdpApiConfig)
+    idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     identityRequest := &idp.IdentitiesReadRequest{
       Subject: form.Username,
@@ -302,55 +301,3 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func CreateRandomStringWithNumberOfBytes(numberOfBytes int) (string, error) {
-  st := make([]byte, numberOfBytes)
-  _, err := rand.Read(st)
-  if err != nil {
-    return "", err
-  }
-  return base64.StdEncoding.EncodeToString(st), nil
-}
-
-func StartAuthenticationSession(env *environment.State, c *gin.Context, log *logrus.Entry) (*url.URL, error) {
-  var state string
-  var err error
-
-  log = log.WithFields(logrus.Fields{
-    "func": "StartAuthentication",
-  })
-
-  // Redirect to after successful authentication
-  redirectTo := c.Request.RequestURI
-
-  // Always generate a new authentication session state
-  session := sessions.Default(c)
-
-  // Create random bytes that are based64 encoded to prevent character problems with the session store.
-  // The base 64 means that more than 64 bytes are stored! Which can cause "securecookie: the value is too long"
-  // To prevent this we need to use a filesystem store instead of broser cookies.
-  state, err = CreateRandomStringWithNumberOfBytes(32);
-  if err != nil {
-    log.Debug(err.Error())
-    return nil, err
-  }
-
-  log.Debug(state)
-  log.Debug(redirectTo)
-
-  session.Set(environment.SessionStateKey, state)
-  session.Set(state, redirectTo)
-  err = session.Save()
-  if err != nil {
-    log.Debug(err.Error())
-    return nil, err
-  }
-
-  logSession := log.WithFields(logrus.Fields{
-    "redirect_to": redirectTo,
-    "state": state,
-  })
-  logSession.Debug("Started session")
-  authUrl := env.HydraConfig.AuthCodeURL(state)
-  u, err := url.Parse(authUrl)
-  return u, err
-}

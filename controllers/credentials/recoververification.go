@@ -11,6 +11,7 @@ import (
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
@@ -166,7 +167,7 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    idpClient := idp.NewIdpClient(env.IdpApiConfig)
+    idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     recoverRequest := &idp.IdentitiesRecoverVerificationRequest{
       Id: form.Id,
