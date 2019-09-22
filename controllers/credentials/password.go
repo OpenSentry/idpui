@@ -8,11 +8,10 @@ import (
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
-  "github.com/gin-contrib/sessions"
-  "golang.org/x/oauth2"
-  oidc "github.com/coreos/go-oidc"
+  "github.com/gin-contrib/sessions"  
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
@@ -32,14 +31,14 @@ func ShowPassword(env *environment.State) gin.HandlerFunc {
       "func": "ShowPassword",
     })
 
-    session := sessions.Default(c)
-
-    var idToken *oidc.IDToken
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
       return
     }
+
+    session := sessions.Default(c)
 
     errors := session.Flashes("password.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -73,7 +72,7 @@ func ShowPassword(env *environment.State) gin.HandlerFunc {
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
       "provideraction": "Change your password",
-      "id": idToken.Subject,
+      "id": identity.Id,
       "passwordUrl": config.GetString("idpui.public.endpoints.password"),
       "errorPassword": errorPassword,
       "errorPasswordRetyped": errorPasswordRetyped,
@@ -96,6 +95,13 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
       // Do better error handling in the application.
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
+      return
+    }
+
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
       return
     }
 
@@ -170,21 +176,10 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
 
     if form.Password == form.PasswordRetyped { // Just for safety is caught in the input error detection.
 
-      var idToken *oidc.IDToken
-      idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-      if idToken == nil {
-        c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Missing id_token"})
-        return
-      }
-
-      log.WithFields(logrus.Fields{"fixme": 1}).Debug("Figure out if we are to use client credentials to communicate from ui to api or we wanna use the user authorized access token in ui to access api")
-
-      var accessToken *oauth2.Token
-      accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-      idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+      idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
       passwordRequest := &idp.IdentitiesPasswordRequest{
-        Id: idToken.Subject,
+        Id: identity.Id,
         Password: form.Password,
       }
       _ /* updatedIdentity */, err := idp.UpdateIdentityPassword(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), passwordRequest)

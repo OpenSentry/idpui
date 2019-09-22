@@ -9,10 +9,9 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang.org/x/oauth2"
-  oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
@@ -31,17 +30,14 @@ func ShowProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       "func": "ShowProfileDeleteVerification",
     })
 
-    session := sessions.Default(c)
-
-    // NOTE: Maybe session is not a good way to do this.
-    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
-    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
-    var idToken *oidc.IDToken
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Missing id_token"})
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
       return
     }
+
+    session := sessions.Default(c)
 
     errors := session.Flashes("profiledeleteverification.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -70,7 +66,7 @@ func ShowProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
       "provideraction": "Verify deletion of your profile",
-      "id": idToken.Subject,
+      "id": identity.Id,
       "errorVerificationCode": errorVerificationCode,
     })
   }
@@ -91,6 +87,13 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
+      return
+    }
+
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
       return
     }
 
@@ -159,19 +162,10 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    var idToken *oidc.IDToken
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Missing id_token"})
-      return
-    }
-
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
     deleteRequest := &idp.IdentitiesDeleteVerificationRequest{
-      Id: idToken.Subject,
+      Id: identity.Id,
       VerificationCode: form.VerificationCode,
       RedirectTo: config.GetString("idpui.public.url") + config.GetString("idp.public.endpoints.profile"),
     }

@@ -13,12 +13,11 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
   "github.com/gorilla/csrf"
-  "golang.org/x/oauth2"
-  oidc "github.com/coreos/go-oidc"
   "github.com/pquerna/otp"
   "github.com/pquerna/otp/totp"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
@@ -39,30 +38,14 @@ func ShowTotp(env *environment.State) gin.HandlerFunc {
       "func": "ShowTotp",
     })
 
-    // NOTE: Maybe session is not a good way to do this.
-    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
-    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
-    var idToken *oidc.IDToken
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
     session := sessions.Default(c)
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token"})
-      return
-    }
-
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
-
-    identityRequest := &idp.IdentitiesReadRequest{
-      Id: idToken.Subject,
-    }
-    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
-      return
-    }
 
     millis := time.Now().UnixNano() / 1000000
 
@@ -85,7 +68,7 @@ func ShowTotp(env *environment.State) gin.HandlerFunc {
 
     if isStoredTotpKeyValid == true {
 
-      key, err = otp.NewKeyFromURL(k.(string))
+      _ /* key */, err := otp.NewKeyFromURL(k.(string))
       if err != nil {
         log.Debug(err)
         c.AbortWithStatus(http.StatusInternalServerError)
@@ -98,7 +81,7 @@ func ShowTotp(env *environment.State) gin.HandlerFunc {
         Issuer: config.GetString("idpui.public.url"),
         AccountName: identity.Id,
       }
-      key, err = totp.Generate(totpOpts)
+      key, err := totp.Generate(totpOpts)
       if err != nil {
         log.WithFields(logrus.Fields{
           "totp.issuer": totpOpts.Issuer,
@@ -155,7 +138,7 @@ func ShowTotp(env *environment.State) gin.HandlerFunc {
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
       "provideraction": "Enable two-factor authentication for better security",
-      "id": idToken.Subject,
+      "id": identity.Id,
       "issuer": key.Issuer(),
       "secret": key.Secret(),
       "qrcode": embedQrCode,
@@ -176,6 +159,13 @@ func SubmitTotp(env *environment.State) gin.HandlerFunc {
     err := c.Bind(&form)
     if err != nil {
       c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+      return
+    }
+
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
       return
     }
 
@@ -253,21 +243,10 @@ func SubmitTotp(env *environment.State) gin.HandlerFunc {
 
     if valid == true {
 
-      var idToken *oidc.IDToken
-      idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-      if idToken == nil {
-        c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Missing id_token"})
-        return
-      }
-      log.WithFields(logrus.Fields{"id": idToken.Subject}).Debug("TOTP verified")
-
-
-      var accessToken *oauth2.Token
-      accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-      idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+      idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
       totpRequest := &idp.IdentitiesTotpRequest{
-        Id: idToken.Subject,
+        Id: identity.Id,
         TotpRequired: true,
         TotpSecret: form.Secret,
       }

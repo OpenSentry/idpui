@@ -388,7 +388,7 @@ func AuthenticationRequired(env *environment.State) gin.HandlerFunc {
     // Deny by default
     log.Debug("Unauthorized")
 
-    initUrl, err := credentials.StartAuthenticationSession(env, c, log)
+    initUrl, err := app.StartAuthenticationSession(env, c, log)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
