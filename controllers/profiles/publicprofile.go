@@ -6,6 +6,7 @@ import (
   "github.com/gin-gonic/gin"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 )
@@ -29,7 +30,7 @@ func ShowPublicProfile(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    idpClient := idp.NewIdpClient(env.IdpApiConfig)
+    idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     // Look up profile information for user.
     identityRequest := &idp.IdentitiesReadRequest{

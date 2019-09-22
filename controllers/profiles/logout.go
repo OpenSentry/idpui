@@ -8,6 +8,7 @@ import (
   "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 )
@@ -67,7 +68,7 @@ func SubmitLogout(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    idpClient := idp.NewIdpClient(env.IdpApiConfig)
+    idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     logoutRequest := &idp.IdentitiesLogoutRequest{
       Challenge: form.Challenge,
