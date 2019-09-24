@@ -10,100 +10,11 @@
     <form class="ui large form" action="{{ .registerUrl }}" method="post">
       {{ .csrfField }}
 
-      {{if .errorDisplayName}}
-        <div class="required field {{if .errorDisplayName}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="user icon"></i>
-            <input type="text" name="display-name" autocomplete="name" placeholder="Name" value="{{.displayName}}" required />
-            <div class="ui red tag label">
-              {{ .errorDisplayName }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="user icon"></i>
-            <input type="text" name="display-name" autocomplete="name" placeholder="Name" value="{{.displayName}}" required />
-          </div>
-        </div>
-      {{end}}
-
-      {{if .errorUsername}}
-        <div class="required field {{if .errorUsername}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="user circle icon"></i>
-            <input type="text" name="username" autocomplete="username" placeholder="Username" value="{{.username}}" required />
-            <div class="ui red tag label">
-              {{ .errorUsername }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="user circle icon"></i>
-            <input type="text" name="username" autocomplete="username" placeholder="Username" value="{{.username}}" required />
-          </div>
-        </div>
-      {{end}}
-
-      {{if .errorEmail}}
-        <div class="required field {{if .errorEmail}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="mail icon"></i>
-            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
-            <div class="ui red tag label">
-              {{ .errorEmail }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="mail icon"></i>
-            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
-          </div>
-        </div>
-      {{end}}
-
-      {{if .errorPassword}}
-        <div class="required field {{if .errorPassword}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="lock icon"></i>
-            <input type="password" name="password" autocomplete="new-password" placeholder="Password" required />
-            <div class="ui red tag label">
-              {{ .errorPassword }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="lock icon"></i>
-            <input type="password" name="password" autocomplete="new-password" placeholder="Password" required />
-          </div>
-        </div>
-      {{end}}
-
-      {{if .errorPasswordRetyped}}
-        <div class="required field {{if .errorPasswordRetyped}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="lock icon"></i>
-            <input type="password" name="password_retyped" autocomplete="new-password" placeholder="Password retyped" required />
-            <div class="ui red tag label">
-              {{ .errorPasswordRetyped }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="lock icon"></i>
-            <input type="password" name="password_retyped" autocomplete="new-password" placeholder="Password retyped" required />
-          </div>
-        </div>
-      {{end}}
+      {{template "input.display-name" . }}
+      {{template "input.username" . }}
+      {{template "input.email" . }}
+      {{template "input.password" . }}
+      {{template "input.password_retyped" . }}
 
       <input type="submit" name="submit" class="ui fluid large green submit button" value="Register" />
 

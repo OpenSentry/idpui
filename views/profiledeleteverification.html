@@ -8,7 +8,7 @@
     <div class="ui divider hidden"></div>
 
     <form class="ui large form" action="/me/deleteverification" method="post">
-      {{ .csrfField }}      
+      {{ .csrfField }}
 
       <div class="ui left aligned segment totp">
 
@@ -24,24 +24,7 @@
 
       </div>
 
-      {{if .errorVerificationCode}}
-        <div class="required field {{if .errorVerificationCode}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="lock icon"></i>
-            <input name="verification_code" type="password" placeholder="Code" required>
-            <div class="ui red tag label">
-              {{ .errorVerificationCode }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="lock icon"></i>
-            <input name="verification_code" type="password" placeholder="Code" required>
-          </div>
-        </div>
-      {{end}}
+      {{template "input.verification_code" . }}
 
       <input type="submit" name="submit" class="ui fluid large green submit button" value="Verify and Delete Profile" />
 

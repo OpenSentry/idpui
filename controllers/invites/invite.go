@@ -1,25 +1,26 @@
 package invites
 
 import (
+  "strings"
   "net/http"
+  "reflect"
+  "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang.org/x/oauth2"
-  oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
+  "github.com/charmixer/idpui/validators"
 )
 
 type inviteForm struct {
   Email string `form:"email" binding:"required"`
-  Username string `form:"username"`
-  GrantedScopes []string `form:"granted_scopes[]"`
-  FollowIdentities []string `form:"follow_identities[]"`
+  HintUsername string `form:"hint_username"`
 }
 
 func ShowInvite(env *environment.State) gin.HandlerFunc {
@@ -30,49 +31,50 @@ func ShowInvite(env *environment.State) gin.HandlerFunc {
       "func": "ShowInvite",
     })
 
-    // NOTE: Maybe session is not a good way to do this.
-    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
-    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
-    var idToken *oidc.IDToken
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
     session := sessions.Default(c)
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "invite.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
-    }
 
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+    // Retain the values that was submittet
+    submittetEmail := session.Get("invite.email")
+    submittetHintUsername := session.Get("invite.hint_username")
 
-    // Sanity check. Access token id must exist.
-    identityRequest := &idp.IdentitiesReadRequest{
-      Id: idToken.Subject,
-    }
-    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    errors := session.Flashes("invite.errors")
+    err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
-      c.HTML(http.StatusNotFound, "invite.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
+      log.Debug(err.Error())
     }
 
-    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Find all permission identity is allowed to grant (maygrant?)")
-
-    s := []string{"read:identity", "openid"}
-    f := []string{identity.Id}
-
-    var mayGrantScopes = make(map[int]map[string]string)
-    for index, name := range s {
-      mayGrantScopes[index] = map[string]string{
-        "name": name,
-      }
+    // Use submittet value from flash or default from db.
+    var email string
+    if submittetEmail != nil {
+      email = submittetEmail.(string)
     }
 
-    var followIdentities = make(map[int]map[string]string)
-    for index, name := range f {
-      followIdentities[index] = map[string]string{
-        "name": name,
+    var hintUsername string
+    if submittetHintUsername != nil {
+      hintUsername = submittetHintUsername.(string)
+    }
+
+    var errorEmail string
+    var errorHintUsername string
+
+    if len(errors) > 0 {
+      errorsMap := errors[0].(map[string][]string)
+      for k, v := range errorsMap {
+
+        if k == "email" && len(v) > 0 {
+          errorEmail = strings.Join(v, ", ")
+        }
+
+        if k == "hint_username" && len(v) > 0 {
+          errorHintUsername = strings.Join(v, ", ")
+        }
       }
     }
 
@@ -82,9 +84,10 @@ func ShowInvite(env *environment.State) gin.HandlerFunc {
         {"href": "/public/css/dashboard.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "name": identity.Name,
-      "mayGrantScopes": mayGrantScopes,
-      "followIdentities": followIdentities,
+      "hint_username": hintUsername,
+      "email": email,
+      "errorEmail": errorEmail,
+      "errorHintUsername": errorHintUsername,
     })
   }
   return gin.HandlerFunc(fn)
@@ -106,40 +109,121 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    // NOTE: Maybe session is not a good way to do this.
-    // 1. The user access /me with a browser and the access token / id token is stored in a session as we cannot make the browser redirect with Authentication: Bearer <token>
-    // 2. The user is using something that supplies the access token and id token directly in the headers. (aka. no need for the session)
-    var idToken *oidc.IDToken
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
     session := sessions.Default(c)
-    idToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "invite.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
-    }
 
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
-
-    inviteRequest := &idp.IdentitiesInviteCreateRequest{
-      Id: idToken.Subject,
-      Email: form.Email,
-      Username: form.Username,
-      GrantedScopes: form.GrantedScopes,
-      PleaseFollow: []string{idToken.Subject},
-      TTL: 60*60*24, // 1 hour
-    }
-    invite, err := idp.CreateInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    // Save values if submit fails
+    session.Set("invite.email", form.Email)
+    session.Set("invite.hint_username", form.HintUsername)
+    err = session.Save()
     if err != nil {
-      log.WithFields(logrus.Fields{"email": inviteRequest.Email, "username": inviteRequest.Username}).Debug("Failed to create invite")
-      c.HTML(http.StatusInternalServerError, "invite.html", gin.H{"error": err.Error()})
+      log.Debug(err.Error())
+    }
+
+    errors := make(map[string][]string)
+    validate := validator.New()
+    validate.RegisterValidation("notblank", validators.NotBlank)
+    err = validate.Struct(form)
+    if err != nil {
+
+      // Validation syntax is invalid
+      if err,ok := err.(*validator.InvalidValidationError); ok{
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      reflected := reflect.ValueOf(form) // Use reflector to reverse engineer struct
+      for _, err := range err.(validator.ValidationErrors){
+
+        // Attempt to find field by name and get json tag name
+        field,_ := reflected.Type().FieldByName(err.StructField())
+        var name string
+
+        // If form tag doesn't exist, use lower case of name
+        if name = field.Tag.Get("form"); name == ""{
+          name = strings.ToLower(err.StructField())
+        }
+
+        switch err.Tag() {
+        case "required":
+            errors[name] = append(errors[name], "Field is required")
+            break
+        case "email":
+            errors[name] = append(errors[name], "Field must be a valid email")
+            break
+        case "eqfield":
+            errors[name] = append(errors[name], "Field should be equal to the "+err.Param())
+            break
+        case "notblank":
+          errors[name] = append(errors[name], "Field is not allowed to be blank")
+          break
+        default:
+            errors[name] = append(errors[name], "Field is invalid")
+            break
+        }
+      }
+
+    }
+
+    if len(errors) > 0 {
+      session.AddFlash(errors, "invite.errors")
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
       return
     }
 
-    log.WithFields(logrus.Fields{"id":invite.Id}).Debug("Invite created")
+    idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
+    inviteRequest := &idp.InviteCreateRequest{
+      InvitedByIdentity: identity.Id,
+      TTL: 60*60*24, // 1 hour
+      Email: form.Email,
+      HintUsername: form.HintUsername,
+    }
+    invite, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    // Cleanup session
+    session.Delete("invite.email")
+    session.Delete("invite.username")
+    err = session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+    }
+
+    if invite != nil {
+      log.WithFields(logrus.Fields{"id": invite.Id}).Debug("Invite created")
+      redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites")
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
+      c.Abort()
+      return
+    }
+
+    // Deny by default. Failed to fill in the form correctly.
     submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
     if err != nil {
       log.Debug(err.Error())

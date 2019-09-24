@@ -1,49 +1,79 @@
 {{ template "htmlbegin" . }}
 
-<div id="top-spacer"></div>
+<div class="grid-container">
 
-<div id="content-wrapper">
-  <h1 class="fingerprint">Identity Provider</h1>
+  {{ template "header" . }}
 
-  <h2>Accept Invite</h2>
+  {{ template "sidenav" . }}
 
-  <p>
-    Hi {{ .name }}<br><br>
-    You are about to accept an invitation to gain access rights<br></br>
-  </p>
-
-  <form action="/invite" method="post">
-    {{ .csrfField }}
-    <input type="hidden" name="id" value="{{ .inviteId }}" />
-
-    {{if .grantScopes }}
-    <p>You are about to gain access to</p>
-    <div class="input-group">
-      {{ range $key, $scope := .grantScopes }}
-        <input type="checkbox" id="granted_scopes_{{ $key }}" name="granted_scopes[]" value="{{ $scope.name }}">
-        <label for="granted_scopes_{{ $key }}">{{ $scope.name }}</label>
-      {{ end }}
+  <main class="main">
+    <div class="main__header">
+      <div class="main-header__heading">Hello {{ .name }}</div>
+      <div class="main-header__updates">Recent Events</div>
     </div>
-    {{ end }}
 
+    <div class="main__cards">
+        <h1>{{ .title }}</h1>
 
-    <p>You are about to follow</p>
-    {{if .followIdentities }}
-    <div class="input-group">
-      {{ range $key, $follow := .followIdentities }}
-        <input type="checkbox" id="follow_identities_{{ $key }}" name="follow_identities[]" value="{{ $follow.id }}">
-        <label for="follow_identities_{{ $key }}">{{ $follow.name }}</label>
-      {{ end }}
+        <div class="ui segments">
+
+          <div class="ui segment">
+
+            <div class="ui teal ribbon label">
+              <i class="envelope icon"></i> Invite
+            </div>
+            <span>Information about the invite</span>
+
+            <div class="ui list">
+              <div class="item">
+                <i class="envelope open icon"></i>
+                <div class="content">
+                  <span data-tooltip="Invite identifier">{{ .id }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ui list">
+              <div class="item">
+                <i class="user icon"></i>
+                <div class="content">
+                  <span data-tooltip="Whom invited you">{{ .ibi }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ui divider hidden"></div>
+
+            <div class="ui teal ribbon label">
+              <i class="users icon"></i> Follow
+            </div>
+            <span>You are recommended to follow these</span>
+
+            <div class="ui hidden divider"></div>
+
+            <div class="ui teal ribbon label">
+              <i class="lock icon"></i> Scopes
+            </div>
+            <span>You will be granted access to this</span>
+
+            <div class="ui hidden divider"></div>
+
+            <form class="ui form" action="{{ .inviteAcceptUrl }}" method="post">
+              {{ .csrfField }}
+              <input name="id" type="hidden" value="{{ .id }}" required>
+              <button class="ui green button" type="submit"><i class="save icon"></i> Accept Invite</button>
+            </form>
+
+          </div>
+
+        </div>
+
     </div>
-    {{ end }}
+  </main>
 
-    <input type="submit" name="submit" value="Accept invite" />
-  </form>
-
+  {{ template "footer" . }}
 </div>
 
-<div id="debug-wrapper">
-  <span class="info">Invite: {{ .inviteId }}</span>
-<div>
-
 {{ template "htmlend" . }}
+
+
