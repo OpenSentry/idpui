@@ -8,7 +8,7 @@ import (
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
-  "github.com/gin-contrib/sessions"  
+  "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/app"

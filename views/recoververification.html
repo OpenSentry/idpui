@@ -25,43 +25,8 @@
 
       </div>
 
-      {{if .errorPassword}}
-        <div class="required field {{if .errorPassword}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="lock icon"></i>
-            <input type="password" name="password" autocomplete="new-password" placeholder="Password" required />
-            <div class="ui red tag label">
-              {{ .errorPassword }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="lock icon"></i>
-            <input type="password" name="password" autocomplete="new-password" placeholder="Password" required />
-          </div>
-        </div>
-      {{end}}
-
-      {{if .errorPasswordRetyped}}
-        <div class="required field {{if .errorPasswordRetyped}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="lock icon"></i>
-            <input type="password" name="password_retyped" autocomplete="new-password" placeholder="Password retyped" required />
-            <div class="ui red tag label">
-              {{ .errorPasswordRetyped }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="lock icon"></i>
-            <input type="password" name="password_retyped" autocomplete="new-password" placeholder="Password retyped" required />
-          </div>
-        </div>
-      {{end}}
+      {{template "input.password" . }}
+      {{template "input.password.retyped" . }}
 
       <div class="ui left aligned segment totp">
 
@@ -77,24 +42,7 @@
 
       </div>
 
-      {{if .errorVerificationCode}}
-        <div class="required field {{if .errorVerificationCode}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="lock icon"></i>
-            <input name="verification_code" type="password" placeholder="Code" required>
-            <div class="ui red tag label">
-              {{ .errorVerificationCode }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="lock icon"></i>
-            <input name="verification_code" type="password" placeholder="Code" required>
-          </div>
-        </div>
-      {{end}}
+     {{template "input.verificationcode" . }}
 
       <input type="submit" name="submit" class="ui fluid large green submit button" value="Verify and Change Password" />
 

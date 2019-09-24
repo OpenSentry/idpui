@@ -24,25 +24,7 @@
 
       </div>
 
-
-      {{if .errorEmail}}
-        <div class="required field {{if .errorEmail}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="mail icon"></i>
-            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
-            <div class="ui red tag label">
-              {{ .errorEmail }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="mail icon"></i>
-            <input type="text" name="email" autocomplete="email" placeholder="E-mail" value="{{.email}}" required />
-          </div>
-        </div>
-      {{end}}
+      {{template "input.email" . }}
 
       <input type="submit" name="submit" class="ui fluid large green submit button" value="Recover" />
 

@@ -25,24 +25,7 @@
 
       </div>
 
-      {{if .errorCode}}
-        <div class="required field {{if .errorCode}}error{{end}}">
-          <div class="ui right labeled left icon input focus">
-            <i class="lock icon"></i>
-            <input name="code" type="password" placeholder="Code" required>
-            <div class="ui red tag label">
-              {{ .errorCode }}
-            </div>
-          </div>
-        </div>
-      {{else}}
-        <div class="required field">
-          <div class="ui left icon input focus">
-            <i class="lock icon"></i>
-            <input name="code" type="password" placeholder="Code" required>
-          </div>
-        </div>
-      {{end}}
+      {{ template "input.code" . }}
 
       <input type="submit" name="submit" class="ui fluid large green submit button" value="Verify" />
 

@@ -1,16 +1,15 @@
 package invites
 
 import (
+  "net/url"
   "net/http"
-  "strings"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
-  "github.com/gin-contrib/sessions"
-  "golang.org/x/oauth2"
-  oidc "github.com/coreos/go-oidc"
+  //"github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
@@ -28,69 +27,87 @@ func ShowInviteAccept(env *environment.State) gin.HandlerFunc {
       "func": "ShowInviteAccept",
     })
 
-    inviteId := c.Query("invite")
+    inviteId := c.Query("id")
     if inviteId == "" {
-      log.Debug("Missing invite id")
-      c.HTML(http.StatusNotFound, "inviteaccept.html", gin.H{"error": "Invite not found"})
-      c.Abort()
+      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing invite id"})
       return
     }
 
-    // Peek at invite. Iff anonymous require registration! redirect
-    // Iff not anonymous require authentication redirect
 
-    session := sessions.Default(c)
-
-    var idToken *oidc.IDToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "inviteaccept.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
-    }
-
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
-
-    inviteRequest := &idp.IdentitiesInviteReadRequest{
-      Id: inviteId,
-    }
-    invite, err := idp.ReadInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    invitesAcceptUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
     if err != nil {
-      log.WithFields(logrus.Fields{"id": inviteRequest.Id}).Debug(err.Error())
-      c.HTML(http.StatusNotFound, "inviteaccept.html", gin.H{"error": "Invite not found"})
-      c.Abort()
+      log.WithFields(logrus.Fields{"id": inviteId}).Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-
-    scopes := strings.Split(invite.GrantedScopes, " ")
-
-    var grantScopes = make(map[int]map[string]string)
-    for index, scope := range scopes {
-      grantScopes[index] = map[string]string{
-        "name": scope,
-      }
-    }
-
-    identities := strings.Split(invite.FollowIdentities, " ")
-
-    var followIdentities = make(map[int]map[string]string)
-    for index, id := range identities {
-      followIdentities[index] = map[string]string{
-        "name": id,
-      }
-    }
+    q := invitesAcceptUrl.Query()
+    q.Add("id", inviteId)
+    invitesAcceptUrl.RawQuery = q.Encode()
 
     c.HTML(http.StatusOK, "inviteaccept.html", gin.H{
-      "title": "Invite accept",
+      "title": "Invite",
       "links": []map[string]string{
         {"href": "/public/css/dashboard.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "grantedScopes": grantScopes,
-      "followIdentities": followIdentities,
-      "inviteId": invite.Id,
+      "invitesAcceptUrl": invitesAcceptUrl.String(),
+      "id": inviteId,
+      "ibi": "asdasd",
     })
+
+    inviteRequest := &idp.InviteReadRequest{
+      Id: inviteId,
+    }
+
+    identity := app.RequireIdentity(c)
+    if identity != nil {
+
+      idpClient := app.IdpClientUsingAuthorizationCode(env, c)
+
+      invite, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites"), inviteRequest)
+      if err != nil {
+        log.WithFields(logrus.Fields{"id": inviteRequest.Id}).Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      invitesAcceptUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
+      if err != nil {
+        log.WithFields(logrus.Fields{"id": inviteId}).Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      q := invitesAcceptUrl.Query()
+      q.Add("id", inviteId)
+      invitesAcceptUrl.RawQuery = q.Encode()
+
+      c.HTML(http.StatusOK, "inviteaccept.html", gin.H{
+        "title": "Invite",
+        "links": []map[string]string{
+          {"href": "/public/css/dashboard.css"},
+        },
+        csrf.TemplateTag: csrf.TemplateField(c.Request),
+        "invitesAcceptUrl": invitesAcceptUrl.String(),
+        "id": invite.Id,
+      })
+    }
+
+    // Peak @ Invite to decide if register + login required or just login
+    idpClient := app.IdpClientUsingClientCredentials(env, c)
+
+    invite, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites"), inviteRequest)
+    if err != nil {
+      log.WithFields(logrus.Fields{"id": inviteRequest.Id}).Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    log.Debug(invite)
+
+    redirectTo := ""
+    log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, redirectTo)
+    c.Abort()
   }
   return gin.HandlerFunc(fn)
 }
@@ -112,18 +129,14 @@ func SubmitInviteAccept(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
-
-    var idToken *oidc.IDToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "inviteaccept.html", gin.H{"error": "Identity not found"})
-      c.Abort()
+    identity := app.RequireIdentity(c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
       return
     }
 
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
+    idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
     inviteRequest := &idp.IdentitiesInviteUpdateRequest{
       Id: form.Id,

@@ -47,24 +47,7 @@
 
       </div>
 
-      {{if .errorTotp}}
-      <div class="required field {{if .errorTotp}}error{{end}}">
-        <div class="ui right labeled left icon input focus">
-          <i class="lock icon"></i>
-          <input type="password" name="totp" placeholder="Enter code" required />
-          <div class="ui red tag label">
-            {{ .errorTotp }}
-          </div>
-        </div>
-      </div>
-      {{else}}
-      <div class="required field">
-        <div class="ui left icon input focus">
-          <i class="lock icon"></i>
-          <input type="password" name="totp" placeholder="Enter code" required />
-        </div>
-      </div>
-      {{end}}
+      {{template "input.totp" . }}
 
       </div>
 
