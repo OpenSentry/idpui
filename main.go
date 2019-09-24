@@ -201,6 +201,9 @@ func serve(env *environment.State) {
     ep.GET(  "/recoververification", credentials.ShowRecoverVerification(env) )
     ep.POST( "/recoververification", credentials.SubmitRecoverVerification(env) )
 
+    // Invite
+    ep.GET(  "/invite/accept", invites.ShowInviteAccept(env) )
+
     // These does not require authentication as its like doing delete in browser on cookies.
     // FIXME: Read up on Front Channel logout and Backchannel logout in Hydra an use that.
     ep.GET(  "/session/logout", profiles.ShowLogoutSession(env) )
@@ -232,6 +235,7 @@ func serve(env *environment.State) {
     ep.POST( "/me/deleteverification", AuthorizationRequired(env, "openid"), credentials.SubmitProfileDeleteVerification(env) )
 
     // Invites
+    ep.GET(  "/invites", AuthorizationRequired(env, "openid"), invites.ShowInvites(env) )
     ep.GET(  "/invite", AuthorizationRequired(env, "openid"), invites.ShowInvite(env) )
     ep.POST( "/invite", AuthorizationRequired(env, "openid"), invites.SubmitInvite(env) )
 
