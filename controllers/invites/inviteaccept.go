@@ -1,11 +1,11 @@
 package invites
 
 import (
-  "net/url"
+  //"net/url"
   "net/http"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
-  "github.com/gorilla/csrf"
+  //"github.com/gorilla/csrf"
   //"github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
@@ -26,7 +26,7 @@ func ShowInviteAccept(env *environment.State) gin.HandlerFunc {
     log = log.WithFields(logrus.Fields{
       "func": "ShowInviteAccept",
     })
-
+/*
     inviteId := c.Query("id")
     if inviteId == "" {
       c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing invite id"})
@@ -103,8 +103,8 @@ func ShowInviteAccept(env *environment.State) gin.HandlerFunc {
     }
 
     log.Debug(invite)
-
-    redirectTo := ""
+*/
+    redirectTo := "/"
     log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
     c.Redirect(http.StatusFound, redirectTo)
     c.Abort()
