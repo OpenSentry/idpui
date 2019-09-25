@@ -49,7 +49,7 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
 
     f := "2006-01-02 15:04:05" // Remder time format
     var uiInvites []InviteTemplate
-    for index, invite := range invites {
+    for _, invite := range invites {
 
       inviteAcceptUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
       if err != nil {
@@ -62,13 +62,14 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
       inviteAcceptUrl.RawQuery = q.Encode()
 
       uiInvite := InviteTemplate{
-        Url:       u.String(),
+        Url:       inviteAcceptUrl.String(),
         Id:        invite.Id,
         Email:     identity.Email,
         InvitedBy: identity.Name,
         IssuedAt:  time.Unix(invite.IssuedAt, 0).Format(f),
         Expires:   time.Unix(invite.ExpiresAt, 0).Format(f),
       }
+      uiInvites = append(uiInvites, uiInvite)
     }
 
     c.HTML(http.StatusOK, "invites.html", gin.H{
