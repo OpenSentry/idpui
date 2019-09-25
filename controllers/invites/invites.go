@@ -6,6 +6,7 @@ import (
   "time"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
+  //"github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/app"
@@ -39,32 +40,35 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-    invitesRequest := &idp.InviteReadRequest{
-      Id: "009e44d3-9553-4a40-b443-509cc0d88c94",
-    }
-    invite, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites"), invitesRequest)
+    invites, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites"), nil)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    t := time.Unix(invite.IssuedAt, 0)
-    exp := time.Unix(invite.ExpiresAt, 0)
-    f := "2006-01-02 15:04:05"
+    f := "2006-01-02 15:04:05" // Remder time format
+    var uiInvites []InviteTemplate
+    for index, invite := range invites {
 
-    u, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
-    q := u.Query()
-    q.Add("id", invite.Id)
-    u.RawQuery = q.Encode()
+      inviteAcceptUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      q := inviteAcceptUrl.Query()
+      q.Add("id", invite.Id)
+      inviteAcceptUrl.RawQuery = q.Encode()
 
-    invites := []InviteTemplate{
-      InviteTemplate{Url: u.String(), Id:invite.Id, Email:identity.Email, InvitedBy:identity.Name, IssuedAt:t.Format(f), Expires:exp.Format(f)},
+      uiInvite := InviteTemplate{
+        Url:       u.String(),
+        Id:        invite.Id,
+        Email:     identity.Email,
+        InvitedBy: identity.Name,
+        IssuedAt:  time.Unix(invite.IssuedAt, 0).Format(f),
+        Expires:   time.Unix(invite.ExpiresAt, 0).Format(f),
+      }
     }
 
     c.HTML(http.StatusOK, "invites.html", gin.H{
@@ -73,9 +77,9 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
         {"href": "/public/css/dashboard.css"},
       },
       "id": identity.Id,
-      "user": identity.Subject,
+      "user": identity.Username,
       "name": identity.Name,
-      "invites": invites,
+      "invites": uiInvites,
     })
   }
   return gin.HandlerFunc(fn)
