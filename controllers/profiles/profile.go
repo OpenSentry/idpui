@@ -3,7 +3,7 @@ package profiles
 import (
   "net/http"
   "github.com/sirupsen/logrus"
-  "github.com/gin-gonic/gin"  
+  "github.com/gin-gonic/gin"
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/environment"
@@ -30,7 +30,7 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
         {"href": "/public/css/dashboard.css"},
       },
       "id": identity.Id,
-      "user": identity.Subject,
+      "user": identity.Username,
       "password": identity.Password,
       "name": identity.Name,
       "email": identity.Email,

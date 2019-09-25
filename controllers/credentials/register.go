@@ -37,14 +37,25 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     // Retain the values that was submittet, except passwords ?!
-    username := session.Get("register.username")
-    displayName := session.Get("register.display-name")
-    email := session.Get("register.email")
+    var username string
+    var displayName string
+    var email string
+    rf := session.Flashes("register.fields")
+    if len(rf) > 0 {
+      registerFields := rf[0].(map[string][]string)
+      for k, v := range registerFields {
+        if k == "username" && len(v) > 0 {
+          username = strings.Join(v, ", ")
+        }
 
-    errors := session.Flashes("register.errors")
-    err := session.Save() // Remove flashes read, and save submit fields
-    if err != nil {
-      log.Debug(err.Error())
+        if k == "email" && len(v) > 0 {
+          email = strings.Join(v, ", ")
+        }
+
+        if k == "display-name" && len(v) > 0 {
+          displayName = strings.Join(v, ", ")
+        }
+      }
     }
 
     var errorUsername string
@@ -52,6 +63,12 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
     var errorPasswordRetyped string
     var errorEmail string
     var errorDisplayName string
+
+    errors := session.Flashes("register.errors")
+    err := session.Save() // Remove flashes read, and save submit fields
+    if err != nil {
+      log.Debug(err.Error())
+    }
 
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
@@ -121,9 +138,12 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     // Save values if submit fails
-    session.Set("register.username", form.Username)
-    session.Set("register.display-name", form.Name)
-    session.Set("register.email", form.Email)
+    registerFields := make(map[string][]string)
+    registerFields["username"] = append(registerFields["username"], form.Username)
+    registerFields["display-name"] = append(registerFields["display-name"], form.Name)
+    registerFields["email"] = append(registerFields["email"], form.Email)
+
+    session.AddFlash(registerFields, "register.fields")
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
@@ -200,7 +220,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       idpClient := app.IdpClientUsingClientCredentials(env, c)
 
       identityRequest := &idp.IdentitiesCreateRequest{
-        Subject: form.Username,
+        Username: form.Username,
         Email: form.Email,
         Password: form.Password,
         Name: form.Name,
@@ -222,7 +242,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       session.Delete("register.errors")
 
       // Propagate username to authenticate controller
-      session.Set("authenticate.username", identity.Subject)
+      session.AddFlash(identity.Username, "authenticate.username")
 
       err = session.Save()
       if err != nil {
