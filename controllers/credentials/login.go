@@ -5,6 +5,7 @@ import (
   "net/http"
   "strings"
   "reflect"
+  "fmt"
   "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
@@ -83,7 +84,11 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     // Retain the values that was submittet, except passwords!
-    username := session.Get("authenticate.username")
+    var username string
+    fau := session.Flashes("authenticate.username")
+    if fau != nil {
+      username = fmt.Sprintf("%s", fau[0])
+    }
 
     errors := session.Flashes("authenticate.errors")
     err = session.Save() // Remove flashes read, and save submit fields
@@ -146,13 +151,12 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
 
     session := sessions.Default(c)
 
-    // Save values if submit fails
-    session.Set("authenticate.username", form.Username)
+    // Save value if submit fails
+    session.AddFlash(form.Username, "authenticate.username")
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
     }
-
 
     errors := make(map[string][]string)
     validate := validator.New()
@@ -206,6 +210,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
       if err != nil {
         log.Debug(err.Error())
       }
+
       redirectTo := c.Request.URL.RequestURI() + "?login_challenge=" + form.Challenge
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, redirectTo)
@@ -215,63 +220,75 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
+    identityFound := true // Hack until bulk works
+
     identityRequest := &idp.IdentitiesReadRequest{
-      Subject: form.Username,
+      Username: form.Username,
     }
     identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
-      log.WithFields(logrus.Fields{
-        "subject": identityRequest.Subject,
-        "challenge": form.Challenge,
-      }).Debug(err.Error())
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      return
-    }
 
-    log.WithFields(logrus.Fields{"id": identityResponse.Id, "subject": identityResponse.Subject, "email": identityResponse.Email}).Debug("Found Identity")
-
-    // Ask idp to authenticate the user
-    authenticateRequest := &idp.IdentitiesAuthenticateRequest{
-      Id: identityResponse.Id,
-      Password: form.Password,
-      Challenge: form.Challenge,
-    }
-    authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
-    if err != nil {
-      log.WithFields(logrus.Fields{
-        "id": authenticateRequest.Id,
-        "challenge": authenticateRequest.Challenge,
-      }).Debug(err.Error())
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-      return
-    }
-
-    // User authenticated, redirect
-    if authenticateResponse.Authenticated == true {
-
-      // Cleanup session
-      session.Delete("authenticate.username")
-      session.Delete("authenticate.errors")
-
-      err = session.Save()
-      if err != nil {
-        log.Debug(err.Error())
+      if err.Error() == "Not Found: {\"error\":\"Identity not found\"}\n" {
+        identityFound = false
+      } else {
+        log.WithFields(logrus.Fields{
+          "username": identityRequest.Username,
+          "challenge": form.Challenge,
+        }).Debug(err.Error())
+        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
       }
 
-      log.WithFields(logrus.Fields{
-        "id": authenticateResponse.Id,
-        "authenticated": authenticateResponse.Authenticated,
-        "totp_required": authenticateResponse.TotpRequired,
-        "redirect_to": authenticateResponse.RedirectTo,
-      }).Debug("Redirecting")
-      c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
-      c.Abort()
-      return
     }
 
-    // Deny by default
-    if authenticateResponse.IsPasswordInvalid == true {
-      errors["password"] = append(errors["password"], "Invalid")
+    if identityFound == true {
+
+      log.WithFields(logrus.Fields{"id": identityResponse.Id, "username": identityResponse.Username, "email": identityResponse.Email}).Debug("Found Identity")
+
+      // Ask idp to authenticate the user
+      authenticateRequest := &idp.IdentitiesAuthenticateRequest{
+        Id: identityResponse.Id,
+        Password: form.Password,
+        Challenge: form.Challenge,
+      }
+      authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
+      if err != nil {
+        log.WithFields(logrus.Fields{
+          "id": authenticateRequest.Id,
+          "challenge": authenticateRequest.Challenge,
+        }).Debug(err.Error())
+        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+      }
+
+      // User authenticated, redirect
+      if authenticateResponse.Authenticated == true {
+
+        // Cleanup session
+        session.Delete("authenticate.username")
+        session.Delete("authenticate.errors")
+
+        err = session.Save()
+        if err != nil {
+          log.Debug(err.Error())
+        }
+
+        log.WithFields(logrus.Fields{
+          "id": authenticateResponse.Id,
+          "authenticated": authenticateResponse.Authenticated,
+          "totp_required": authenticateResponse.TotpRequired,
+          "redirect_to": authenticateResponse.RedirectTo,
+        }).Debug("Redirecting")
+        c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
+        c.Abort()
+        return
+      }
+
+      // Deny by default
+      if authenticateResponse.IsPasswordInvalid == true {
+        errors["password"] = append(errors["password"], "Invalid")
+      }
+
     } else {
       errors["username"] = append(errors["username"], "Not found")
     }

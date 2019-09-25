@@ -164,7 +164,7 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    log.WithFields(logrus.Fields{"id": identityResponse.Id, "subject": identityResponse.Subject, "email": identityResponse.Email}).Debug("Found Identity")
+    log.WithFields(logrus.Fields{"id": identityResponse.Id, "username": identityResponse.Username, "email": identityResponse.Email}).Debug("Found Identity")
 
     recoverRequest := &idp.IdentitiesRecoverRequest{
       Id: identityResponse.Id,
