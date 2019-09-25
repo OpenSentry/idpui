@@ -49,6 +49,7 @@ func ShowTotp(env *environment.State) gin.HandlerFunc {
 
     millis := time.Now().UnixNano() / 1000000
 
+    var err error
     var key *otp.Key
     isStoredTotpKeyValid := false
 
@@ -68,7 +69,7 @@ func ShowTotp(env *environment.State) gin.HandlerFunc {
 
     if isStoredTotpKeyValid == true {
 
-      _ /* key */, err := otp.NewKeyFromURL(k.(string))
+      key, err = otp.NewKeyFromURL(k.(string))
       if err != nil {
         log.Debug(err)
         c.AbortWithStatus(http.StatusInternalServerError)

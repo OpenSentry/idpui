@@ -33,9 +33,9 @@ func ShowInviteRegister(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     // Retain the values that was submittet, except passwords ?!
-    username := session.Get("register.username")
-    displayName := session.Get("register.display-name")
-    email := session.Get("register.email")
+    username := session.Flashes("register.username")
+    displayName := session.Flashes("register.display-name")
+    email := session.Flashes("register.email")
 
     errors := session.Flashes("register.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -113,9 +113,9 @@ func SubmitInviteRegister(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     // Save values if submit fails
-    session.Set("register.username", form.Username)
-    session.Set("register.display-name", form.Name)
-    session.Set("register.email", form.Email)
+    session.AddFlash(form.Username, "register.username")
+    session.AddFlash(form.Name, "register.display-name")
+    session.AddFlash(form.Email, "register.email")
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
@@ -163,7 +163,7 @@ func SubmitInviteRegister(env *environment.State) gin.HandlerFunc {
       idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
       identityRequest := &idp.IdentitiesCreateRequest{
-        Subject: form.Username,
+        Username: form.Username,
         Email: form.Email,
         Password: form.Password,
         Name: form.Name,
@@ -185,7 +185,7 @@ func SubmitInviteRegister(env *environment.State) gin.HandlerFunc {
       session.Delete("register.errors")
 
       // Propagate username to authenticate controller
-      session.Set("authenticate.username", identity.Subject)
+      session.AddFlash(identity.Username, "authenticate.username")
 
       err = session.Save()
       if err != nil {

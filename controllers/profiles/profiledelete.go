@@ -36,7 +36,7 @@ func ShowProfileDelete(env *environment.State) gin.HandlerFunc {
 
     session := sessions.Default(c)
 
-    riskAccepted := session.Get("profiledelete.risk_accepted")
+    riskAccepted := session.Flashes("profiledelete.risk_accepted")
 
     errors := session.Flashes("profiledelete.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -63,7 +63,7 @@ func ShowProfileDelete(env *environment.State) gin.HandlerFunc {
         {"href": "/public/css/dashboard.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "username": identity.Subject,
+      "username": identity.Username,
       "name": identity.Name,
       "RiskAccepted": riskAccepted,
       "errorRiskAccepted": errorRiskAccepted,
@@ -138,7 +138,7 @@ func SubmitProfileDelete(env *environment.State) gin.HandlerFunc {
     }
 
     // Deny by default
-    session.Set("profiledelete.risk_accepted", form.RiskAccepted)
+    session.AddFlash(form.RiskAccepted, "profiledelete.risk_accepted")
     session.AddFlash(errors, "profiledelete.errors")
     err = session.Save()
     if err != nil {
