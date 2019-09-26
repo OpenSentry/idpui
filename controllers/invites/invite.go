@@ -22,6 +22,7 @@ type inviteForm struct {
   FollowIdentities []string `form:"follow_identities[]"`
 }
 
+
 func ShowInvite(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -50,7 +51,7 @@ func ShowInvite(env *environment.State) gin.HandlerFunc {
     identityRequest := &idp.IdentitiesReadRequest{
       Id: idToken.Subject,
     }
-    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       c.HTML(http.StatusNotFound, "invite.html", gin.H{"error": "Identity not found"})
       c.Abort()
@@ -130,7 +131,7 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
       PleaseFollow: []string{idToken.Subject},
       TTL: 60*60*24, // 1 hour
     }
-    invite, err := idp.CreateInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    _, invite, err := idp.CreateInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
     if err != nil {
       log.WithFields(logrus.Fields{"email": inviteRequest.Email, "username": inviteRequest.Username}).Debug("Failed to create invite")
       c.HTML(http.StatusInternalServerError, "invite.html", gin.H{"error": err.Error()})

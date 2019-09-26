@@ -65,7 +65,7 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       }
     }
 
-    authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
+    _, authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
     if err != nil {
       log.WithFields(logrus.Fields{
         "challenge": authenticateRequest.Challenge,
@@ -225,7 +225,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
     identityRequest := &idp.IdentitiesReadRequest{
       Username: form.Username,
     }
-    identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
 
       if err.Error() == "Not Found: {\"error\":\"Identity not found\"}\n" {
@@ -251,7 +251,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
         Password: form.Password,
         Challenge: form.Challenge,
       }
-      authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
+      _, authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
       if err != nil {
         log.WithFields(logrus.Fields{
           "id": authenticateRequest.Id,
