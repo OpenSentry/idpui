@@ -8,7 +8,7 @@ import (
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
-  "github.com/gin-contrib/sessions"  
+  "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/app"
@@ -182,7 +182,7 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
         Id: identity.Id,
         Password: form.Password,
       }
-      _ /* updatedIdentity */, err := idp.UpdateIdentityPassword(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), passwordRequest)
+      _, _ /* updatedIdentity */, err := idp.UpdateIdentityPassword(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), passwordRequest)
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
