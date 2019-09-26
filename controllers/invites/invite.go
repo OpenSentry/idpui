@@ -19,7 +19,7 @@ import (
 )
 
 type inviteForm struct {
-  Email string `form:"email" binding:"required"`
+  Email string `form:"email" binding:"required" validate:"required,email"`
   HintUsername string `form:"hint_username"`
 }
 
@@ -40,25 +40,27 @@ func ShowInvite(env *environment.State) gin.HandlerFunc {
 
     session := sessions.Default(c)
 
-    // Retain the values that was submittet
-    submittetEmail := session.Get("invite.email")
-    submittetHintUsername := session.Get("invite.hint_username")
+    // Retain the values that was submittet, except passwords ?!
+    var hintUsername string
+    var email string
+    rf := session.Flashes("invite.fields")
+    if len(rf) > 0 {
+      fields := rf[0].(map[string][]string)
+      for k, v := range fields {
+        if k == "hint_username" && len(v) > 0 {
+          hintUsername = strings.Join(v, ", ")
+        }
+
+        if k == "email" && len(v) > 0 {
+          email = strings.Join(v, ", ")
+        }
+      }
+    }
 
     errors := session.Flashes("invite.errors")
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
-    }
-
-    // Use submittet value from flash or default from db.
-    var email string
-    if submittetEmail != nil {
-      email = submittetEmail.(string)
-    }
-
-    var hintUsername string
-    if submittetHintUsername != nil {
-      hintUsername = submittetHintUsername.(string)
     }
 
     var errorEmail string
@@ -119,8 +121,11 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     // Save values if submit fails
-    session.Set("invite.email", form.Email)
-    session.Set("invite.hint_username", form.HintUsername)
+    fields := make(map[string][]string)
+    fields["hint_username"] = append(fields["hint_username"], form.HintUsername)
+    fields["email"] = append(fields["email"], form.Email)
+
+    session.AddFlash(fields, "invite.fields")
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
@@ -206,18 +211,20 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    // Cleanup session
-    session.Delete("invite.email")
-    session.Delete("invite.username")
-    err = session.Save()
-    if err != nil {
-      log.Debug(err.Error())
-    }
-
     if invite != nil {
+
+      // Cleanup session
+      _ = session.Flashes("invite.fields")
+      _ = session.Flashes("invite.errors")
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+
       log.WithFields(logrus.Fields{"id": invite.Id}).Debug("Invite created")
-      redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites")
+      redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.collection")
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+
       c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
       return

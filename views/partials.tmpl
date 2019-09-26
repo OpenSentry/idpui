@@ -186,7 +186,7 @@
   <div class="required field {{if .errorHintUsername}}error{{end}}">
     <div class="ui right labeled left icon input focus">
       <i class="user circle icon"></i>
-      <input type="text" name="hint_username" placeholder="Hint Username" value="{{.hint_username}}" required />
+      <input type="text" name="hint_username" placeholder="Hint Username" value="{{.hint_username}}" />
       <div class="ui red tag label">
         {{ .errorHintUsername }}
       </div>
@@ -196,7 +196,7 @@
   <div class="required field">
     <div class="ui left icon input focus">
       <i class="user circle icon"></i>
-      <input type="text" name="hint_username" placeholder="Hint Username" value="{{.hint_username}}" required />
+      <input type="text" name="hint_username" placeholder="Hint Username" value="{{.hint_username}}" />
     </div>
   </div>
 {{end}}
