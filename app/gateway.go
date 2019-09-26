@@ -43,7 +43,7 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
     identityRequest := &idp.IdentitiesReadRequest{
       Id: idToken.Subject,
     }
-    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
       return

@@ -8,7 +8,7 @@ import (
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
-  "github.com/gin-contrib/sessions"  
+  "github.com/gin-contrib/sessions"
   idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/app"
@@ -208,7 +208,7 @@ func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
       Email: form.Email,
       Name: form.Name,
     }
-    updateIdentity, err := idp.UpdateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, updateIdentity, err := idp.UpdateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)

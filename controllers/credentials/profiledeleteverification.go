@@ -169,7 +169,7 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       VerificationCode: form.VerificationCode,
       RedirectTo: config.GetString("idpui.public.url") + config.GetString("idp.public.endpoints.profile"),
     }
-    deleteResponse, err := idp.DeleteIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.deleteverification"), deleteRequest)
+    _, deleteResponse, err := idp.DeleteIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.deleteverification"), deleteRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

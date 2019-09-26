@@ -36,7 +36,7 @@ func ShowPublicProfile(env *environment.State) gin.HandlerFunc {
     identityRequest := &idp.IdentitiesReadRequest{
       Id: request.Id,
     }
-    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)

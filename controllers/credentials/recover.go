@@ -137,7 +137,7 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
     identityRequest := &idp.IdentitiesReadRequest{
       Email: form.Email,
     }
-    identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
       log.WithFields(logrus.Fields{
         "email": form.Email,
@@ -169,7 +169,7 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
     recoverRequest := &idp.IdentitiesRecoverRequest{
       Id: identityResponse.Id,
     }
-    recoverResponse, err := idp.RecoverIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), recoverRequest)
+    _, recoverResponse, err := idp.RecoverIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
