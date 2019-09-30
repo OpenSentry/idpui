@@ -2,7 +2,6 @@ package invites
 
 import (
   "net/http"
-  "strings"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
@@ -11,6 +10,7 @@ import (
   oidc "github.com/coreos/go-oidc"
   idp "github.com/charmixer/idp/client"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
@@ -39,47 +39,18 @@ func ShowInviteAccept(env *environment.State) gin.HandlerFunc {
     // Peek at invite. Iff anonymous require registration! redirect
     // Iff not anonymous require authentication redirect
 
-    session := sessions.Default(c)
+    idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-    var idToken *oidc.IDToken = session.Get(environment.SessionIdTokenKey).(*oidc.IDToken)
-    if idToken == nil {
-      c.HTML(http.StatusNotFound, "inviteaccept.html", gin.H{"error": "Identity not found"})
-      c.Abort()
-      return
-    }
-
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
-    idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
-
-    inviteRequest := &idp.IdentitiesInviteReadRequest{
-      Id: inviteId,
-    }
-    _, invite, err := idp.ReadInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    inviteRequest := []idp.ReadInvitesRequest{ {Id: inviteId} }
+    _, invite, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
     if err != nil {
-      log.WithFields(logrus.Fields{"id": inviteRequest.Id}).Debug(err.Error())
+      log.WithFields(logrus.Fields{"id": inviteId}).Debug(err.Error())
       c.HTML(http.StatusNotFound, "inviteaccept.html", gin.H{"error": "Invite not found"})
       c.Abort()
       return
     }
 
-    scopes := strings.Split(invite.GrantedScopes, " ")
-
-    var grantScopes = make(map[int]map[string]string)
-    for index, scope := range scopes {
-      grantScopes[index] = map[string]string{
-        "name": scope,
-      }
-    }
-
-    identities := strings.Split(invite.FollowIdentities, " ")
-
-    var followIdentities = make(map[int]map[string]string)
-    for index, id := range identities {
-      followIdentities[index] = map[string]string{
-        "name": id,
-      }
-    }
+    log.Debug(invite)
 
     c.HTML(http.StatusOK, "inviteaccept.html", gin.H{
       "title": "Invite accept",
@@ -87,9 +58,7 @@ func ShowInviteAccept(env *environment.State) gin.HandlerFunc {
         {"href": "/public/css/dashboard.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "grantedScopes": grantScopes,
-      "followIdentities": followIdentities,
-      "inviteId": invite.Id,
+      "inviteId": inviteId,
     })
   }
   return gin.HandlerFunc(fn)
@@ -125,12 +94,10 @@ func SubmitInviteAccept(env *environment.State) gin.HandlerFunc {
     accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
     idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
-    inviteRequest := &idp.IdentitiesInviteUpdateRequest{
-      Id: form.Id,
-    }
-    _, _ /*invite*/, err = idp.UpdateInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    inviteRequest := []idp.UpdateInvitesAcceptRequest{ {Id: form.Id} }
+    _, _ /*invite*/, err = idp.UpdateInvitesAccept(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
     if err != nil {
-      log.WithFields(logrus.Fields{"id": inviteRequest.Id}).Debug(err.Error())
+      log.WithFields(logrus.Fields{ "id":form.Id }).Debug(err.Error())
       c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Invite not found"})
       return
     }

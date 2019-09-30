@@ -70,28 +70,42 @@ func SubmitLogout(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    logoutRequest := &idp.IdentitiesLogoutRequest{
-      Challenge: form.Challenge,
-    }
-    _, logout, err := idp.LogoutIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.logout"), logoutRequest)
+    logoutRequest := []idp.CreateHumansLogoutRequest{ {Challenge: form.Challenge} }
+    _, logouts, err := idp.LogoutHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.logout"), logoutRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    session := sessions.Default(c)
-    session.Clear()
-    err = session.Save()
-    if err != nil {
-      log.Debug(err.Error())
+    if logouts == nil {
+      log.Debug("Logout failed. Hint: Failed to execute CreateHumansLogoutRequest")
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    log.WithFields(logrus.Fields{"redirect_to": logout.RedirectTo}).Debug("Redirecting")
-    c.Redirect(http.StatusFound, logout.RedirectTo)
-    c.Abort()
+    status, obj, _ := idp.UnmarshalResponse(0, logouts)
+    if status == 200 && obj != nil {
+
+      logout := obj.(idp.HumanRedirect)
+
+      session := sessions.Default(c)
+      session.Clear()
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      log.WithFields(logrus.Fields{"redirect_to": logout.RedirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, logout.RedirectTo)
+      c.Abort()
+    }
+
+    // Deny by default
+    log.Debug("Unmarshal response failed")
+    c.AbortWithStatus(http.StatusInternalServerError)
   }
   return gin.HandlerFunc(fn)
 }
