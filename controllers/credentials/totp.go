@@ -246,19 +246,19 @@ func SubmitTotp(env *environment.State) gin.HandlerFunc {
 
       idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-      totpRequest := &idp.IdentitiesTotpRequest{
+      totpRequest := []idp.UpdateHumansTotpRequest{{
         Id: identity.Id,
         TotpRequired: true,
         TotpSecret: form.Secret,
-      }
-      _, updatedIdentity, err := idp.UpdateIdentityTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.totp"), totpRequest);
+      }}
+      _, updatedHumans, err := idp.UpdateHumansTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.totp"), totpRequest);
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
       }
 
-      log.Debug(updatedIdentity)
+      log.Debug(updatedHumans)
 
       redirectTo := "/me"
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")

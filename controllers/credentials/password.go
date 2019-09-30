@@ -178,11 +178,8 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
 
       idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-      passwordRequest := &idp.IdentitiesPasswordRequest{
-        Id: identity.Id,
-        Password: form.Password,
-      }
-      _, _ /* updatedIdentity */, err := idp.UpdateIdentityPassword(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), passwordRequest)
+      passwordRequest := []idp.UpdateHumansPasswordRequest{ {Id: identity.Id, Password: form.Password} }
+      _, _ /* updatedIdentity */, err := idp.UpdateHumansPassword(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.password"), passwordRequest)
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})

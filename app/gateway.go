@@ -40,25 +40,36 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
     idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    identityRequest := &idp.IdentitiesReadRequest{
-      Id: idToken.Subject,
-    }
-    _, identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    identityRequest := []idp.ReadHumansRequest{ {Id: idToken.Subject} }
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
-      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    if humans == nil {
+      c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Identity not found"})
       return
     }
 
-    c.Set("identity", identity)
-    c.Next()
+    status, obj, restError := idp.UnmarshalResponse(0, humans)
+    if status == 200 && obj != nil {
+      human := obj.(idp.Human)
+      c.Set("identity", human)
+      c.Next()
+    }
+
+    // Deny by default
+    logrus.Debug(restError)
+    logrus.WithFields(logrus.Fields{ "status":status }).Debug("Unmarshal response failed")
+    c.AbortWithStatus(http.StatusForbidden)
   }
   return gin.HandlerFunc(fn)
 }
 
-func RequireIdentity(c *gin.Context) *idp.IdentitiesReadResponse {
+func RequireIdentity(c *gin.Context) *idp.Human {
   identity, exists := c.Get("identity")
   if exists == true {
-    return identity.(*idp.IdentitiesReadResponse)
+    return identity.(*idp.Human)
   }
   return nil
 }

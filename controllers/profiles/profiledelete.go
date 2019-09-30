@@ -110,30 +110,40 @@ func SubmitProfileDelete(env *environment.State) gin.HandlerFunc {
 
         idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-        deleteRequest := &idp.IdentitiesDeleteRequest{
-          Id: identity.Id,
-        }
-        _, deleteChallenge, err := idp.DeleteIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), deleteRequest)
+        deleteRequest := []idp.DeleteHumansRequest{ {Id: identity.Id} }
+        _, challenges, err := idp.DeleteHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), deleteRequest)
         if err != nil {
           log.Debug(err.Error())
-          c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+
+        if challenges == nil {
+          log.Debug("Delete failed. Hint: Failed to execute DeleteHumansRequest")
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+
+        status, obj, _ := idp.UnmarshalResponse(0, challenges)
+        if status == 200 && obj != nil {
+
+          delete := obj.(idp.HumanRedirect)
+
+          // Cleanup session
+          session.Delete("profiledelete.risk_accepted")
+          session.Delete("profiledelete.errors")
+          err = session.Save()
+          if err != nil {
+            log.Debug(err.Error())
+          }
+
+          redirectTo := delete.RedirectTo
+          log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting");
+          c.Redirect(http.StatusFound, redirectTo)
           c.Abort()
           return
         }
 
-        // Cleanup session
-        session.Delete("profiledelete.risk_accepted")
-        session.Delete("profiledelete.errors")
-        err = session.Save()
-        if err != nil {
-          log.Debug(err.Error())
-        }
-
-        redirectTo := deleteChallenge.RedirectTo
-        log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting");
-        c.Redirect(http.StatusFound, redirectTo)
-        c.Abort()
-        return
       }
     }
 

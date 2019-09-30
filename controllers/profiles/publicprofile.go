@@ -33,29 +33,42 @@ func ShowPublicProfile(env *environment.State) gin.HandlerFunc {
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     // Look up profile information for user.
-    identityRequest := &idp.IdentitiesReadRequest{
-      Id: request.Id,
-    }
-    _, identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    humanRequest := []idp.ReadHumansRequest{ {Id: request.Id } }
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), humanRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    log.WithFields(logrus.Fields{"fixme": 1}).Debug("Implement data filtering on public data")
+    if humans == nil {
+      log.WithFields(logrus.Fields{ "id":request.Id }).Debug("Not Found")
+      c.AbortWithStatus(http.StatusNotFound)
+      return
+    }
 
-    c.HTML(http.StatusOK, "publicprofile.html", gin.H{
-      "title": "Public Profile",
-      "links": []map[string]string{
-        {"href": "/public/css/dashboard.css"},
-      },
+    status, obj, _ := idp.UnmarshalResponse(0, humans)
+    if status == 200 && obj != nil {
 
-      "id": identity.Id,
-      "user": "", //identity.Subject,
-      "name": "", // identity.Name,
-      "email": "", // identity.Email,
-    })
+      human := obj.(idp.Human)
+
+      log.WithFields(logrus.Fields{"fixme": 1}).Debug("Implement data filtering on public data")
+
+      c.HTML(http.StatusOK, "publicprofile.html", gin.H{
+        "title": "Public Profile",
+        "links": []map[string]string{
+          {"href": "/public/css/dashboard.css"},
+        },
+
+        "id": human.Id,
+        "user": "", //identity.Subject,
+        "name": "", // identity.Name,
+        "email": "", // identity.Email,
+      })
+    }
+
+    // Deny by default.
+    c.AbortWithStatus(http.StatusFound)
   }
   return gin.HandlerFunc(fn)
 }
