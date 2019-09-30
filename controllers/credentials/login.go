@@ -52,83 +52,97 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    var authenticateRequest *idp.IdentitiesAuthenticateRequest
+    var authenticateRequest []idp.CreateHumansAuthenticateRequest
     otpChallenge := c.Query("otp_challenge")
     if otpChallenge != "" {
-      authenticateRequest = &idp.IdentitiesAuthenticateRequest{
+      authenticateRequest = append(authenticateRequest, idp.CreateHumansAuthenticateRequest{
         Challenge: loginChallenge,
         OtpChallenge: otpChallenge,
-      }
+      })
     } else {
-      authenticateRequest = &idp.IdentitiesAuthenticateRequest{
+      authenticateRequest = append(authenticateRequest, idp.CreateHumansAuthenticateRequest{
         Challenge: loginChallenge,
-      }
+      })
     }
 
-    _, authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
+    _, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
     if err != nil {
-      log.WithFields(logrus.Fields{
-        "challenge": authenticateRequest.Challenge,
-      }).Debug(err.Error())
+      log.WithFields(logrus.Fields{ "challenge":loginChallenge }).Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    if authenticateResponse.Authenticated {
-      log.WithFields(logrus.Fields{"authenticated": authenticateResponse.Authenticated, "redirect_to": authenticateResponse.RedirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
-      c.Abort()
+    if authenticateResponse == nil {
+      log.WithFields(logrus.Fields{ "challenge":loginChallenge }).Debug("Not Found")
+      c.AbortWithStatus(http.StatusNotFound)
       return
     }
 
-    session := sessions.Default(c)
+    status, obj, _ := idp.UnmarshalResponse(0, authenticateResponse)
+    if status == 200 && obj != nil {
 
-    // Retain the values that was submittet, except passwords!
-    var username string
-    fau := session.Flashes("authenticate.username")
-    if fau != nil {
-      username = fmt.Sprintf("%s", fau[0])
-    }
+      auth := obj.(idp.HumanAuthentication)
 
-    errors := session.Flashes("authenticate.errors")
-    err = session.Save() // Remove flashes read, and save submit fields
-    if err != nil {
-      log.Debug(err.Error())
-    }
-
-    var errorUsername string
-    var errorPassword string
-
-    if len(errors) > 0 {
-      errorsMap := errors[0].(map[string][]string)
-      for k, v := range errorsMap {
-
-        if k == "username" && len(v) > 0 {
-          errorUsername = strings.Join(v, ", ")
-        }
-        if k == "password" && len(v) > 0 {
-          errorPassword = strings.Join(v, ", ")
-        }
-
+      if auth.Authenticated {
+        log.WithFields(logrus.Fields{"authenticated":auth.Authenticated, "redirect_to":auth.RedirectTo}).Debug("Redirecting")
+        c.Redirect(http.StatusFound, auth.RedirectTo)
+        c.Abort()
+        return
       }
+
+      session := sessions.Default(c)
+
+      // Retain the values that was submittet, except passwords!
+      var username string
+      fau := session.Flashes("authenticate.username")
+      if fau != nil {
+        username = fmt.Sprintf("%s", fau[0])
+      }
+
+      errors := session.Flashes("authenticate.errors")
+      err = session.Save() // Remove flashes read, and save submit fields
+      if err != nil {
+        log.Debug(err.Error())
+      }
+
+      var errorUsername string
+      var errorPassword string
+
+      if len(errors) > 0 {
+        errorsMap := errors[0].(map[string][]string)
+        for k, v := range errorsMap {
+
+          if k == "username" && len(v) > 0 {
+            errorUsername = strings.Join(v, ", ")
+          }
+          if k == "password" && len(v) > 0 {
+            errorPassword = strings.Join(v, ", ")
+          }
+
+        }
+      }
+
+      c.HTML(200, "login.html", gin.H{
+        "links": []map[string]string{
+          {"href": "/public/css/credentials.css"},
+        },
+        "title": "Authenticate",
+        csrf.TemplateTag: csrf.TemplateField(c.Request),
+        "provider": "Identity Provider",
+        "provideraction": "Identify yourself to gain access to your profile",
+        "challenge": loginChallenge,
+        "username": username,
+        "errorUsername": errorUsername,
+        "errorPassword": errorPassword,
+        "loginUrl": config.GetString("idpui.public.endpoints.login"),
+        "recoverUrl": config.GetString("idpui.public.endpoints.recover"),
+        "registerUrl": config.GetString("idpui.public.endpoints.register"),
+      })
     }
 
-    c.HTML(200, "login.html", gin.H{
-      "links": []map[string]string{
-        {"href": "/public/css/credentials.css"},
-      },
-      "title": "Authenticate",
-      csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "provider": "Identity Provider",
-      "provideraction": "Identify yourself to gain access to your profile",
-      "challenge": loginChallenge,
-      "username": username,
-      "errorUsername": errorUsername,
-      "errorPassword": errorPassword,
-      "loginUrl": config.GetString("idpui.public.endpoints.login"),
-      "recoverUrl": config.GetString("idpui.public.endpoints.recover"),
-      "registerUrl": config.GetString("idpui.public.endpoints.register"),
-    })
+    // Deny by default
+    log.WithFields(logrus.Fields{ "challenge":loginChallenge }).Debug("Not Found")
+    c.AbortWithStatus(http.StatusNotFound)
   }
   return gin.HandlerFunc(fn)
 }
@@ -220,77 +234,75 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    identityFound := true // Hack until bulk works
-
-    identityRequest := &idp.IdentitiesReadRequest{
-      Username: form.Username,
-    }
-    _, identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    identityRequest := []idp.ReadHumansRequest{ {Username: form.Username} }
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
     if err != nil {
-
-      if err.Error() == "Not Found: {\"error\":\"Identity not found\"}\n" {
-        identityFound = false
-      } else {
-        log.WithFields(logrus.Fields{
-          "username": identityRequest.Username,
-          "challenge": form.Challenge,
-        }).Debug(err.Error())
-        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-      }
-
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
     }
 
-    if identityFound == true {
+    if humans == nil {
+      errors["username"] = append(errors["username"], "Not found")
+    } else {
 
-      log.WithFields(logrus.Fields{"id": identityResponse.Id, "username": identityResponse.Username, "email": identityResponse.Email}).Debug("Found Identity")
+      status, obj, _ := idp.UnmarshalResponse(0, humans)
+      if status == 200 && obj != nil {
 
-      // Ask idp to authenticate the user
-      authenticateRequest := &idp.IdentitiesAuthenticateRequest{
-        Id: identityResponse.Id,
-        Password: form.Password,
-        Challenge: form.Challenge,
-      }
-      _, authenticateResponse, err := idp.AuthenticateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
-      if err != nil {
-        log.WithFields(logrus.Fields{
-          "id": authenticateRequest.Id,
-          "challenge": authenticateRequest.Challenge,
-        }).Debug(err.Error())
-        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-      }
+        human := obj.(idp.Human)
 
-      // User authenticated, redirect
-      if authenticateResponse.Authenticated == true {
+        log.WithFields(logrus.Fields{ "id":human.Id, "username":human.Username, "email":human.Email} ).Debug("Human found")
 
-        // Cleanup session
-        session.Delete("authenticate.username")
-        session.Delete("authenticate.errors")
-
-        err = session.Save()
+        // Ask idp to authenticate the user
+        authenticateRequest := []idp.CreateHumansAuthenticateRequest{{
+          Id: human.Id,
+          Password: form.Password,
+          Challenge: form.Challenge,
+        }}
+        _, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
         if err != nil {
-          log.Debug(err.Error())
+          log.WithFields(logrus.Fields{ "id":human.Id, "challenge":form.Challenge }).Debug(err.Error())
+          c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+          return
         }
 
-        log.WithFields(logrus.Fields{
-          "id": authenticateResponse.Id,
-          "authenticated": authenticateResponse.Authenticated,
-          "totp_required": authenticateResponse.TotpRequired,
-          "redirect_to": authenticateResponse.RedirectTo,
-        }).Debug("Redirecting")
-        c.Redirect(http.StatusFound, authenticateResponse.RedirectTo)
-        c.Abort()
-        return
+        if authenticateResponse == nil {
+          log.WithFields(logrus.Fields{ "challenge":form.Challenge, "id":human.Id }).Debug("Not Found")
+          c.AbortWithStatus(http.StatusNotFound)
+          return
+        }
+
+        status, obj, _ := idp.UnmarshalResponse(0, authenticateResponse)
+        if status == 200 && obj != nil {
+
+          auth := obj.(idp.HumanAuthentication)
+
+          // User authenticated, redirect
+          if auth.Authenticated == true {
+
+            // Cleanup session
+            session.Delete("authenticate.username")
+            session.Delete("authenticate.errors")
+
+            err = session.Save()
+            if err != nil {
+              log.Debug(err.Error())
+            }
+
+            log.WithFields(logrus.Fields{ "id":auth.Id, "authenticated":auth.Authenticated, "totp_required":auth.TotpRequired, "redirect_to":auth.RedirectTo }).Debug("Redirecting")
+            c.Redirect(http.StatusFound, auth.RedirectTo)
+            c.Abort()
+            return
+          }
+
+          // Deny by default
+          if auth.IsPasswordInvalid == true {
+            errors["password"] = append(errors["password"], "Invalid")
+          }
+        }
+
       }
 
-      // Deny by default
-      if authenticateResponse.IsPasswordInvalid == true {
-        errors["password"] = append(errors["password"], "Invalid")
-      }
-
-    } else {
-      errors["username"] = append(errors["username"], "Not found")
     }
     session.AddFlash(errors, "authenticate.errors")
     err = session.Save()
