@@ -34,7 +34,7 @@ func ShowPublicProfile(env *environment.State) gin.HandlerFunc {
 
     // Look up profile information for user.
     humanRequest := []idp.ReadHumansRequest{ {Id: request.Id } }
-    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), humanRequest)
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)

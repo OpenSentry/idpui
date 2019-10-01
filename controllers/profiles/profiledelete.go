@@ -111,7 +111,7 @@ func SubmitProfileDelete(env *environment.State) gin.HandlerFunc {
         idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
         deleteRequest := []idp.DeleteHumansRequest{ {Id: identity.Id} }
-        _, challenges, err := idp.DeleteHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), deleteRequest)
+        _, challenges, err := idp.DeleteHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), deleteRequest)
         if err != nil {
           log.Debug(err.Error())
           c.AbortWithStatus(http.StatusInternalServerError)

@@ -65,7 +65,7 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       })
     }
 
-    _, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
+    _, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.authenticate"), authenticateRequest)
     if err != nil {
       log.WithFields(logrus.Fields{ "challenge":loginChallenge }).Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
@@ -78,8 +78,8 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    status, obj, _ := idp.UnmarshalResponse(0, authenticateResponse)
-    if status == 200 && obj != nil {
+    _, obj, _ := idp.UnmarshalResponse(0, authenticateResponse)
+    if obj != nil {
 
       auth := obj.(idp.HumanAuthentication)
 
@@ -138,6 +138,7 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
         "recoverUrl": config.GetString("idpui.public.endpoints.recover"),
         "registerUrl": config.GetString("idpui.public.endpoints.register"),
       })
+      return
     }
 
     // Deny by default
@@ -235,7 +236,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     identityRequest := []idp.ReadHumansRequest{ {Username: form.Username} }
-    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
@@ -259,7 +260,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
           Password: form.Password,
           Challenge: form.Challenge,
         }}
-        _, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.authenticate"), authenticateRequest)
+        _, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.authenticate"), authenticateRequest)
         if err != nil {
           log.WithFields(logrus.Fields{ "id":human.Id, "challenge":form.Challenge }).Debug(err.Error())
           c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})

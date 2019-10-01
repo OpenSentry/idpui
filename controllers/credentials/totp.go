@@ -251,7 +251,7 @@ func SubmitTotp(env *environment.State) gin.HandlerFunc {
         TotpRequired: true,
         TotpSecret: form.Secret,
       }}
-      _, updatedHumans, err := idp.UpdateHumansTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.totp"), totpRequest);
+      _, updatedHumans, err := idp.UpdateHumansTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.totp"), totpRequest);
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
