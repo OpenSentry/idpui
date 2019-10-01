@@ -69,9 +69,9 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
 
     inviteRequest := []idp.CreateInvitesRequest{{
       Email: form.Email,
-      HintUsername: form.Username,      
+      HintUsername: form.Username,
     }}
-    _, invite, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    _, invite, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)
     if err != nil {
       log.WithFields(logrus.Fields{ "email":form.Email, "username":form.Username }).Debug("Invite failed")
       c.HTML(http.StatusInternalServerError, "invite.html", gin.H{"error": err.Error()})

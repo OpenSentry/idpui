@@ -71,7 +71,7 @@ func SubmitLogout(env *environment.State) gin.HandlerFunc {
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     logoutRequest := []idp.CreateHumansLogoutRequest{ {Challenge: form.Challenge} }
-    _, logouts, err := idp.LogoutHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.logout"), logoutRequest)
+    _, logouts, err := idp.LogoutHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.logout"), logoutRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)

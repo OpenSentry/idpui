@@ -208,7 +208,7 @@ func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
       Email: form.Email,
       Name: form.Name,
     }}
-    _, updatedHumans, err := idp.UpdateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, updatedHumans, err := idp.UpdateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)

@@ -225,7 +225,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
         Password: form.Password,
         Name: form.Name,
       }}
-      _, _, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), humanRequest)
+      _, _, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
