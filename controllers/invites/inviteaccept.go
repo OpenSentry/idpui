@@ -42,7 +42,7 @@ func ShowInviteAccept(env *environment.State) gin.HandlerFunc {
     idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
     inviteRequest := []idp.ReadInvitesRequest{ {Id: inviteId} }
-    _, invite, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    _, invite, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)
     if err != nil {
       log.WithFields(logrus.Fields{"id": inviteId}).Debug(err.Error())
       c.HTML(http.StatusNotFound, "inviteaccept.html", gin.H{"error": "Invite not found"})
@@ -95,7 +95,7 @@ func SubmitInviteAccept(env *environment.State) gin.HandlerFunc {
     idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     inviteRequest := []idp.UpdateInvitesAcceptRequest{ {Id: form.Id} }
-    _, _ /*invite*/, err = idp.UpdateInvitesAccept(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    _, _ /*invite*/, err = idp.UpdateInvitesAccept(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.accept"), inviteRequest)
     if err != nil {
       log.WithFields(logrus.Fields{ "id":form.Id }).Debug(err.Error())
       c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Invite not found"})

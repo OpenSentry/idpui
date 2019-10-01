@@ -135,7 +135,7 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     identityRequest := []idp.ReadHumansRequest{ {Email: form.Email} }
-    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
@@ -152,7 +152,7 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
         log.WithFields(logrus.Fields{ "id":human.Id, "username":human.Username, "email":human.Email }).Debug("Human found")
 
         recoverRequest := []idp.CreateHumansRecoverRequest{ {Id: human.Id} }
-        _, recoverResponse, err := idp.RecoverHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), recoverRequest)
+        _, recoverResponse, err := idp.RecoverHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.recover"), recoverRequest)
         if err != nil {
           log.Debug(err.Error())
           c.AbortWithStatus(http.StatusInternalServerError)
