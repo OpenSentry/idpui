@@ -241,14 +241,9 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     identityRequest := []idp.ReadHumansRequest{ {Username: form.Username} }
-    status, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
-    if status != 200 {
-      log.WithFields(logrus.Fields{"status":status, "username":form.Username}).Debug("ReadHumans failed")
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
@@ -311,6 +306,8 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
           }
         }
 
+      } else {
+        errors["username"] = append(errors["username"], "Not found")
       }
 
     }
