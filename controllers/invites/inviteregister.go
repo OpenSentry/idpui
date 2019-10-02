@@ -162,19 +162,21 @@ func SubmitInviteRegister(env *environment.State) gin.HandlerFunc {
 
       idpClient := idp.NewIdpClient(env.IdpApiConfig)
 
-      identityRequest := &idp.IdentitiesCreateRequest{
+      identityRequest := []idp.CreateHumansRequest{{
         Username: form.Username,
         Email: form.Email,
         Password: form.Password,
         Name: form.Name,
-      }
-      identity, err := idp.CreateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+      }}
+      _, humans, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         c.Abort()
         return
       }
+
+      log.Debug(humans)
 
       session := sessions.Default(c)
 
@@ -185,7 +187,7 @@ func SubmitInviteRegister(env *environment.State) gin.HandlerFunc {
       session.Delete("register.errors")
 
       // Propagate username to authenticate controller
-      session.AddFlash(identity.Username, "authenticate.username")
+      session.AddFlash(form.Username, "authenticate.username")
 
       err = session.Save()
       if err != nil {

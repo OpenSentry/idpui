@@ -203,33 +203,45 @@ func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-    identityRequest := &idp.IdentitiesUpdateRequest{
+    identityRequest := []idp.UpdateHumansRequest{{
       Id: identity.Id,
       Email: form.Email,
       Name: form.Name,
-    }
-    updateIdentity, err := idp.UpdateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    }}
+    _, updatedHumans, err := idp.UpdateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    // Cleanup session
-    session.Delete("profileedit.display-name")
-    session.Delete("profileedit.email")
-    err = session.Save()
-    if err != nil {
-      log.Debug(err.Error())
+    if updatedHumans == nil {
+      log.Debug("Update failed. Hint: Failed to execute UpdateHumansRequest")
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
     }
 
-    if updateIdentity != nil {
-      log.WithFields(logrus.Fields{"id": updateIdentity.Id}).Debug("Identity updated")
-      redirectTo := "/"
-      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, redirectTo)
-      c.Abort()
-      return
+    status, obj, _ := idp.UnmarshalResponse(0, updatedHumans)
+    if status == 200 && obj != nil {
+
+      updatedHuman := obj.(idp.Human)
+
+      // Cleanup session
+      session.Delete("profileedit.display-name")
+      session.Delete("profileedit.email")
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+
+      if updatedHuman != (idp.Human{}) {
+        log.WithFields(logrus.Fields{"id": updatedHuman.Id}).Debug("Human updated")
+        redirectTo := "/"
+        log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+        c.Redirect(http.StatusFound, redirectTo)
+        c.Abort()
+        return
+      }
     }
 
     // Deny by default. Failed to fill in the form correctly.

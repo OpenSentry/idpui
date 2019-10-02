@@ -23,6 +23,7 @@ type inviteForm struct {
   HintUsername string `form:"hint_username"`
 }
 
+
 func ShowInvite(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -198,24 +199,26 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-    inviteRequest := &idp.InviteCreateRequest{
-      InvitedByIdentity: identity.Id,
-      TTL: 60*60*24, // 1 hour
+    inviteRequest := []idp.CreateInvitesRequest{{
       Email: form.Email,
-      HintUsername: form.HintUsername,
-    }
-    invite, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+      HintUsername: form.Username,
+      /*ExpiresAt*/
+    }}
+    status, invite, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)
     if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
+      log.WithFields(logrus.Fields{ "email":form.Email, "username":form.Username }).Debug("Invite failed")
+      c.HTML(http.StatusInternalServerError, "invite.html", gin.H{"error": err.Error()})
+      c.Abort()
       return
     }
 
-    if invite != nil {
+    log.Debug(invite)
+
+    if status == 200 && invite != nil {
 
       // Cleanup session
-      _ = session.Flashes("invite.fields")
-      _ = session.Flashes("invite.errors")
+      session.Delete("invite.fields")
+      session.Delete("invite.errors")
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
