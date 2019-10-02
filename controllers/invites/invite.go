@@ -201,18 +201,16 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
 
     inviteRequest := []idp.CreateInvitesRequest{{
       Email: form.Email,
-      HintUsername: form.Username,
+      HintUsername: form.HintUsername,
       /*ExpiresAt*/
     }}
     status, invite, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)
     if err != nil {
-      log.WithFields(logrus.Fields{ "email":form.Email, "username":form.Username }).Debug("Invite failed")
+      log.WithFields(logrus.Fields{ "email":form.Email, "hint_username":form.HintUsername }).Debug("Invite failed")
       c.HTML(http.StatusInternalServerError, "invite.html", gin.H{"error": err.Error()})
       c.Abort()
       return
     }
-
-    log.Debug(invite)
 
     if status == 200 && invite != nil {
 
@@ -224,7 +222,6 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
         log.Debug(err.Error())
       }
 
-      log.WithFields(logrus.Fields{"id": invite.Id}).Debug("Invite created")
       redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.collection")
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
 
