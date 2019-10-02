@@ -40,36 +40,52 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-    invites, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites"), nil)
+    status, responses, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), nil)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
+    if status != 200 {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
     f := "2006-01-02 15:04:05" // Remder time format
-    var uiInvites []InviteTemplate
-    for _, invite := range invites {
+    var uiPendingInvites []InviteTemplate
+    var uiCreatedInvites []InviteTemplate
+    var uiSentInvites []InviteTemplate
 
-      inviteAcceptUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-      q := inviteAcceptUrl.Query()
-      q.Add("id", invite.Id)
-      inviteAcceptUrl.RawQuery = q.Encode()
+    status, obj, _ := idp.UnmarshalResponse(0, responses)
+    if status == 200 && obj != nil {
 
-      uiInvite := InviteTemplate{
-        Url:       inviteAcceptUrl.String(),
-        Id:        invite.Id,
-        Email:     identity.Email,
-        InvitedBy: identity.Name,
-        IssuedAt:  time.Unix(invite.IssuedAt, 0).Format(f),
-        Expires:   time.Unix(invite.ExpiresAt, 0).Format(f),
+      invites := obj.([]idp.Invite)
+      for _, invite := range invites {
+
+        inviteAcceptUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
+        if err != nil {
+          log.Debug(err.Error())
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+        q := inviteAcceptUrl.Query()
+        q.Add("id", invite.Id)
+        inviteAcceptUrl.RawQuery = q.Encode()
+
+        uiInvite := InviteTemplate{
+          Url:       inviteAcceptUrl.String(),
+          Id:        invite.Id,
+          Email:     invite.Email,
+          InvitedBy: invite.InvitedBy,
+          IssuedAt:  time.Unix(invite.IssuedAt, 0).Format(f),
+          Expires:   time.Unix(invite.ExpiresAt, 0).Format(f),
+        }
+        uiCreatedInvites = append(uiCreatedInvites, uiInvite)
+
       }
-      uiInvites = append(uiInvites, uiInvite)
+
     }
 
     c.HTML(http.StatusOK, "invites.html", gin.H{
@@ -80,7 +96,9 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
       "id": identity.Id,
       "user": identity.Username,
       "name": identity.Name,
-      "invites": uiInvites,
+      "pending": uiPendingInvites,
+      "created": uiCreatedInvites,
+      "sent": uiSentInvites,
     })
   }
   return gin.HandlerFunc(fn)
