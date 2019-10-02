@@ -41,26 +41,31 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
 
     // Look up profile information for user.
     identityRequest := []idp.ReadHumansRequest{ {Id: idToken.Subject} }
-    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
+    status, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-    if humans == nil {
-      c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Identity not found"})
-      return
-    }
 
-    status, obj, restError := idp.UnmarshalResponse(0, humans)
-    if status == 200 && obj != nil {
-      h := obj.([]idp.Human)
-      human := h[0]
-      c.Set("identity", human)
-      c.Next()
+    if status == http.StatusOK {
+
+      reqStatus, obj, reqErrors := idp.UnmarshalResponse(0, humans)
+      if len(reqErrors) > 0 {
+        logrus.Debug(reqErrors)
+      } else {
+
+        if reqStatus == 200 && obj != nil {
+          h := obj.([]idp.Human)
+          human := h[0]
+          c.Set("identity", human)
+          c.Next()
+          return
+        }
+      }
+
     }
 
     // Deny by default
-    logrus.Debug(restError)
     logrus.WithFields(logrus.Fields{ "status":status }).Debug("Unmarshal response failed")
     c.AbortWithStatus(http.StatusForbidden)
   }
@@ -121,9 +126,6 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, log *log
     log.Debug(err.Error())
     return nil, err
   }
-
-  log.Debug(state)
-  log.Debug(redirectTo)
 
   session.Set(environment.SessionStateKey, state)
   session.Set(state, redirectTo)
