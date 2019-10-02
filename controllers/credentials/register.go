@@ -236,9 +236,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       session := sessions.Default(c)
 
       // Cleanup session
-      session.Delete("register.username")
-      session.Delete("register.display-name")
-      session.Delete("register.email")
+      session.Delete("register.fields")
       session.Delete("register.errors")
 
       // Propagate username to authenticate controller
