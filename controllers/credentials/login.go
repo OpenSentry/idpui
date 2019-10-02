@@ -65,9 +65,14 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       })
     }
 
-    _, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.authenticate"), authenticateRequest)
+    status, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.authenticate"), authenticateRequest)
     if err != nil {
       log.WithFields(logrus.Fields{ "challenge":loginChallenge }).Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    if status != 200 {
+      log.WithFields(logrus.Fields{ "status":status, "challenge":loginChallenge }).Debug("CreateHumansAuthenticate failed")
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
@@ -78,8 +83,8 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    _, obj, _ := idp.UnmarshalResponse(0, authenticateResponse)
-    if obj != nil {
+    status, obj, _ := idp.UnmarshalResponse(0, authenticateResponse)
+    if status == 200 && obj != nil {
 
       auth := obj.(idp.HumanAuthentication)
 
@@ -236,9 +241,14 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     identityRequest := []idp.ReadHumansRequest{ {Username: form.Username} }
-    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
+    status, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    if status != 200 {
+      log.WithFields(logrus.Fields{"status":status, "username":form.Username}).Debug("ReadHumans failed")
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
@@ -250,9 +260,8 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
       status, obj, _ := idp.UnmarshalResponse(0, humans)
       if status == 200 && obj != nil {
 
-        human := obj.(idp.Human)
-
-        log.WithFields(logrus.Fields{ "id":human.Id, "username":human.Username, "email":human.Email} ).Debug("Human found")
+        h := obj.([]idp.Human)
+        human := h[0]
 
         // Ask idp to authenticate the user
         authenticateRequest := []idp.CreateHumansAuthenticateRequest{{
@@ -260,7 +269,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
           Password: form.Password,
           Challenge: form.Challenge,
         }}
-        _, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.authenticate"), authenticateRequest)
+        status, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.authenticate"), authenticateRequest)
         if err != nil {
           log.WithFields(logrus.Fields{ "id":human.Id, "challenge":form.Challenge }).Debug(err.Error())
           c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})

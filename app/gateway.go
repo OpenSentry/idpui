@@ -41,7 +41,7 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
 
     // Look up profile information for user.
     identityRequest := []idp.ReadHumansRequest{ {Id: idToken.Subject} }
-    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       c.AbortWithStatus(http.StatusInternalServerError)
       return
@@ -53,7 +53,8 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
 
     status, obj, restError := idp.UnmarshalResponse(0, humans)
     if status == 200 && obj != nil {
-      human := obj.(idp.Human)
+      h := obj.([]idp.Human)
+      human := h[0]
       c.Set("identity", human)
       c.Next()
     }
@@ -69,7 +70,8 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
 func RequireIdentity(c *gin.Context) *idp.Human {
   identity, exists := c.Get("identity")
   if exists == true {
-    return identity.(*idp.Human)
+    human := identity.(idp.Human)
+    return &human
   }
   return nil
 }
