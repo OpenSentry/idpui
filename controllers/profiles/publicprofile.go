@@ -41,34 +41,34 @@ func ShowPublicProfile(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    if humans == nil {
-      log.WithFields(logrus.Fields{ "id":request.Id }).Debug("Not Found")
-      c.AbortWithStatus(http.StatusNotFound)
-      return
-    }
+    if len(humans) > 0 {
 
-    status, obj, _ := idp.UnmarshalResponse(0, humans)
-    if status == 200 && obj != nil {
+      status, obj, _ := idp.UnmarshalResponse(0, humans)
+      if status == 200 && obj != nil {
 
-      human := obj.(idp.Human)
+        h := obj.([]idp.Human)
+        human := h[0]
 
-      log.WithFields(logrus.Fields{"fixme": 1}).Debug("Implement data filtering on public data")
+        log.WithFields(logrus.Fields{"fixme": 1}).Debug("Implement data filtering on public data")
 
-      c.HTML(http.StatusOK, "publicprofile.html", gin.H{
-        "title": "Public Profile",
-        "links": []map[string]string{
-          {"href": "/public/css/dashboard.css"},
-        },
+        c.HTML(http.StatusOK, "publicprofile.html", gin.H{
+          "title": "Public Profile",
+          "links": []map[string]string{
+            {"href": "/public/css/dashboard.css"},
+          },
 
-        "id": human.Id,
-        "user": "", //identity.Subject,
-        "name": "", // identity.Name,
-        "email": "", // identity.Email,
-      })
+          "id": human.Id,
+          "user": "", //identity.Subject,
+          "name": "", // identity.Name,
+          "email": "", // identity.Email,
+        })
+      }
     }
 
     // Deny by default.
-    c.AbortWithStatus(http.StatusFound)
+    log.WithFields(logrus.Fields{ "id":request.Id }).Debug("Not Found")
+    c.AbortWithStatus(http.StatusNotFound)
+    return
   }
   return gin.HandlerFunc(fn)
 }
