@@ -26,7 +26,7 @@
             </div>
             <span>Invites addressed to you awaiting acceptance</span>
 
-            {{ if .invites }}
+            {{ if .pending }}
             <table class="ui selectable striped sortable celled table">
             <thead>
               <tr>
@@ -36,7 +36,7 @@
               </tr>
             </thead>
             <tbody>
-              {{range $invite := .invites}}
+              {{range $invite := .pending}}
               <tr>
                 <td class="selectable" data-label="Id"><a href="{{ $invite.Url }}">{{ $invite.Id }}</a></td>
                 <td data-label="Invited By">{{ $invite.InvitedBy }}</td>
@@ -54,7 +54,7 @@
             </div>
             <span>Invites created by you and not sent</span>
 
-            {{ if .invites }}
+            {{ if .created }}
             <table class="ui selectable striped celled table">
             <thead>
               <tr>
@@ -64,7 +64,7 @@
               </tr>
             </thead>
             <tbody>
-              {{range $invite := .invites}}
+              {{range $invite := .created}}
               <tr>
                 <td data-label="Id">{{ $invite.Id }}</td>
                 <td data-label="Email">{{ $invite.Email }}</td>
@@ -82,7 +82,7 @@
             </div>
             <span>Invites sent by you awaiting acceptance</span>
 
-            {{ if .invites }}
+            {{ if .sent }}
             <table class="ui selectable striped celled table">
             <thead>
               <tr>
@@ -92,7 +92,7 @@
               </tr>
             </thead>
             <tbody>
-              {{range $invite := .invites}}
+              {{range $invite := .sent}}
               <tr>
                 <td data-label="Id">{{ $invite.Id }}</td>
                 <td data-label="Email">{{ $invite.Email }}</td>
