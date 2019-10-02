@@ -132,7 +132,7 @@ func SubmitVerify(env *environment.State) gin.HandlerFunc {
             errors[name] = append(errors[name], "Field should be equal to the "+err.Param())
             break
         case "notblank":
-          errors[name] = append(errors[name], "Not Blank")
+            errors[name] = append(errors[name], "Not Blank")
           break
         default:
             errors[name] = append(errors[name], "Invalid")
@@ -163,11 +163,10 @@ func SubmitVerify(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    verifyRequest := &idp.ChallengeVerifyRequest{
+    status, verifiedChallenges, err := idp.VerifyChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.verify"), []idp.UpdateChallengesVerifyRequest{ {
       OtpChallenge: form.Challenge,
       Code: form.Code,
-    }
-    verifyResponse, err := idp.VerifyChallenge(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.verify"), verifyRequest)
+    } })
     if err != nil {
       log.WithFields(logrus.Fields{
         "otp_challenge": form.Challenge,
@@ -176,29 +175,48 @@ func SubmitVerify(env *environment.State) gin.HandlerFunc {
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
+    if verifiedChallenges == nil {
 
-    if verifyResponse.Verified == true {
+      // Not found
 
-      // Append otp_challenge to redirect_to
-      u, err := url.Parse(verifyResponse.RedirectTo)
-      if err != nil {
-        log.WithFields(logrus.Fields{
-          "otp_challenge": verifyResponse.OtpChallenge,
-          "redirect_to": verifyResponse.RedirectTo,
-        }).Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
+      c.AbortWithStatus(http.StatusNotFound)
+      return
+    }
+    status, ok, restErr := idp.UnmarshalResponse(0, verifiedChallenges)
+    if restErr != nil {
+      for _,e := range restErr {
+        errors["notification"] = append(errors["notification"], e.Error)
+      }
+    }
+
+    if status == 200 {
+
+      challengeVerification := ok.(idp.ChallengeVerification)
+
+      if challengeVerification.Verified == true {
+
+        // Append otp_challenge to redirect_to
+        u, err := url.Parse(challengeVerification.RedirectTo)
+        if err != nil {
+          log.WithFields(logrus.Fields{
+            "otp_challenge": challengeVerification.OtpChallenge,
+            "redirect_to": challengeVerification.RedirectTo,
+          }).Debug(err.Error())
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+
+        q := u.Query()
+        q.Set("otp_challenge", challengeVerification.OtpChallenge)
+        u.RawQuery = q.Encode()
+        redirectTo := u.String()
+
+        log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+        c.Redirect(http.StatusFound, redirectTo)
+        c.Abort()
         return
       }
 
-      q := u.Query()
-      q.Set("otp_challenge", verifyResponse.OtpChallenge)
-      u.RawQuery = q.Encode()
-      redirectTo := u.String()
-
-      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, redirectTo)
-      c.Abort()
-      return
     }
 
     // Deny by default

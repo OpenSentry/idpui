@@ -219,13 +219,13 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
 
       idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-      identityRequest := &idp.IdentitiesCreateRequest{
+      humanRequest := []idp.CreateHumansRequest{{
         Username: form.Username,
         Email: form.Email,
         Password: form.Password,
         Name: form.Name,
-      }
-      identity, err := idp.CreateIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+      }}
+      _, _, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -236,13 +236,11 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       session := sessions.Default(c)
 
       // Cleanup session
-      session.Delete("register.username")
-      session.Delete("register.display-name")
-      session.Delete("register.email")
+      session.Delete("register.fields")
       session.Delete("register.errors")
 
       // Propagate username to authenticate controller
-      session.AddFlash(identity.Username, "authenticate.username")
+      session.AddFlash(form.Username, "authenticate.username")
 
       err = session.Save()
       if err != nil {

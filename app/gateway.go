@@ -40,25 +40,43 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
     idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
-    identityRequest := &idp.IdentitiesReadRequest{
-      Id: idToken.Subject,
-    }
-    identity, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
+    identityRequest := []idp.ReadHumansRequest{ {Id: idToken.Subject} }
+    status, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
-      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Identity not found"})
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    c.Set("identity", identity)
-    c.Next()
+    if status == http.StatusOK {
+
+      reqStatus, obj, reqErrors := idp.UnmarshalResponse(0, humans)
+      if len(reqErrors) > 0 {
+        logrus.Debug(reqErrors)
+      } else {
+
+        if reqStatus == 200 && obj != nil {
+          h := obj.([]idp.Human)
+          human := h[0]
+          c.Set("identity", human)
+          c.Next()
+          return
+        }
+      }
+
+    }
+
+    // Deny by default
+    logrus.WithFields(logrus.Fields{ "status":status }).Debug("Unmarshal response failed")
+    c.AbortWithStatus(http.StatusForbidden)
   }
   return gin.HandlerFunc(fn)
 }
 
-func RequireIdentity(c *gin.Context) *idp.IdentitiesReadResponse {
+func RequireIdentity(c *gin.Context) *idp.Human {
   identity, exists := c.Get("identity")
   if exists == true {
-    return identity.(*idp.IdentitiesReadResponse)
+    human := identity.(idp.Human)
+    return &human
   }
   return nil
 }
@@ -108,9 +126,6 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, log *log
     log.Debug(err.Error())
     return nil, err
   }
-
-  log.Debug(state)
-  log.Debug(redirectTo)
 
   session.Set(environment.SessionStateKey, state)
   session.Set(state, redirectTo)
