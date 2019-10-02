@@ -73,7 +73,7 @@ func ShowPassword(env *environment.State) gin.HandlerFunc {
       "provider": "Identity Provider",
       "provideraction": "Change your password",
       "id": identity.Id,
-      "passwordUrl": config.GetString("idpui.public.endpoints.password"),
+      "passwordUrl": config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.password"),
       "errorPassword": errorPassword,
       "errorPasswordRetyped": errorPasswordRetyped,
     })
@@ -92,7 +92,6 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
     var form passwordForm
     err := c.Bind(&form)
     if err != nil {
-      // Do better error handling in the application.
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       c.Abort()
       return
@@ -102,6 +101,14 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
     if identity == nil {
       log.Debug("Missing Identity")
       c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
+    // Fetch the url that the submit happen to, so we can redirect back to it.
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
@@ -154,7 +161,6 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
       errors["password_retyped"] = append(errors["password_retyped"], "No Match")
     }
 
-
     if len(errors) > 0 {
       session.AddFlash(errors, "password.errors")
       err = session.Save()
@@ -162,13 +168,7 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
         log.Debug(err.Error())
       }
 
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      log.WithFields(logrus.Fields{"errors":len(errors), "redirect_to": submitUrl}).Debug("Redirecting")
       c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
       return
@@ -186,8 +186,7 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
         return
       }
 
-      log.WithFields(logrus.Fields{"fixme":1}).Debug("Redirect to where we came from")
-      redirectTo := "/me"
+      redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.profile")
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
@@ -195,12 +194,6 @@ func SubmitPassword(env *environment.State) gin.HandlerFunc {
     }
 
     // Deny by default. Failed to fill in the form correctly.
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
     log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
     c.Redirect(http.StatusFound, submitUrl)
     c.Abort()
