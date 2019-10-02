@@ -101,6 +101,7 @@ func SubmitLogout(env *environment.State) gin.HandlerFunc {
       log.WithFields(logrus.Fields{"redirect_to": logout.RedirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, logout.RedirectTo)
       c.Abort()
+      return
     }
 
     // Deny by default
