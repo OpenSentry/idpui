@@ -134,65 +134,80 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    identityRequest := &idp.IdentitiesReadRequest{
-      Email: form.Email,
-    }
-    identityResponse, err := idp.ReadIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.identities"), identityRequest)
-    if err != nil {
-      log.WithFields(logrus.Fields{
-        "email": form.Email,
-      }).Debug(err.Error())
-      errors["email"] = append(errors["email"], "Not Found")
-    }
-
-    if len(errors) > 0 {
-      session.AddFlash(errors, "recover.errors")
-      err = session.Save()
-      if err != nil {
-        log.Debug(err.Error())
-      }
-
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, submitUrl)
-      c.Abort()
-      return
-    }
-
-    log.WithFields(logrus.Fields{"id": identityResponse.Id, "username": identityResponse.Username, "email": identityResponse.Email}).Debug("Found Identity")
-
-    recoverRequest := &idp.IdentitiesRecoverRequest{
-      Id: identityResponse.Id,
-    }
-    recoverResponse, err := idp.RecoverIdentity(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recover"), recoverRequest)
+    identityRequest := []idp.ReadHumansRequest{ {Email: form.Email} }
+    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    // Propagate selected user to verification controller to keep urls clean
-    session.Set("recoververification.id", recoverResponse.Id)
+    if humans != nil {
 
-    // Cleanup session
-    session.Delete("recover.email")
-    session.Delete("recover.errors")
+      status, obj, _ := idp.UnmarshalResponse(0, humans)
+      if status == 200 && obj != nil {
 
+        human := obj.(idp.Human)
+
+        log.WithFields(logrus.Fields{ "id":human.Id, "username":human.Username, "email":human.Email }).Debug("Human found")
+
+        recoverRequest := []idp.CreateHumansRecoverRequest{ {Id: human.Id} }
+        _, recoverResponse, err := idp.RecoverHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.recover"), recoverRequest)
+        if err != nil {
+          log.Debug(err.Error())
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+
+        if recoverResponse == nil {
+          log.Debug("Recover failed")
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+
+        status, obj, _ := idp.UnmarshalResponse(0, recoverResponse)
+        if status == 200 && obj != nil {
+
+          recover := obj.(idp.HumanRedirect)
+
+          // Propagate selected user to verification controller to keep urls clean
+          session.Set("recoververification.id", recover.Id)
+
+          // Cleanup session
+          session.Delete("recover.email")
+          session.Delete("recover.errors")
+
+          err = session.Save()
+          if err != nil {
+            log.Debug(err.Error())
+          }
+
+          log.WithFields(logrus.Fields{ "redirect_to": recover.RedirectTo }).Debug("Redirecting");
+          c.Redirect(http.StatusFound, recover.RedirectTo)
+          c.Abort()
+        }
+
+      }
+
+    }
+
+    errors["email"] = append(errors["email"], "Not Found")
+    session.AddFlash(errors, "recover.errors")
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
     }
 
-    log.WithFields(logrus.Fields{
-      "redirect_to": recoverResponse.RedirectTo,
-    }).Debug("Redirecting");
-    c.Redirect(http.StatusFound, recoverResponse.RedirectTo)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+    c.Redirect(http.StatusFound, submitUrl)
     c.Abort()
+    return
   }
   return gin.HandlerFunc(fn)
 }

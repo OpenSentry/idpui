@@ -138,12 +138,10 @@ func SubmitInviteAccept(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-    inviteRequest := &idp.IdentitiesInviteUpdateRequest{
-      Id: form.Id,
-    }
-    _ /*invite*/, err = idp.UpdateInvite(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invite"), inviteRequest)
+    inviteRequest := []idp.UpdateInvitesAcceptRequest{ {Id: form.Id} }
+    _, _ /*invite*/, err = idp.UpdateInvitesAccept(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.accept"), inviteRequest)
     if err != nil {
-      log.WithFields(logrus.Fields{"id": inviteRequest.Id}).Debug(err.Error())
+      log.WithFields(logrus.Fields{ "id":form.Id }).Debug(err.Error())
       c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Invite not found"})
       return
     }

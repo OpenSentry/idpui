@@ -169,13 +169,13 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    recoverRequest := &idp.IdentitiesRecoverVerificationRequest{
+    recoverRequest := []idp.UpdateHumansRecoverVerifyRequest{{
       Id: form.Id,
-      VerificationCode: form.VerificationCode,
+      Code: form.VerificationCode,
       Password: form.Password,
       RedirectTo: "/",
-    }
-    recoverResponse, err := idp.RecoverIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.recoververification"), recoverRequest)
+    }}
+    _, recoverResponse, err := idp.RecoverHumansVerify(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.recoververification"), recoverRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -183,23 +183,33 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    if recoverResponse.Verified == true && recoverResponse.RedirectTo != "" {
-
-      // Cleanup session
-      session.Delete("recoververification.id")
-      session.Delete("recoververification.errors")
-
-      err = session.Save()
-      if err != nil {
-        log.Debug(err.Error())
-      }
-
-      log.WithFields(logrus.Fields{
-        "redirect_to": recoverResponse.RedirectTo,
-      }).Debug("Redirecting");
-      c.Redirect(http.StatusFound, recoverResponse.RedirectTo)
-      c.Abort()
+    if recoverResponse == nil {
+      log.Debug("Not found")
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
+    }
+
+    status, obj, _ := idp.UnmarshalResponse(0, recoverResponse)
+    if status == 200 && obj != nil {
+
+      verification := obj.(idp.HumanVerification)
+
+      if verification.Verified == true && verification.RedirectTo != "" {
+
+        // Cleanup session
+        session.Delete("recoververification.id")
+        session.Delete("recoververification.errors")
+
+        err = session.Save()
+        if err != nil {
+          log.Debug(err.Error())
+        }
+
+        log.WithFields(logrus.Fields{ "redirect_to": verification.RedirectTo }).Debug("Redirecting");
+        c.Redirect(http.StatusFound, verification.RedirectTo)
+        c.Abort()
+        return
+      }
     }
 
     errors["verification_code"] = append(errors["verification_code"], "Invalid")

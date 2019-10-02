@@ -164,12 +164,12 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
-    deleteRequest := &idp.IdentitiesDeleteVerificationRequest{
+    deleteRequest := []idp.UpdateHumansDeleteVerifyRequest{{
       Id: identity.Id,
-      VerificationCode: form.VerificationCode,
+      Code: form.VerificationCode,
       RedirectTo: config.GetString("idpui.public.url") + config.GetString("idp.public.endpoints.profile"),
-    }
-    deleteResponse, err := idp.DeleteIdentityVerification(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.deleteverification"), deleteRequest)
+    }}
+    _, deleteResponse, err := idp.DeleteHumansVerify(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.deleteverification"), deleteRequest)
     if err != nil {
       log.Debug(err.Error())
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -177,21 +177,30 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    if deleteResponse.Verified == true && deleteResponse.RedirectTo != "" {
+    if deleteResponse != nil {
 
-      // Destroy user session
-      session.Clear()
-      err = session.Save()
-      if err != nil {
-        log.Debug(err.Error())
+      status, obj, _ := idp.UnmarshalResponse(0, deleteResponse)
+      if status == 200 && obj != nil {
+
+        verification := obj.(idp.HumanVerification)
+
+        if verification.Verified == true && verification.RedirectTo != "" {
+
+          // Destroy user session
+          session.Clear()
+          err = session.Save()
+          if err != nil {
+            log.Debug(err.Error())
+          }
+
+          log.WithFields(logrus.Fields{ "redirect_to": verification.RedirectTo }).Debug("Redirecting");
+          c.Redirect(http.StatusFound, verification.RedirectTo)
+          c.Abort()
+          return
+        }
+
       }
 
-      log.WithFields(logrus.Fields{
-        "redirect_to": deleteResponse.RedirectTo,
-      }).Debug("Redirecting");
-      c.Redirect(http.StatusFound, deleteResponse.RedirectTo)
-      c.Abort()
-      return
     }
 
     errors["verification_code"] = append(errors["verification_code"], "Invalid")
