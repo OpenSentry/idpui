@@ -147,7 +147,8 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
       status, obj, _ := idp.UnmarshalResponse(0, humans)
       if status == 200 && obj != nil {
 
-        human := obj.(idp.Human)
+        h := obj.([]idp.Human)
+        human := h[0]
 
         log.WithFields(logrus.Fields{ "id":human.Id, "username":human.Username, "email":human.Email }).Debug("Human found")
 
@@ -185,6 +186,7 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
           log.WithFields(logrus.Fields{ "redirect_to": recover.RedirectTo }).Debug("Redirecting");
           c.Redirect(http.StatusFound, recover.RedirectTo)
           c.Abort()
+          return
         }
 
       }

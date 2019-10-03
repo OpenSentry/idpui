@@ -6,6 +6,7 @@ import (
   "github.com/gin-gonic/gin"
 
   "github.com/charmixer/idpui/app"
+  "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 )
 
@@ -35,6 +36,8 @@ func ShowProfile(env *environment.State) gin.HandlerFunc {
       "name": identity.Name,
       "email": identity.Email,
       "totp_required": identity.TotpRequired,
+      "idpUiUrl": config.GetString("idpui.public.url"),
+      "aapUiUrl": config.GetString("aapui.public.url"),
     })
     return
   }
