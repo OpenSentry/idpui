@@ -20,7 +20,7 @@ import (
 
 type verificationForm struct {
   Id               string `form:"id" binding:"required" validate:"required,notblank"`
-  VerificationCode string `form:"verification_code" binding:"required" validate:"required,notblank"`
+  Code             string `form:"code" binding:"required" validate:"required,notblank"`
   Password         string `form:"password" binding:"required" validate:"required,notblank"`
   PasswordRetyped  string `form:"password_retyped" binding:"required" validate:"required,notblank"`
 }
@@ -48,7 +48,7 @@ func ShowRecoverVerification(env *environment.State) gin.HandlerFunc {
       log.Debug(err.Error())
     }
 
-    var errorVerificationCode string
+    var errorCode string
     var errorPassword string
     var errorPasswordRetyped string
 
@@ -56,8 +56,8 @@ func ShowRecoverVerification(env *environment.State) gin.HandlerFunc {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
 
-        if k == "verification_code" && len(v) > 0 {
-          errorVerificationCode = strings.Join(v, ", ")
+        if k == "code" && len(v) > 0 {
+          errorCode = strings.Join(v, ", ")
         }
         if k == "password" && len(v) > 0 {
           errorPassword = strings.Join(v, ", ")
@@ -78,7 +78,7 @@ func ShowRecoverVerification(env *environment.State) gin.HandlerFunc {
       "provider": "Identity Provider",
       "provideraction": "Verify recovery of your profile ",
       "id": id,
-      "errorVerificationCode": errorVerificationCode,
+      "errorCode": errorCode,
       "errorPassword": errorPassword,
       "errorPasswordRetyped": errorPasswordRetyped,
     })
@@ -171,7 +171,7 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
 
     recoverRequest := []idp.UpdateHumansRecoverVerifyRequest{{
       Id: form.Id,
-      Code: form.VerificationCode,
+      Code: form.Code,
       Password: form.Password,
       RedirectTo: "/",
     }}
@@ -212,7 +212,7 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
       }
     }
 
-    errors["verification_code"] = append(errors["verification_code"], "Invalid")
+    errors["code"] = append(errors["code"], "Invalid")
     session.AddFlash(errors, "recoververification.errors")
     err = session.Save()
     if err != nil {
