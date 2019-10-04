@@ -52,20 +52,21 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    var authenticateRequest []idp.CreateHumansAuthenticateRequest
+    var authenticateRequests []idp.CreateHumansAuthenticateRequest
+    var authenticateRequest idp.CreateHumansAuthenticateRequest = idp.CreateHumansAuthenticateRequest{ Challenge: loginChallenge }
+
     otpChallenge := c.Query("otp_challenge")
     if otpChallenge != "" {
-      authenticateRequest = append(authenticateRequest, idp.CreateHumansAuthenticateRequest{
-        Challenge: loginChallenge,
-        OtpChallenge: otpChallenge,
-      })
-    } else {
-      authenticateRequest = append(authenticateRequest, idp.CreateHumansAuthenticateRequest{
-        Challenge: loginChallenge,
-      })
+      authenticateRequest.OtpChallenge = otpChallenge
+    }
+    emailChallenge := c.Query("email_challenge")
+    if emailChallenge != "" {
+      authenticateRequest.EmailChallenge = emailChallenge
     }
 
-    status, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.authenticate"), authenticateRequest)
+    authenticateRequests = append(authenticateRequests, authenticateRequest)
+
+    status, authenticateResponse, err := idp.CreateHumansAuthenticate(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.authenticate"), authenticateRequests)
     if err != nil {
       log.WithFields(logrus.Fields{ "challenge":loginChallenge }).Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)

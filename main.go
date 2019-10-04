@@ -193,6 +193,10 @@ func serve(env *environment.State) {
     ep.GET(  "/verify", credentials.ShowVerify(env) )
     ep.POST( "/verify", credentials.SubmitVerify(env) )
 
+    // Verify email using OTP code
+    ep.GET( "/emailconfirm", credentials.ShowEmailConfirm(env) )
+    ep.POST( "/emailconfirm", credentials.SubmitEmailConfirm(env) )
+
     ep.GET(  "/profile", profiles.ShowPublicProfile(env) )
 
     // Recover
