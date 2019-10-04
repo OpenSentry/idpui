@@ -1,6 +1,6 @@
 {{ template "htmlbegin" . }}
 
-<div class="ui middle aligned center aligned grid">
+<div class="ui padded middle aligned center aligned grid">
   <div class="column">
 
     {{ template "providerheader" . }}
@@ -12,7 +12,7 @@
       <input type="hidden" name="challenge" value="{{ .challenge }}" />
 
       <!--
-      {{template "input.email" . }}      
+      {{template "input.email" . }}
       -->
       {{template "input.username" . }}
       {{template "input.password" . }}
