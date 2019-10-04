@@ -225,7 +225,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
         Password: form.Password,
         Name: form.Name,
       }}
-      _, _, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
+      status, result, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -233,26 +233,49 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
         return
       }
 
-      session := sessions.Default(c)
+      if status == 200 {
 
-      // Cleanup session
-      session.Delete("register.fields")
-      session.Delete("register.errors")
+        status, ok, restErr := idp.UnmarshalResponse(0, result)
+        if status == 200 && ok != nil {
+          // Cleanup session
+          session.Delete("register.fields")
+          session.Delete("register.errors")
 
-      // Propagate username to authenticate controller
-      session.AddFlash(form.Username, "authenticate.username")
+          // Propagate username to authenticate controller
+          session.AddFlash(form.Username, "authenticate.username")
 
+          err = session.Save()
+          if err != nil {
+            log.Debug(err.Error())
+          }
+
+          // Registration successful, return to create new ones, but with success message
+          redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.profile")
+          log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+          c.Redirect(http.StatusFound, redirectTo)
+          c.Abort()
+          return
+        }
+
+        if restErr != nil {
+          for _,e := range restErr {
+            errors["username"] = append(errors["username"], e.Error)
+          }
+        }
+      }
+
+    } else {
+
+      errors["password_retyped"] = append(errors["password_retyped"], "No Match")
+
+    }
+
+    if len(errors) > 0 {
+      session.AddFlash(errors, "register.errors")
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
       }
-
-      // Registration successful, return to create new ones, but with success message
-      redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.profile")
-      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, redirectTo)
-      c.Abort()
-      return
     }
 
     // Deny by default. Failed to fill in the form correctly.
