@@ -9,6 +9,8 @@ import (
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type PublicProfileRequest struct {
@@ -34,20 +36,20 @@ func ShowPublicProfile(env *environment.State) gin.HandlerFunc {
 
     // Look up profile information for user.
     humanRequest := []idp.ReadHumansRequest{ {Id: request.Id } }
-    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
+    _, responses, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    if len(humans) > 0 {
+    if len(responses) > 0 {
 
-      status, obj, _ := idp.UnmarshalResponse(0, humans)
-      if status == 200 && obj != nil {
+      var resp idp.ReadHumansResponse
+      status, _ := bulky.Unmarshal(0, responses, &resp)
+      if status == 200 {
 
-        h := obj.([]idp.Human)
-        human := h[0]
+        human := resp[0]
 
         log.WithFields(logrus.Fields{"fixme": 1}).Debug("Implement data filtering on public data")
 

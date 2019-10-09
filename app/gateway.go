@@ -14,6 +14,8 @@ import (
   idp "github.com/charmixer/idp/client"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 // Use this handler as middleware to enable gateway functions in controllers
@@ -41,7 +43,7 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
 
     // Look up profile information for user.
     identityRequest := []idp.ReadHumansRequest{ {Id: idToken.Subject} }
-    status, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
+    status, responses, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       c.AbortWithStatus(http.StatusInternalServerError)
       return
@@ -49,18 +51,18 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
 
     if status == http.StatusOK {
 
-      reqStatus, obj, reqErrors := idp.UnmarshalResponse(0, humans)
+      var resp idp.ReadHumansResponse
+      reqStatus, reqErrors := bulky.Unmarshal(0, responses, &resp)
       if len(reqErrors) > 0 {
         logrus.Debug(reqErrors)
       } else {
 
-        if reqStatus == 200 && obj != nil {
-          h := obj.([]idp.Human)
-          human := h[0]
-          c.Set("identity", human)
+        if reqStatus == 200 {
+          c.Set("identity", resp[0])
           c.Next()
           return
         }
+
       }
 
     }

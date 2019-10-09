@@ -16,6 +16,8 @@ import (
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type verificationForm struct {
@@ -189,10 +191,11 @@ func SubmitRecoverVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    status, obj, _ := idp.UnmarshalResponse(0, recoverResponse)
-    if status == 200 && obj != nil {
+    var resp idp.UpdateHumansRecoverVerifyResponse
+    status, _ := bulky.Unmarshal(0, recoverResponse, &resp)
+    if status == 200 {
 
-      verification := obj.(idp.HumanVerification)
+      verification := resp
 
       if verification.Verified == true && verification.RedirectTo != "" {
 

@@ -16,6 +16,8 @@ import (
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type registrationForm struct {
@@ -235,8 +237,9 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
 
       if status == 200 {
 
-        status, ok, restErr := idp.UnmarshalResponse(0, result)
-        if status == 200 && ok != nil {
+        var resp idp.CreateHumansResponse
+        status, restErr := bulky.Unmarshal(0, result, &resp)
+        if status == 200 {
           // Cleanup session
           session.Delete("register.fields")
           session.Delete("register.errors")

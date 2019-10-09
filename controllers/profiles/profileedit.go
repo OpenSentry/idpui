@@ -16,6 +16,8 @@ import (
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type profileEditForm struct {
@@ -221,10 +223,12 @@ func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    status, obj, _ := idp.UnmarshalResponse(0, updatedHumans)
-    if status == 200 && obj != nil {
 
-      updatedHuman := obj.(idp.Human)
+    var resp idp.UpdateHumansResponse
+    status, _ := bulky.Unmarshal(0, updatedHumans, &resp)
+    if status == 200 {
+
+      updatedHuman := resp
 
       // Cleanup session
       session.Delete("profileedit.display-name")
@@ -234,7 +238,7 @@ func SubmitProfileEdit(env *environment.State) gin.HandlerFunc {
         log.Debug(err.Error())
       }
 
-      if updatedHuman != (idp.Human{}) {
+      if updatedHuman != (idp.UpdateHumansResponse{}) {
         log.WithFields(logrus.Fields{"id": updatedHuman.Id}).Debug("Human updated")
         redirectTo := "/"
         log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
