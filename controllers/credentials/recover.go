@@ -16,6 +16,8 @@ import (
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type recoverForm struct {
@@ -144,11 +146,11 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
 
     if humans != nil {
 
-      status, obj, _ := idp.UnmarshalResponse(0, humans)
-      if status == 200 && obj != nil {
+      var resp idp.ReadHumansResponse
+      status, _ := bulky.Unmarshal(0, humans, &resp)
+      if status == 200 {
 
-        h := obj.([]idp.Human)
-        human := h[0]
+        human := resp[0]
 
         log.WithFields(logrus.Fields{ "id":human.Id, "username":human.Username, "email":human.Email }).Debug("Human found")
 
@@ -166,10 +168,11 @@ func SubmitRecover(env *environment.State) gin.HandlerFunc {
           return
         }
 
-        status, obj, _ := idp.UnmarshalResponse(0, recoverResponse)
-        if status == 200 && obj != nil {
+        var resp idp.CreateHumansRecoverResponse
+        status, _ := bulky.Unmarshal(0, recoverResponse, &resp)
+        if status == 200 {
 
-          recover := obj.(idp.HumanRedirect)
+          recover := resp
 
           // Propagate selected user to verification controller to keep urls clean
           session.Set("recoververification.id", recover.Id)

@@ -17,6 +17,8 @@ import (
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type authenticationForm struct {
@@ -84,10 +86,11 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    status, obj, _ := idp.UnmarshalResponse(0, authenticateResponse)
-    if status == 200 && obj != nil {
+    var resp idp.CreateHumansAuthenticateResponse
+    status, _ = bulky.Unmarshal(0, authenticateResponse, &resp)
+    if status == 200 {
 
-      auth := obj.(idp.HumanAuthentication)
+      auth := resp
 
       if auth.Authenticated {
         log.WithFields(logrus.Fields{"authenticated":auth.Authenticated, "redirect_to":auth.RedirectTo}).Debug("Redirecting")
@@ -253,11 +256,11 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
       errors["username"] = append(errors["username"], "Not found")
     } else {
 
-      status, obj, _ := idp.UnmarshalResponse(0, humans)
-      if status == 200 && obj != nil {
+      var resp idp.ReadHumansResponse
+      status, _ := bulky.Unmarshal(0, humans, &resp)
+      if status == 200 {
 
-        h := obj.([]idp.Human)
-        human := h[0]
+        human := resp[0]
 
         // Ask idp to authenticate the user
         authenticateRequest := []idp.CreateHumansAuthenticateRequest{{
@@ -278,10 +281,11 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
           return
         }
 
-        status, obj, _ := idp.UnmarshalResponse(0, authenticateResponse)
-        if status == 200 && obj != nil {
+        var resp idp.CreateHumansAuthenticateResponse
+        status, _ = bulky.Unmarshal(0, authenticateResponse, &resp)
+        if status == 200 {
 
-          auth := obj.(idp.HumanAuthentication)
+          auth := resp
 
           // User authenticated, redirect
           if auth.Authenticated == true {

@@ -17,6 +17,8 @@ import (
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type emailConfirmForm struct {
@@ -174,7 +176,7 @@ func SubmitEmailConfirm(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    status, verifiedChallenges, err := idp.VerifyChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.verify"), []idp.UpdateChallengesVerifyRequest{ {
+    status, responses, err := idp.VerifyChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.verify"), []idp.UpdateChallengesVerifyRequest{ {
       OtpChallenge: form.Challenge,
       Code: form.Code,
     } })
@@ -186,14 +188,16 @@ func SubmitEmailConfirm(env *environment.State) gin.HandlerFunc {
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-    if verifiedChallenges == nil {
+    if responses == nil {
 
       // Not found
 
       c.AbortWithStatus(http.StatusNotFound)
       return
     }
-    status, ok, restErr := idp.UnmarshalResponse(0, verifiedChallenges)
+
+    var resp idp.UpdateChallengesVerifyResponse
+    status, restErr := bulky.Unmarshal(0, responses, &resp)
     if restErr != nil {
       for _,e := range restErr {
         errors["notification"] = append(errors["notification"], e.Error)
@@ -202,7 +206,7 @@ func SubmitEmailConfirm(env *environment.State) gin.HandlerFunc {
 
     if status == 200 {
 
-      challengeVerification := ok.(idp.ChallengeVerification)
+      challengeVerification := resp
 
       if challengeVerification.Verified == true {
 

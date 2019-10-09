@@ -13,6 +13,8 @@ import (
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type profileDeleteForm struct {
@@ -111,23 +113,24 @@ func SubmitProfileDelete(env *environment.State) gin.HandlerFunc {
         idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
         deleteRequest := []idp.DeleteHumansRequest{ {Id: identity.Id} }
-        _, challenges, err := idp.DeleteHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), deleteRequest)
+        _, responses, err := idp.DeleteHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), deleteRequest)
         if err != nil {
           log.Debug(err.Error())
           c.AbortWithStatus(http.StatusInternalServerError)
           return
         }
 
-        if challenges == nil {
+        if responses == nil {
           log.Debug("Delete failed. Hint: Failed to execute DeleteHumansRequest")
           c.AbortWithStatus(http.StatusInternalServerError)
           return
         }
 
-        status, obj, _ := idp.UnmarshalResponse(0, challenges)
-        if status == 200 && obj != nil {
+        var resp idp.DeleteHumansResponse
+        status, _ := bulky.Unmarshal(0, responses, &resp)
+        if status == 200 {
 
-          delete := obj.(idp.HumanRedirect)
+          delete := resp
 
           // Cleanup session
           session.Delete("profiledelete.risk_accepted")
