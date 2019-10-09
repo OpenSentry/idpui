@@ -16,6 +16,8 @@ import (
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type profileDeleteVerificationForm struct {
@@ -179,10 +181,11 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
 
     if deleteResponse != nil {
 
-      status, obj, _ := idp.UnmarshalResponse(0, deleteResponse)
-      if status == 200 && obj != nil {
+      var resp idp.UpdateHumansDeleteVerifyResponse
+      status, _ := bulky.Unmarshal(0, deleteResponse, &resp)
+      if status == 200 {
 
-        verification := obj.(idp.HumanVerification)
+        verification := resp
 
         if verification.Verified == true && verification.RedirectTo != "" {
 

@@ -17,6 +17,8 @@ import (
   "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type verifyForm struct {
@@ -182,7 +184,9 @@ func SubmitVerify(env *environment.State) gin.HandlerFunc {
       c.AbortWithStatus(http.StatusNotFound)
       return
     }
-    status, ok, restErr := idp.UnmarshalResponse(0, verifiedChallenges)
+
+    var resp idp.UpdateChallengesVerifyResponse
+    status, restErr := bulky.Unmarshal(0, verifiedChallenges, &resp)
     if restErr != nil {
       for _,e := range restErr {
         errors["notification"] = append(errors["notification"], e.Error)
@@ -191,7 +195,7 @@ func SubmitVerify(env *environment.State) gin.HandlerFunc {
 
     if status == 200 {
 
-      challengeVerification := ok.(idp.ChallengeVerification)
+      challengeVerification := resp
 
       if challengeVerification.Verified == true {
 

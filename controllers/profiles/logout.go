@@ -11,6 +11,8 @@ import (
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type logoutForm struct {
@@ -84,10 +86,11 @@ func SubmitLogout(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    status, obj, _ := idp.UnmarshalResponse(0, logouts)
-    if status == 200 && obj != nil {
+    var resp idp.CreateHumansLogoutResponse
+    status, _ := bulky.Unmarshal(0, logouts, &resp)
+    if status == 200 {
 
-      logout := obj.(idp.HumanRedirect)
+      logout := resp
 
       session := sessions.Default(c)
       session.Clear()

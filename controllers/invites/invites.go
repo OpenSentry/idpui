@@ -12,6 +12,8 @@ import (
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 type InviteTemplate struct {
@@ -58,10 +60,10 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
     var uiCreatedInvites []InviteTemplate
     var uiSentInvites []InviteTemplate
 
-    status, obj, _ := idp.UnmarshalResponse(0, responses)
-    if status == 200 && obj != nil {
+    var invites idp.ReadInvitesResponse
+    status, _ = bulky.Unmarshal(0, responses, &invites)
+    if status == 200 {
 
-      invites := obj.([]idp.Invite)
       for _, invite := range invites {
 
         inviteAcceptUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
