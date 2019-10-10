@@ -36,6 +36,9 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
       "func": "ShowRegistration",
     })
 
+    hintUsername := c.Query("hint_username")
+    hintEmail := c.Query("hint_email")
+
     session := sessions.Default(c)
 
     // Retain the values that was submittet, except passwords ?!
@@ -95,6 +98,14 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
           errorDisplayName = strings.Join(v, ", ")
         }
       }
+    }
+
+    if username == "" && hintUsername != "" {
+      username = hintUsername
+    }
+
+    if email == "" && hintEmail != "" {
+      email = hintEmail
     }
 
     c.HTML(200, "register.html", gin.H{
