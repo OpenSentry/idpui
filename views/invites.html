@@ -28,7 +28,7 @@
                 <th>Id</th>
                 <th>Email</th>
                 <th>Expires @</th>
-                <th>Send</th>
+                <th>Sent @</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -38,7 +38,7 @@
                 <td data-label="Id">{{ $invite.Id }}</td>
                 <td data-label="Email">{{ $invite.Email }}</td>
                 <td data-label="Expires">{{ $invite.Expires }}</td>
-                <td data-label="Send">{{ $invite.SendCounter }}</td>
+                <td data-label="Sent">{{ $invite.SentAt }}</td>
                 <td data-label="Grants"><a href="{{ $invite.GrantsUrl }}" class="ui green label"><i class="user lock icon"></i> Show Grants</a> <a href="{{ $invite.SendUrl }}" class="ui green label"><i class="paper plane icon"></i> Send Invite</a></td>
               </tr>
               {{end}}
