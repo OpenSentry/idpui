@@ -24,7 +24,7 @@ type InviteTemplate struct {
   Email string
   GrantsUrl string
   SendUrl string
-  SendCounter int64
+  SentAt string
 }
 
 func ShowInvites(env *environment.State) gin.HandlerFunc {
@@ -87,6 +87,11 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
         q.Add("id", invite.Id)
         sendUrl.RawQuery = q.Encode()
 
+        sat := "n/a"
+        if invite.SentAt > 0 {
+          sat = time.Unix(invite.SentAt, 0).Format(f)
+        }
+
         uiInvite := InviteTemplate{
           GrantsUrl: grantsUrl.String(),
           SendUrl:   sendUrl.String(),
@@ -95,7 +100,7 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
           InvitedBy: invite.InvitedBy,
           IssuedAt:  time.Unix(invite.IssuedAt, 0).Format(f),
           Expires:   time.Unix(invite.ExpiresAt, 0).Format(f),
-          SendCounter: 0,
+          SentAt: sat,
         }
         uiCreatedInvites = append(uiCreatedInvites, uiInvite)
 
