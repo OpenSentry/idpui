@@ -20,7 +20,7 @@ import (
 
 type inviteForm struct {
   Email string `form:"email" binding:"required" validate:"required,email"`
-  HintUsername string `form:"hint_username"`
+  Username string `form:"username"`
 }
 
 
@@ -42,14 +42,14 @@ func ShowInvite(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     // Retain the values that was submittet, except passwords ?!
-    var hintUsername string
+    var username string
     var email string
     rf := session.Flashes("invite.fields")
     if len(rf) > 0 {
       fields := rf[0].(map[string][]string)
       for k, v := range fields {
-        if k == "hint_username" && len(v) > 0 {
-          hintUsername = strings.Join(v, ", ")
+        if k == "username" && len(v) > 0 {
+          username = strings.Join(v, ", ")
         }
 
         if k == "email" && len(v) > 0 {
@@ -65,7 +65,7 @@ func ShowInvite(env *environment.State) gin.HandlerFunc {
     }
 
     var errorEmail string
-    var errorHintUsername string
+    var errorUsername string
 
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
@@ -75,8 +75,8 @@ func ShowInvite(env *environment.State) gin.HandlerFunc {
           errorEmail = strings.Join(v, ", ")
         }
 
-        if k == "hint_username" && len(v) > 0 {
-          errorHintUsername = strings.Join(v, ", ")
+        if k == "username" && len(v) > 0 {
+          errorUsername = strings.Join(v, ", ")
         }
       }
     }
@@ -87,10 +87,10 @@ func ShowInvite(env *environment.State) gin.HandlerFunc {
         {"href": "/public/css/dashboard.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "hint_username": hintUsername,
+      "username": username,
       "email": email,
       "errorEmail": errorEmail,
-      "errorHintUsername": errorHintUsername,
+      "errorUsername": errorUsername,
     })
   }
   return gin.HandlerFunc(fn)
@@ -123,7 +123,7 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
 
     // Save values if submit fails
     fields := make(map[string][]string)
-    fields["hint_username"] = append(fields["hint_username"], form.HintUsername)
+    fields["username"] = append(fields["username"], form.Username)
     fields["email"] = append(fields["email"], form.Email)
 
     session.AddFlash(fields, "invite.fields")
@@ -201,12 +201,12 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
 
     inviteRequest := []idp.CreateInvitesRequest{{
       Email: form.Email,
-      HintUsername: form.HintUsername,
+      Username: form.Username,
       /*ExpiresAt*/
     }}
     status, invite, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)
     if err != nil {
-      log.WithFields(logrus.Fields{ "email":form.Email, "hint_username":form.HintUsername }).Debug("Invite failed")
+      log.WithFields(logrus.Fields{ "email":form.Email, "username":form.Username }).Debug("Invite failed")
       c.HTML(http.StatusInternalServerError, "invite.html", gin.H{"error": err.Error()})
       c.Abort()
       return

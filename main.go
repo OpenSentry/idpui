@@ -205,9 +205,6 @@ func serve(env *environment.State) {
     ep.GET(  "/recoververification", credentials.ShowRecoverVerification(env) )
     ep.POST( "/recoververification", credentials.SubmitRecoverVerification(env) )
 
-    // Invite
-    ep.GET(  "/invite/accept", invites.ShowInviteAccept(env) )
-
     // These does not require authentication as its like doing delete in browser on cookies.
     // FIXME: Read up on Front Channel logout and Backchannel logout in Hydra an use that.
     ep.GET(  "/session/logout", profiles.ShowLogoutSession(env) )
