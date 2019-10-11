@@ -7,13 +7,8 @@
   {{ template "sidenav" . }}
 
   <main class="main">
-    <div class="main__header">
-      <div class="main-header__heading">Hello {{ .name }}</div>
-      <div class="main-header__updates">Recent Events</div>
-    </div>
 
     <div class="main__cards">
-        <h1>{{ .title }}</h1>
 
         <a href="/invite" style="margin-top:5px" class="ui green label"><i class="envelope icon"></i> Create Invite</a>
 
@@ -22,45 +17,19 @@
           <div class="ui segment">
 
             <div class="ui teal ribbon label">
-              <i class="envelope open icon"></i> Waiting
+              <i class="envelope icon"></i> Invites
             </div>
-            <span>Invites addressed to you awaiting acceptance</span>
-
-            {{ if .pending }}
-            <table class="ui selectable striped sortable celled table">
-            <thead>
-              <tr>
-                <th>Id</th>
-                <th>Invited By</th>
-                <th>Expires @</th>
-              </tr>
-            </thead>
-            <tbody>
-              {{range $invite := .pending}}
-              <tr>
-                <td class="selectable" data-label="Id"><a href="{{ $invite.Url }}">{{ $invite.Id }}</a></td>
-                <td data-label="Invited By">{{ $invite.InvitedBy }}</td>
-                <td data-label="Expires">{{ $invite.Expires }}</td>
-              </tr>
-              {{end}}
-            </tbody>
-            </table>
-            {{ end}}
-
-            <div class="ui hidden divider"></div>
-
-            <div class="ui teal ribbon label">
-              <i class="envelope icon"></i> Created
-            </div>
-            <span>Invites created by you and not sent</span>
+            <span>Invites created by you</span>
 
             {{ if .created }}
             <table class="ui selectable striped celled table">
             <thead>
               <tr>
-                <th>Inviting</th>
+                <th>Id</th>
                 <th>Email</th>
                 <th>Expires @</th>
+                <th>Send</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -69,34 +38,8 @@
                 <td data-label="Id">{{ $invite.Id }}</td>
                 <td data-label="Email">{{ $invite.Email }}</td>
                 <td data-label="Expires">{{ $invite.Expires }}</td>
-              </tr>
-              {{end}}
-            </tbody>
-            </table>
-            {{ end}}
-
-            <div class="ui hidden divider"></div>
-
-            <div class="ui teal ribbon label">
-              <i class="paper plane icon"></i> Sent
-            </div>
-            <span>Invites sent by you awaiting acceptance</span>
-
-            {{ if .sent }}
-            <table class="ui selectable striped celled table">
-            <thead>
-              <tr>
-                <th>Invited</th>
-                <th>Email</th>
-                <th>Expires @</th>
-              </tr>
-            </thead>
-            <tbody>
-              {{range $invite := .sent}}
-              <tr>
-                <td data-label="Id">{{ $invite.Id }}</td>
-                <td data-label="Email">{{ $invite.Email }}</td>
-                <td data-label="Expires">{{ $invite.Expires }}</td>
+                <td data-label="Send">{{ $invite.SendCounter }}</td>
+                <td data-label="Grants"><a href="{{ $invite.GrantsUrl }}" class="ui green label"><i class="user lock icon"></i> Show Grants</a> <a href="{{ $invite.SendUrl }}" class="ui green label"><i class="paper plane icon"></i> Send Invite</a></td>
               </tr>
               {{end}}
             </tbody>

@@ -237,6 +237,8 @@ func serve(env *environment.State) {
 
     // Invites
     ep.GET(  "/invites", AuthorizationRequired(env, "openid"), invites.ShowInvites(env) )
+    ep.GET(  "/invites/send", AuthorizationRequired(env, "openid"), invites.ShowInvitesSend(env) )
+    ep.POST( "/invites/send", AuthorizationRequired(env, "openid"), invites.SubmitInvitesSend(env) )
     ep.GET(  "/invite", AuthorizationRequired(env, "openid"), invites.ShowInvite(env) )
     ep.POST( "/invite", AuthorizationRequired(env, "openid"), invites.SubmitInvite(env) )
 

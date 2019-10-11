@@ -22,7 +22,9 @@ type InviteTemplate struct {
   Expires string
   Id string
   Email string
-  Url string
+  GrantsUrl string
+  SendUrl string
+  SendCounter int64
 }
 
 func ShowInvites(env *environment.State) gin.HandlerFunc {
@@ -56,7 +58,6 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
     }
 
     f := "2006-01-02 15:04:05" // Remder time format
-    var uiPendingInvites []InviteTemplate
     var uiCreatedInvites []InviteTemplate
     var uiSentInvites []InviteTemplate
 
@@ -66,23 +67,35 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
 
       for _, invite := range invites {
 
-        inviteAcceptUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.accept"))
+        grantsUrl, err := url.Parse(config.GetString("aapui.public.url") + config.GetString("aapui.public.endpoints.access.grant"))
         if err != nil {
           log.Debug(err.Error())
           c.AbortWithStatus(http.StatusInternalServerError)
           return
         }
-        q := inviteAcceptUrl.Query()
+        q := grantsUrl.Query()
         q.Add("id", invite.Id)
-        inviteAcceptUrl.RawQuery = q.Encode()
+        grantsUrl.RawQuery = q.Encode()
+
+        sendUrl, err := url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.invites.send"))
+        if err != nil {
+          log.Debug(err.Error())
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+        q = sendUrl.Query()
+        q.Add("id", invite.Id)
+        sendUrl.RawQuery = q.Encode()
 
         uiInvite := InviteTemplate{
-          Url:       inviteAcceptUrl.String(),
+          GrantsUrl: grantsUrl.String(),
+          SendUrl:   sendUrl.String(),
           Id:        invite.Id,
           Email:     invite.Email,
           InvitedBy: invite.InvitedBy,
           IssuedAt:  time.Unix(invite.IssuedAt, 0).Format(f),
           Expires:   time.Unix(invite.ExpiresAt, 0).Format(f),
+          SendCounter: 0,
         }
         uiCreatedInvites = append(uiCreatedInvites, uiInvite)
 
@@ -98,7 +111,6 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
       "id": identity.Id,
       "user": identity.Username,
       "name": identity.Name,
-      "pending": uiPendingInvites,
       "created": uiCreatedInvites,
       "sent": uiSentInvites,
     })
