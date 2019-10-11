@@ -7,13 +7,8 @@
   {{ template "sidenav" . }}
 
   <main class="main">
-    <div class="main__header">
-      <div class="main-header__heading">Hello {{ .name }}</div>
-      <div class="main-header__updates">Recent Events</div>
-    </div>
 
     <div class="main__cards">
-        <h1>{{ .title }}</h1>
 
         <a href="/me/edit" style="margin-top:5px" class="ui green label"><i class="edit icon"></i> Edit</a>
         <a href="/password" style="margin-top:5px" class="ui green label"><i class="user secret icon"></i> Change Password</a>
@@ -34,13 +29,13 @@
               <div class="item">
                 <i class="user icon"></i>
                 <div class="content">
-                  <span title="The name used to address you">{{ .name }}</span>
+                  <span data-tooltip="The name used to address you">{{ .name }}</span>
                 </div>
               </div>
               <div class="item">
                 <i class="user circle icon"></i>
                 <div class="content">
-                  <span title="The username you selected">{{ .user }}</span>
+                  <span data-tooltip="The username you selected">{{ .user }}</span>
                 </div>
               </div>
               <div class="item">
@@ -53,14 +48,14 @@
               <div class="item">
                 <i class="mobile alternate icon"></i>
                 <div class="content">
-                  <span title="Two factor authenticaton">{{ if .totp_required }}You have enabled two-factor authentication{{ else }}No two-factor authentication<span class="ui left pointing red basic label">You should really enable this!</span></span>{{ end }}
+                  <span data-tooltip="Two factor authenticaton">{{ if .totp_required }}You have enabled two-factor authentication{{ else }}No two-factor authentication<span class="ui left pointing red basic label">You should really enable this!</span></span>{{ end }}
                 </div>
               </div>
               <div class="ui divider"></div>
               <div class="item">
                 <i class="user secret icon"></i>
                 <div class="content">
-                  <span title="The secret password hash used to authenticate you">{{ if .password }}{{ .password }}{{ else }}n/a{{ end }}</span>
+                  <span data-tooltip="The secret password hash used to authenticate you">{{ if .password }}{{ .password }}{{ else }}n/a{{ end }}</span>
                 </div>
               </div>
             </div>
@@ -96,7 +91,7 @@
               <div class="item">
                 <i class="key icon"></i>
                 <div class="content">
-                  <span title="The identifier for you in the system">{{ .id }}</span>
+                  <span data-tooltip="The identifier for you in the system">{{ .id }}</span>
                 </div>
               </div>
             </div>
