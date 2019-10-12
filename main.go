@@ -182,6 +182,9 @@ func serve(env *environment.State) {
     ep.GET("/callback", callbacks.ExchangeAuthorizationCodeCallback(env) )
 
     // Signup
+    ep.GET(  "/claim", credentials.ShowClaimEmail(env) )
+    ep.POST( "/claim", credentials.SubmitClaimEmail(env) )
+
     ep.GET(  "/register", credentials.ShowRegistration(env) )
     ep.POST( "/register", credentials.SubmitRegistration(env) )
 

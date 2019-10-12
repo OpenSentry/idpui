@@ -1,0 +1,26 @@
+{{ template "htmlbegin" . }}
+
+<div class="ui padded middle aligned center aligned grid">
+  <div class="column">
+
+    {{ template "providerheader" . }}
+
+    <div class="ui divider hidden"></div>
+
+    <form class="ui large form" action="{{ .claimUrl }}" method="post">
+      {{ .csrfField }}
+
+      {{template "input.email" . }}
+
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Claim" />
+
+    </form>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Already have an account? <a class="white" href="{{ .loginUrl }}">Login</a></div>
+
+  </div>
+</div>
+
+{{ template "htmlend" . }}
