@@ -21,11 +21,31 @@ import (
 )
 
 type registrationForm struct {
-    Username string `form:"username" binding:"required" validate:"required,notblank"`
+    Challenge string `form:"challenge" validate="required,uuid,notblank"`
+    Id string `form:"id" validate="required,uuid,notblank"`
     Name string `form:"display-name" binding:"required" validate:"required,notblank"`
-    Email string `form:"email" binding:"required" validate:"required,email"`
     Password string `form:"password" binding:"required" validate:"required,notblank"`
     PasswordRetyped string `form:"password_retyped" binding:"required" validate:"required,notblank"`
+}
+
+func fetchChallenge(idpClient *idp.IdpClient, challenge string) (*idp.Challenge, error) {
+
+  requests := []idp.ReadChallengesRequest{ {OtpChallenge: challenge} }
+  status, responses, err := idp.ReadChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.collection"), requests)
+  if err != nil {
+    return nil, err
+  }
+
+  if status == 200 {
+    var resp idp.ReadChallengesResponse
+    status, _ := bulky.Unmarshal(0, responses, &resp)
+    if status == 200 {
+      challenge := &resp[0]
+      return challenge, nil
+    }
+  }
+
+  return nil, nil
 }
 
 func ShowRegistration(env *environment.State) gin.HandlerFunc {
@@ -36,25 +56,44 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
       "func": "ShowRegistration",
     })
 
-    hintUsername := c.Query("hint_username")
-    hintEmail := c.Query("hint_email")
+    var challengeId string
+    var identityId string
+    var username string
+    var displayName string
+
+    var err error
+
+    emailChallenge := c.Query("email_challenge")
+    if emailChallenge != "" {
+      idpClient := app.IdpClientUsingClientCredentials(env, c)
+      challenge, err := fetchChallenge(idpClient, emailChallenge)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+      challengeId = challenge.OtpChallenge
+      identityId = challenge.Subject
+    }
 
     session := sessions.Default(c)
 
-    // Retain the values that was submittet, except passwords ?!
-    var username string
-    var displayName string
-    var email string
+    // Retain the values that was submittet
     rf := session.Flashes("register.fields")
     if len(rf) > 0 {
       registerFields := rf[0].(map[string][]string)
       for k, v := range registerFields {
-        if k == "username" && len(v) > 0 {
-          username = strings.Join(v, ", ")
+
+        if k == "challenge" && len(v) > 0 {
+          challengeId = strings.Join(v, ", ")
         }
 
-        if k == "email" && len(v) > 0 {
-          email = strings.Join(v, ", ")
+        if k == "id" && len(v) > 0 {
+          identityId = strings.Join(v, ", ")
+        }
+
+        if k == "username" && len(v) > 0 {
+          username = strings.Join(v, ", ")
         }
 
         if k == "display-name" && len(v) > 0 {
@@ -66,11 +105,10 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
     var errorUsername string
     var errorPassword string
     var errorPasswordRetyped string
-    var errorEmail string
     var errorDisplayName string
 
     errors := session.Flashes("register.errors")
-    err := session.Save() // Remove flashes read, and save submit fields
+    err = session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
     }
@@ -90,22 +128,10 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
           errorPasswordRetyped = strings.Join(v, ", ")
         }
 
-        if k == "email" && len(v) > 0 {
-          errorEmail = strings.Join(v, ", ")
-        }
-
         if k == "display-name" && len(v) > 0 {
           errorDisplayName = strings.Join(v, ", ")
         }
       }
-    }
-
-    if username == "" && hintUsername != "" {
-      username = hintUsername
-    }
-
-    if email == "" && hintEmail != "" {
-      email = hintEmail
     }
 
     c.HTML(200, "register.html", gin.H{
@@ -118,13 +144,13 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
       "provideraction": "Register for an identity in the system",
       "registerUrl": config.GetString("idpui.public.endpoints.register"),
       "loginUrl": config.GetString("idpui.public.endpoints.login"),
+      "challenge": challengeId,
+      "id": identityId,
       "username": username,
       "displayName": displayName,
-      "email": email,
       "errorUsername": errorUsername,
       "errorPassword": errorPassword,
       "errorPasswordRetyped": errorPasswordRetyped,
-      "errorEmail": errorEmail,
       "errorDisplayName": errorDisplayName,
     })
   }
@@ -139,8 +165,10 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       "func": "SubmitRegistration",
     })
 
+    var err error
+
     var form registrationForm
-    err := c.Bind(&form)
+    err = c.Bind(&form)
     if err != nil {
       // Do better error handling in the application.
       c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -148,13 +176,19 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       return
     }
 
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
     session := sessions.Default(c)
 
     // Save values if submit fails
     registerFields := make(map[string][]string)
-    registerFields["username"] = append(registerFields["username"], form.Username)
     registerFields["display-name"] = append(registerFields["display-name"], form.Name)
-    registerFields["email"] = append(registerFields["email"], form.Email)
+    //registerFields["username"] = append(registerFields["username"], form.Username)
 
     session.AddFlash(registerFields, "register.fields")
     err = session.Save()
@@ -216,12 +250,6 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
         log.Debug(err.Error())
       }
 
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
       log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
       c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
@@ -232,13 +260,11 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
 
       idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-      humanRequest := []idp.CreateHumansRequest{{
-        Username: form.Username,
-        Email: form.Email,
-        Password: form.Password,
-        Name: form.Name,
-      }}
-      status, result, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
+      // This update is really bad it is using client credentials to update which should always be IdpClientUsingAuthorizationCode!!!
+      // Create needs to Convert invite to identity instead.
+
+      humanRequest := []idp.CreateHumansRequest{ {Id: form.Id, Password: form.Password, Name: form.Name} }
+      status, responses, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -249,14 +275,14 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       if status == 200 {
 
         var resp idp.CreateHumansResponse
-        status, restErr := bulky.Unmarshal(0, result, &resp)
+        status, restErr := bulky.Unmarshal(0, responses, &resp)
         if status == 200 {
           // Cleanup session
           session.Delete("register.fields")
           session.Delete("register.errors")
 
           // Propagate username to authenticate controller
-          session.AddFlash(form.Username, "authenticate.username")
+          session.AddFlash(resp.Username, "authenticate.username")
 
           err = session.Save()
           if err != nil {
@@ -292,13 +318,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       }
     }
 
-    // Deny by default. Failed to fill in the form correctly.
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
+    // Deny by default.
     log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
     c.Redirect(http.StatusFound, submitUrl)
     c.Abort()

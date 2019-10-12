@@ -146,3 +146,23 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, log *log
   u, err := url.Parse(authUrl)
   return u, err
 }
+
+func FetchInvite(idpClient *idp.IdpClient, id string) (*idp.Invite, error) {
+
+  inviteRequest := []idp.ReadInvitesRequest{ {Id: id} }
+  status, responses, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)
+  if err != nil {
+    return nil, err
+  }
+
+  if status == 200 {
+    var resp idp.ReadInvitesResponse
+    status, _ := bulky.Unmarshal(0, responses, &resp)
+    if status == 200 {
+      invite := &resp[0]
+      return invite, nil
+    }
+  }
+
+  return nil, nil
+}
