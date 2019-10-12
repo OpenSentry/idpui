@@ -9,16 +9,18 @@
 
     <form class="ui large form" action="{{ .registerUrl }}" method="post">
       {{ .csrfField }}
+      <input type="hidden" name="challenge" value="{{ .challenge }}" />
+      <input type="hidden" name="id" value="{{ .id }}" />
 
       {{template "input.display-name" . }}
-      {{template "input.username" . }}
-      {{template "input.email" . }}
       {{template "input.password" . }}
       {{template "input.password_retyped" . }}
 
       <input type="submit" name="submit" class="ui fluid large green submit button" value="Register" />
 
     </form>
+
+    <div class="white">Id: {{ .id }}</div>
 
     <div class="ui divider hidden"></div>
 
