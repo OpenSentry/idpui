@@ -113,6 +113,7 @@ func ShowClaimEmail(env *environment.State) gin.HandlerFunc {
       "provider": "Identity Provider",
       "provideraction": "Claim an identity in the system with an email",
       "claimUrl": config.GetString("idpui.public.endpoints.claim"),
+      "loginUrl": config.GetString("idpui.public.endpoints.login"),
       "invite": invite,
       "email": email,
       "errorEmail": errorEmail,
