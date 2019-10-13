@@ -201,7 +201,7 @@ func SubmitInvite(env *environment.State) gin.HandlerFunc {
 
     inviteRequest := []idp.CreateInvitesRequest{{
       Email: form.Email,
-      Username: form.Username,
+      //Username: form.Username,
       /*ExpiresAt*/
     }}
     status, invite, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)

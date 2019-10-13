@@ -21,31 +21,11 @@ import (
 )
 
 type registrationForm struct {
-    Challenge string `form:"challenge" validate="required,uuid,notblank"`
-    Id string `form:"id" validate="required,uuid,notblank"`
-    Name string `form:"display-name" binding:"required" validate:"required,notblank"`
-    Password string `form:"password" binding:"required" validate:"required,notblank"`
-    PasswordRetyped string `form:"password_retyped" binding:"required" validate:"required,notblank"`
-}
-
-func fetchChallenge(idpClient *idp.IdpClient, challenge string) (*idp.Challenge, error) {
-
-  requests := []idp.ReadChallengesRequest{ {OtpChallenge: challenge} }
-  status, responses, err := idp.ReadChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.collection"), requests)
-  if err != nil {
-    return nil, err
-  }
-
-  if status == 200 {
-    var resp idp.ReadChallengesResponse
-    status, _ := bulky.Unmarshal(0, responses, &resp)
-    if status == 200 {
-      challenge := &resp[0]
-      return challenge, nil
-    }
-  }
-
-  return nil, nil
+    Challenge       string `form:"challenge"          validate="required,uuid,notblank"`
+    Name            string `form:"display-name"       validate:"required,notblank"`
+    Username        string `form:"username,omitempty" validate:"omitempty,notblank"`
+    Password        string `form:"password"           validate:"required,notblank"`
+    PasswordRetyped string `form:"password_retyped"   validate:"required,notblank"`
 }
 
 func ShowRegistration(env *environment.State) gin.HandlerFunc {
@@ -56,27 +36,14 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
       "func": "ShowRegistration",
     })
 
-    var challengeId string
-    var identityId string
-    var username string
-    var displayName string
+    challengeId := c.Query("email_challenge")
+
+    session := sessions.Default(c)
 
     var err error
 
-    emailChallenge := c.Query("email_challenge")
-    if emailChallenge != "" {
-      idpClient := app.IdpClientUsingClientCredentials(env, c)
-      challenge, err := fetchChallenge(idpClient, emailChallenge)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-      challengeId = challenge.OtpChallenge
-      identityId = challenge.Subject
-    }
-
-    session := sessions.Default(c)
+    var username string
+    var displayName string
 
     // Retain the values that was submittet
     rf := session.Flashes("register.fields")
@@ -86,10 +53,6 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
 
         if k == "challenge" && len(v) > 0 {
           challengeId = strings.Join(v, ", ")
-        }
-
-        if k == "id" && len(v) > 0 {
-          identityId = strings.Join(v, ", ")
         }
 
         if k == "username" && len(v) > 0 {
@@ -102,16 +65,16 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
       }
     }
 
-    var errorUsername string
-    var errorPassword string
-    var errorPasswordRetyped string
-    var errorDisplayName string
-
     errors := session.Flashes("register.errors")
     err = session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
     }
+
+    var errorUsername string
+    var errorPassword string
+    var errorPasswordRetyped string
+    var errorDisplayName string
 
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
@@ -145,7 +108,6 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
       "registerUrl": config.GetString("idpui.public.endpoints.register"),
       "loginUrl": config.GetString("idpui.public.endpoints.login"),
       "challenge": challengeId,
-      "id": identityId,
       "username": username,
       "displayName": displayName,
       "errorUsername": errorUsername,
@@ -187,8 +149,9 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
 
     // Save values if submit fails
     registerFields := make(map[string][]string)
+    registerFields["challenge"] = append(registerFields["challenge"], form.Challenge)
     registerFields["display-name"] = append(registerFields["display-name"], form.Name)
-    //registerFields["username"] = append(registerFields["username"], form.Username)
+    registerFields["username"] = append(registerFields["username"], form.Username)
 
     session.AddFlash(registerFields, "register.fields")
     err = session.Save()
@@ -260,10 +223,19 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
 
       idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-      // This update is really bad it is using client credentials to update which should always be IdpClientUsingAuthorizationCode!!!
-      // Create needs to Convert invite to identity instead.
+      challenge, err := fetchChallenge(idpClient, form.Challenge)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
 
-      humanRequest := []idp.CreateHumansRequest{ {Id: form.Id, Password: form.Password, Name: form.Name} }
+      var emailConfirmedAt int64 = 0
+      if challenge.VerifiedAt > 0 { // FIXME add challenge type check
+        emailConfirmedAt = challenge.VerifiedAt
+      }
+
+      humanRequest := []idp.CreateHumansRequest{ {Id:challenge.Subject, Password:form.Password, Name:form.Name, Username:form.Username, EmailConfirmedAt:emailConfirmedAt} }
       status, responses, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
       if err != nil {
         log.Debug(err.Error())
@@ -281,8 +253,8 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
           session.Delete("register.fields")
           session.Delete("register.errors")
 
-          // Propagate username to authenticate controller
-          session.AddFlash(resp.Username, "authenticate.username")
+          // Propagate email to authenticate controller
+          session.AddFlash(resp.Email, "authenticate.email")
 
           err = session.Save()
           if err != nil {
@@ -324,4 +296,24 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
     c.Abort()
   }
   return gin.HandlerFunc(fn)
+}
+
+func fetchChallenge(idpClient *idp.IdpClient, challenge string) (*idp.Challenge, error) {
+
+  requests := []idp.ReadChallengesRequest{ {OtpChallenge: challenge} }
+  status, responses, err := idp.ReadChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.collection"), requests)
+  if err != nil {
+    return nil, err
+  }
+
+  if status == 200 {
+    var resp idp.ReadChallengesResponse
+    status, _ := bulky.Unmarshal(0, responses, &resp)
+    if status == 200 {
+      challenge := &resp[0]
+      return challenge, nil
+    }
+  }
+
+  return nil, nil
 }

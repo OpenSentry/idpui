@@ -22,8 +22,8 @@ import (
 )
 
 type authenticationForm struct {
-  Challenge string `form:"challenge" binding:"required"`
-  Username string `form:"username" binding:"required" validate:"required,notblank"`
+  Challenge string `form:"challenge" binding:"required" validate:"required,notblank"`
+  Email string `form:"email" binding:"required" validate:"required,notblank"`
   Password string `form:"password" binding:"required" validate:"required,notblank"`
 }
 
@@ -102,10 +102,10 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
       session := sessions.Default(c)
 
       // Retain the values that was submittet, except passwords!
-      var username string
-      fau := session.Flashes("authenticate.username")
+      var email string
+      fau := session.Flashes("authenticate.email")
       if fau != nil {
-        username = fmt.Sprintf("%s", fau[0])
+        email = fmt.Sprintf("%s", fau[0])
       }
 
       errors := session.Flashes("authenticate.errors")
@@ -114,15 +114,15 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
         log.Debug(err.Error())
       }
 
-      var errorUsername string
+      var errorEmail string
       var errorPassword string
 
       if len(errors) > 0 {
         errorsMap := errors[0].(map[string][]string)
         for k, v := range errorsMap {
 
-          if k == "username" && len(v) > 0 {
-            errorUsername = strings.Join(v, ", ")
+          if k == "email" && len(v) > 0 {
+            errorEmail = strings.Join(v, ", ")
           }
           if k == "password" && len(v) > 0 {
             errorPassword = strings.Join(v, ", ")
@@ -140,12 +140,12 @@ func ShowLogin(env *environment.State) gin.HandlerFunc {
         "provider": "Identity Provider",
         "provideraction": "Identify yourself to gain access to your profile",
         "challenge": loginChallenge,
-        "username": username,
-        "errorUsername": errorUsername,
+        "email": email,
+        "errorEmail": errorEmail,
         "errorPassword": errorPassword,
         "loginUrl": config.GetString("idpui.public.endpoints.login"),
         "recoverUrl": config.GetString("idpui.public.endpoints.recover"),
-        "registerUrl": config.GetString("idpui.public.endpoints.register"),
+        "claimUrl": config.GetString("idpui.public.endpoints.claim"),
       })
       return
     }
@@ -176,7 +176,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
     session := sessions.Default(c)
 
     // Save value if submit fails
-    session.AddFlash(form.Username, "authenticate.username")
+    session.AddFlash(form.Email, "authenticate.email")
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
@@ -244,7 +244,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    identityRequest := []idp.ReadHumansRequest{ {Username: form.Username} }
+    identityRequest := []idp.ReadHumansRequest{ {Email: form.Email} }
     _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
     if err != nil {
       log.Debug(err.Error())
@@ -253,7 +253,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
     }
 
     if humans == nil {
-      errors["username"] = append(errors["username"], "Not found")
+      errors["email"] = append(errors["email"], "Not found")
     } else {
 
       var resp idp.ReadHumansResponse
@@ -291,7 +291,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
           if auth.Authenticated == true {
 
             // Cleanup session
-            session.Delete("authenticate.username")
+            session.Delete("authenticate.email")
             session.Delete("authenticate.errors")
 
             err = session.Save()
@@ -312,7 +312,7 @@ func SubmitLogin(env *environment.State) gin.HandlerFunc {
         }
 
       } else {
-        errors["username"] = append(errors["username"], "Not found")
+        errors["email"] = append(errors["email"], "Not found")
       }
 
     }
