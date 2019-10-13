@@ -211,6 +211,7 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
       return
     }
 
+
     if form.Email != "" {
 
       idpClient := app.IdpClientUsingClientCredentials(env, c)
@@ -225,15 +226,15 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
         return
       }
       if status == 200 {
-
         var resp idp.ReadInvitesResponse
         status, _ := bulky.Unmarshal(0, responses, &resp)
         if status == 200 {
           invite := resp[0]
           inviteId = invite.Id
         }
+      }
 
-      } else {
+      if inviteId == "" {
 
         inviteRequest := []idp.CreateInvitesRequest{ {Email: form.Email} }
         status, responses, err := idp.CreateInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)
@@ -251,7 +252,6 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
           }
 
         }
-
       }
 
       if inviteId != "" {

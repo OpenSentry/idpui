@@ -11,10 +11,8 @@
       {{ .csrfField }}
       <input type="hidden" name="challenge" value="{{ .challenge }}" />
 
-      <!--
+      <!-- {{template "input.username" . }} -->
       {{template "input.email" . }}
-      -->
-      {{template "input.username" . }}
       {{template "input.password" . }}
 
       <input type="submit" name="submit" class="ui fluid large green submit button" value="Login" />
@@ -24,7 +22,7 @@
     <div class="ui divider hidden"></div>
 
     <div class="white">Forgot your credentials? <a class="white" href="{{ .recoverUrl }}">Recover</a></div>
-    <div class="white">Don't have an account yet? <a class="white" href="{{ .registerUrl }}">Sign up</a></div>
+    <div class="white">Don't have an account yet? <a class="white" href="{{ .claimUrl }}">Sign up</a></div>
 
     <div class="ui divider hidden"></div>
 
