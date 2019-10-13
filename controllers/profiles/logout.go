@@ -53,6 +53,7 @@ func ShowLogout(env *environment.State) gin.HandlerFunc {
 }
 
 
+
 func SubmitLogout(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
