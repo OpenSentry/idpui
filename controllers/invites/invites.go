@@ -97,7 +97,7 @@ func ShowInvites(env *environment.State) gin.HandlerFunc {
           SendUrl:   sendUrl.String(),
           Id:        invite.Id,
           Email:     invite.Email,
-          InvitedBy: invite.InvitedBy,
+          // InvitedBy: invite.InvitedBy,
           IssuedAt:  time.Unix(invite.IssuedAt, 0).Format(f),
           Expires:   time.Unix(invite.ExpiresAt, 0).Format(f),
           SentAt: sat,

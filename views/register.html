@@ -10,9 +10,9 @@
     <form class="ui large form" action="{{ .registerUrl }}" method="post">
       {{ .csrfField }}
       <input type="hidden" name="challenge" value="{{ .challenge }}" />
-      <input type="hidden" name="id" value="{{ .id }}" />
 
       {{template "input.display-name" . }}
+      {{template "input.username" . }}
       {{template "input.password" . }}
       {{template "input.password_retyped" . }}
 
@@ -20,11 +20,9 @@
 
     </form>
 
-    <div class="white">Id: {{ .id }}</div>
+    <div class="white">Challenge: {{ .challenge }}</div>
 
     <div class="ui divider hidden"></div>
-
-    <div class="white">Already have an account? <a class="white" href="{{ .loginUrl }}">Login</a></div>
 
   </div>
 </div>
