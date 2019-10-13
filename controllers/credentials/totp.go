@@ -82,7 +82,7 @@ func ShowTotp(env *environment.State) gin.HandlerFunc {
         Issuer: config.GetString("idpui.public.url"),
         AccountName: identity.Id,
       }
-      key, err := totp.Generate(totpOpts)
+      key, err = totp.Generate(totpOpts)
       if err != nil {
         log.WithFields(logrus.Fields{
           "totp.issuer": totpOpts.Issuer,
