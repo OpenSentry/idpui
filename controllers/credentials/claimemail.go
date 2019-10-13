@@ -290,6 +290,13 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
 
       }
 
+      errors["email"] = append(errors["email"], "Already registered")
+      session.AddFlash(errors, "register.errors")
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+
     }
 
     // Deny by default.

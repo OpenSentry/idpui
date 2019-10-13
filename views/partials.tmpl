@@ -327,4 +327,23 @@
 {{end}}
 {{ end }}
 
-
+{{ define "input.exp" }}
+{{if .errorExp}}
+  <div class="required field {{if .errorExp}}error{{end}}">
+    <div class="ui right labeled left icon input focus">
+      <i class="clock icon"></i>
+      <input type="text" name="exp" placeholder="Expires at" value="{{.exp}}" required />
+      <div class="ui red tag label">
+        {{ .errorExp }}
+      </div>
+    </div>
+  </div>
+{{else}}
+  <div class="required field">
+    <div class="ui left icon input focus">
+      <i class="clock icon"></i>
+      <input type="text" name="exp" placeholder="Expires at" value="{{.exp}}" required />
+    </div>
+  </div>
+{{end}}
+{{ end }}
