@@ -22,6 +22,7 @@ import (
 
 type registrationForm struct {
     Challenge       string `form:"challenge"          validate="required,uuid,notblank"`
+    State           string `form:"state"              validate="required,notblank"`
     Name            string `form:"display-name"       validate:"required,notblank"`
     Username        string `form:"username,omitempty" validate:"omitempty,notblank"`
     Password        string `form:"password"           validate:"required,notblank"`
@@ -40,6 +41,28 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
 
     var username string
     var displayName string
+
+    state := c.Query("state")
+    if state == "" {
+      log.Debug("Missing state in query")
+      c.AbortWithStatus(http.StatusBadRequest)
+      return
+    }
+
+    session := sessions.Default(c)
+    v := session.Get(environment.SessionClaimStateKey)
+    if v == nil {
+      log.WithFields(logrus.Fields{ "key":environment.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
+      c.AbortWithStatus(http.StatusBadRequest)
+      return
+    }
+    sessionState := v.(string)
+
+    if state != sessionState {
+      log.WithFields(logrus.Fields{ "key":environment.SessionClaimStateKey }).Debug("Request did not originate from app. Hint: session state and request state differs")
+      c.AbortWithStatus(http.StatusBadRequest)
+      return
+    }
 
     challengeId := c.Query("email_challenge")
     if challengeId != "" {
@@ -66,8 +89,6 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
 
     }
 
-    session := sessions.Default(c)
-
     // Retain the values that was submittet
     rf := session.Flashes("register.fields")
     if len(rf) > 0 {
@@ -76,6 +97,10 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
 
         if k == "challenge" && len(v) > 0 {
           challengeId = strings.Join(v, ", ")
+        }
+
+        if k == "state" && len(v) > 0 {
+          state = strings.Join(v, ", ")
         }
 
         if k == "username" && len(v) > 0 {
@@ -132,6 +157,7 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
       "registerUrl": config.GetString("idpui.public.endpoints.register"),
       "loginUrl": config.GetString("idpui.public.endpoints.login"),
       "challenge": challengeId,
+      "state": state,
       "username": username,
       "displayName": displayName,
       "errorUsername": errorUsername,
@@ -169,11 +195,31 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
       return
     }
 
+    if form.State == "" {
+      log.Debug("Missing state")
+      c.AbortWithStatus(http.StatusBadRequest)
+      return
+    }
+
     session := sessions.Default(c)
+    v := session.Get(environment.SessionClaimStateKey)
+    if v == nil {
+      log.WithFields(logrus.Fields{ "key":environment.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
+      c.AbortWithStatus(http.StatusBadRequest)
+      return
+    }
+    sessionState := v.(string)
+
+    if form.State != sessionState {
+      log.WithFields(logrus.Fields{ "key":environment.SessionClaimStateKey }).Debug("Request did not originate from app. Hint: session state and request state differs")
+      c.AbortWithStatus(http.StatusBadRequest)
+      return
+    }
 
     // Save values if submit fails
     registerFields := make(map[string][]string)
     registerFields["challenge"] = append(registerFields["challenge"], form.Challenge)
+    registerFields["state"] = append(registerFields["challenge"], form.State)
     registerFields["display-name"] = append(registerFields["display-name"], form.Name)
     registerFields["username"] = append(registerFields["username"], form.Username)
 
@@ -253,7 +299,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
         c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
-      
+
       var emailConfirmedAt int64 = 0
       if challenge.VerifiedAt > 0 { // FIXME add challenge type check
         emailConfirmedAt = challenge.VerifiedAt
@@ -274,6 +320,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
         status, restErr := bulky.Unmarshal(0, responses, &resp)
         if status == 200 {
           // Cleanup session
+          session.Delete(environment.SessionClaimStateKey)
           session.Delete("register.fields")
           session.Delete("register.errors")
 
