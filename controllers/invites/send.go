@@ -56,6 +56,7 @@ func ShowInvitesSend(env *environment.State) gin.HandlerFunc {
       status, _ = bulky.Unmarshal(0, responses, &resp)
       if status == 200 {
         invite := resp[0]
+        
         c.HTML(http.StatusOK, "invites_send.html", gin.H{
           "title": "Send Invite",
           "links": []map[string]string{
@@ -64,7 +65,7 @@ func ShowInvitesSend(env *environment.State) gin.HandlerFunc {
           csrf.TemplateTag: csrf.TemplateField(c.Request),
           "id": invite.Id,
           "email": invite.Email,
-          //"user": invite.Username,
+          "user": invite.Username,
         })
         return
       }

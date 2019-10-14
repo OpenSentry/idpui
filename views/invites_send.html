@@ -32,12 +32,14 @@
                 </div>
               </div>
 
+             {{ if .user }}
               <div class="item">
                 <i class="user circle icon"></i>
                 <div class="content">
                   <span data-tooltip="The username you selected">{{ .user }}</span>
                 </div>
               </div>
+              {{ end }}
 
             </div>
 
