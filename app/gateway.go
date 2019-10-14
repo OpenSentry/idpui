@@ -147,6 +147,40 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, log *log
   return u, err
 }
 
+func StartClaimSession(env *environment.State, c *gin.Context, log *logrus.Entry) (urlRedirectToOnVerified *url.URL, err error) {
+  var state string
+
+  log = log.WithFields(logrus.Fields{
+    "func": "StartClaimSession",
+  })
+
+  // Create random bytes that are based64 encoded to prevent character problems with the session store.
+  state, err = CreateRandomStringWithNumberOfBytes(32);
+  if err != nil {
+    log.Debug(err.Error())
+    return nil, err
+  }
+
+  urlRedirectToOnVerified, err = url.Parse(config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.register"))
+  if err != nil {
+    return nil, err
+  }
+  q := urlRedirectToOnVerified.Query()
+  q.Add("state", state)
+  urlRedirectToOnVerified.RawQuery = q.Encode()
+
+  session := sessions.Default(c)
+  session.Set(environment.SessionClaimStateKey, state)
+  err = session.Save()
+  if err != nil {
+    log.Debug(err.Error())
+    return nil, err
+  }
+
+  log.WithFields(logrus.Fields{ "state": state }).Debug("Claim Session Started")
+  return urlRedirectToOnVerified, nil
+}
+
 func FetchInvite(idpClient *idp.IdpClient, id string) (*idp.Invite, error) {
 
   inviteRequest := []idp.ReadInvitesRequest{ {Id: id} }
