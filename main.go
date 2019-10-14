@@ -131,7 +131,7 @@ func main() {
     AapApiConfig: aapConfig,
   }
 
-  //optServe := getopt.BoolLong("serve", 0, "Serve application")
+  optServe := getopt.BoolLong("serve", 0, "Serve application")
   optHelp := getopt.BoolLong("help", 0, "Help")
   getopt.Parse()
 
@@ -140,12 +140,12 @@ func main() {
     os.Exit(0)
   }
 
-  //if *optServe {
+  if *optServe {
     serve(env)
-  /*} else {
+  } else {
     getopt.Usage()
     os.Exit(0)
-  }*/
+  }
 
 }
 
