@@ -36,14 +36,37 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
       "func": "ShowRegistration",
     })
 
-    challengeId := c.Query("email_challenge")
-
-    session := sessions.Default(c)
-
     var err error
 
     var username string
     var displayName string
+
+    challengeId := c.Query("email_challenge")
+    if challengeId != "" {
+
+      idpClient := app.IdpClientUsingClientCredentials(env, c)
+
+      challenge, err := fetchChallenge(idpClient, challengeId)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      invite, err := fetchInvites(idpClient, challenge.Subject)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      if invite.Username != "" {
+        username = invite.Username
+      }
+
+    }
+
+    session := sessions.Default(c)
 
     // Retain the values that was submittet
     rf := session.Flashes("register.fields")
@@ -64,6 +87,7 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
         }
       }
     }
+
 
     errors := session.Flashes("register.errors")
     err = session.Save() // Remove flashes read, and save submit fields
@@ -229,7 +253,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
         c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
-
+      
       var emailConfirmedAt int64 = 0
       if challenge.VerifiedAt > 0 { // FIXME add challenge type check
         emailConfirmedAt = challenge.VerifiedAt
@@ -312,6 +336,26 @@ func fetchChallenge(idpClient *idp.IdpClient, challenge string) (*idp.Challenge,
     if status == 200 {
       challenge := &resp[0]
       return challenge, nil
+    }
+  }
+
+  return nil, nil
+}
+
+func fetchInvites(idpClient *idp.IdpClient, id string) (*idp.Invite, error) {
+
+  requests := []idp.ReadInvitesRequest{ {Id: id} }
+  status, responses, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), requests)
+  if err != nil {
+    return nil, err
+  }
+
+  if status == 200 {
+    var resp idp.ReadInvitesResponse
+    status, _ := bulky.Unmarshal(0, responses, &resp)
+    if status == 200 {
+      invite := &resp[0]
+      return invite, nil
     }
   }
 
