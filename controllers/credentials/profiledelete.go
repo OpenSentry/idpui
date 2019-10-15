@@ -1,4 +1,4 @@
-package profiles
+package credentials
 
 import (
   "strings"

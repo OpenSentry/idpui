@@ -26,8 +26,6 @@ import (
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/controllers/credentials"
   "github.com/charmixer/idpui/controllers/callbacks"
-  "github.com/charmixer/idpui/controllers/profiles"
-  "github.com/charmixer/idpui/controllers/invites"
 )
 
 const appName = "idpui"
@@ -200,18 +198,11 @@ func serve(env *environment.State) {
     ep.GET( "/emailconfirm", credentials.ShowEmailConfirm(env) )
     ep.POST( "/emailconfirm", credentials.SubmitEmailConfirm(env) )
 
-    ep.GET(  "/profile", profiles.ShowPublicProfile(env) )
-
     // Recover
     ep.GET(  "/recover", credentials.ShowRecover(env) )
     ep.POST( "/recover", credentials.SubmitRecover(env) )
     ep.GET(  "/recoververification", credentials.ShowRecoverVerification(env) )
     ep.POST( "/recoververification", credentials.SubmitRecoverVerification(env) )
-
-    // These does not require authentication as its like doing delete in browser on cookies.
-    // FIXME: Read up on Front Channel logout and Backchannel logout in Hydra an use that.
-    ep.GET(  "/session/logout", profiles.ShowLogoutSession(env) )
-    ep.POST( "/session/logout", profiles.SubmitLogoutSession(env) )
   }
 
   // Endpoints that require Authentication and Authorization
@@ -229,25 +220,10 @@ func serve(env *environment.State) {
     ep.POST( "/totp", AuthorizationRequired(env, "openid"), credentials.SubmitTotp(env) )
 
     // Profile
-    ep.GET(  "/",                      AuthorizationRequired(env, "openid"), profiles.ShowProfile(env) )
-    ep.GET(  "/me",                    AuthorizationRequired(env, "openid"), profiles.ShowProfile(env) )
-    ep.GET(  "/me/edit",               AuthorizationRequired(env, "openid"), profiles.ShowProfileEdit(env) )
-    ep.POST( "/me/edit",               AuthorizationRequired(env, "openid"), profiles.SubmitProfileEdit(env) )
-    ep.GET(  "/me/delete",             AuthorizationRequired(env, "openid"), profiles.ShowProfileDelete(env) )
-    ep.POST( "/me/delete",             AuthorizationRequired(env, "openid"), profiles.SubmitProfileDelete(env) )
-    ep.GET(  "/me/deleteverification", AuthorizationRequired(env, "openid"), credentials.ShowProfileDeleteVerification(env) )
-    ep.POST( "/me/deleteverification", AuthorizationRequired(env, "openid"), credentials.SubmitProfileDeleteVerification(env) )
-
-    // Invites
-    ep.GET(  "/invites", AuthorizationRequired(env, "openid"), invites.ShowInvites(env) )
-    ep.GET(  "/invites/send", AuthorizationRequired(env, "openid"), invites.ShowInvitesSend(env) )
-    ep.POST( "/invites/send", AuthorizationRequired(env, "openid"), invites.SubmitInvitesSend(env) )
-    ep.GET(  "/invite", AuthorizationRequired(env, "openid"), invites.ShowInvite(env) )
-    ep.POST( "/invite", AuthorizationRequired(env, "openid"), invites.SubmitInvite(env) )
-
-    // Signoff
-    ep.GET(  "/logout", AuthorizationRequired(env, "openid"), profiles.ShowLogout(env) )
-    ep.POST( "/logout", AuthorizationRequired(env, "openid"), profiles.SubmitLogout(env) )
+    ep.GET(  "/delete",             AuthorizationRequired(env, "openid"), credentials.ShowProfileDelete(env) )
+    ep.POST( "/delete",             AuthorizationRequired(env, "openid"), credentials.SubmitProfileDelete(env) )
+    ep.GET(  "/deleteverification", AuthorizationRequired(env, "openid"), credentials.ShowProfileDeleteVerification(env) )
+    ep.POST( "/deleteverification", AuthorizationRequired(env, "openid"), credentials.SubmitProfileDeleteVerification(env) )
   }
 
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))
