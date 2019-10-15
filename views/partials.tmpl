@@ -39,79 +39,6 @@
 </h2>
 {{ end}}
 
-{{ define "header" }}
-<div class="menu-icon">
-  <i class="fas fa-bars"></i>
-</div>
-
-<header class="header">
-  <h1>{{ .title }}</h1>
-</header>
-{{ end }}
-
-{{ define "sidenav" }}
-<aside class="sidenav">
-  <div class="sidenav__logo">
-    <!--<img src="/public/images/fingerprint.svg" alt="Fingerprint" id="fingerprint" />-->
-  </div>
-
-  <div class="sidenav__identity">
-    <img class="ui avatar mini image" src="https://via.placeholder.com/150" />
-    <span>{{ .name }}</span>
-  </div>
-
-  <ul class="sidenav__list">
-
-    <li class="sidenav__list-seperator">Identity</li>
-    <li class="sidenav__list-item"><a href="{{.idpUiUrl}}/me">Profile</a></li>
-    <li class="sidenav__list-item"><a href="{{.idpUiUrl}}/invites">Invites</a></li>
-    <li class="sidenav__list-item"><a href="{{.idpUiUrl}}/follows">Followers</a></li>
-
-    <li class="sidenav__list-seperator">Access & Authorization</li>
-    <li class="sidenav__list-item"><a href="{{.aapUiUrl}}/access">Access</a></li>
-
-  </ul>
-  <div class="sidenav__close-icon">
-    <i class="fas fa-times"></i>
-  </div>
-</aside>
-
-<script>
-  $(document).ready(function(){
-    const menuIconEl = $('.menu-icon');
-    const sidenavEl = $('.sidenav');
-    const sidenavCloseEl = $('.sidenav__close-icon');
-
-    // Add and remove provided class names
-    function toggleClassName(el, className) {
-      if (el.hasClass(className)) {
-        el.removeClass(className);
-      } else {
-        el.addClass(className);
-      }
-    }
-
-    // Open the side nav on click
-    menuIconEl.on('click', function() {
-      toggleClassName(sidenavEl, 'active');
-    });
-
-    // Close the side nav on click
-    sidenavCloseEl.on('click', function() {
-      toggleClassName(sidenavEl, 'active');
-    });
-  });
-</script>
-{{ end }}
-
-{{ define "footer" }}
-<footer class="footer">
-  <div class="footer__copyright">&copy; 2019</div>
-  <div class="footer__signature">Made with love by pure genius</div>
-
-</footer>
-{{ end }}
-
 {{ define "htmlend" }}
   </body>
 </html>
@@ -285,27 +212,6 @@
 {{end}}
 {{ end }}
 
-{{ define "input.verification_code" }}
-{{if .errorVerificationCode}}
-  <div class="required field {{if .errorVerificationCode}}error{{end}}">
-    <div class="ui right labeled left icon input focus">
-      <i class="lock icon"></i>
-      <input name="verification_code" type="password" placeholder="Code" required>
-      <div class="ui red tag label">
-        {{ .errorVerificationCode }}
-      </div>
-    </div>
-  </div>
-{{else}}
-  <div class="required field">
-    <div class="ui left icon input focus">
-      <i class="lock icon"></i>
-      <input name="verification_code" type="password" placeholder="Code" required>
-    </div>
-  </div>
-{{end}}
-{{ end }}
-
 {{ define "input.risk_accepted"}}
 {{if .errorRiskAccepted}}
   <div class="required field {{if .errorRiskAccepted}}error{{end}}">
@@ -322,27 +228,6 @@
     <div class="ui checkbox">
       <input type="checkbox" tabindex="0" name="risk_accepted" value="accept">
       <label for="risk_accepted">I accept the risk of deleting my profile</label>
-    </div>
-  </div>
-{{end}}
-{{ end }}
-
-{{ define "input.exp" }}
-{{if .errorExp}}
-  <div class="required field {{if .errorExp}}error{{end}}">
-    <div class="ui right labeled left icon input focus">
-      <i class="clock icon"></i>
-      <input type="text" name="exp" placeholder="Expires at" value="{{.exp}}" required />
-      <div class="ui red tag label">
-        {{ .errorExp }}
-      </div>
-    </div>
-  </div>
-{{else}}
-  <div class="required field">
-    <div class="ui left icon input focus">
-      <i class="clock icon"></i>
-      <input type="text" name="exp" placeholder="Expires at" value="{{.exp}}" required />
     </div>
   </div>
 {{end}}
