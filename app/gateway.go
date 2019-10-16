@@ -147,6 +147,52 @@ func StartAuthenticationSession(env *environment.State, c *gin.Context, log *log
   return u, err
 }
 
+type ChallengeSession struct {
+  SessionStateKey string
+  SessionRedirectTo string
+  OnVerifiedRedirectTo string
+  State string
+}
+
+func StartChallengeSession(c *gin.Context, newChallengeSession ChallengeSession) (challengeSession *ChallengeSession, err error) {
+  var state string
+
+  // Create random bytes that are based64 encoded to prevent character problems with the session store.
+  state, err = CreateRandomStringWithNumberOfBytes(32);
+  if err != nil {
+    return nil, err
+  }
+
+  urlRedirectToOnVerified, err := url.Parse(newChallengeSession.OnVerifiedRedirectTo)
+  if err != nil {
+    return nil, err
+  }
+  q := urlRedirectToOnVerified.Query()
+  q.Add("state", state)
+  urlRedirectToOnVerified.RawQuery = q.Encode()
+
+  session := sessions.Default(c)
+  session.Set(newChallengeSession.SessionStateKey, state)
+  if newChallengeSession.SessionRedirectTo != "" {
+    urlSessionRedirectTo, err := url.Parse(newChallengeSession.SessionRedirectTo)
+    if err != nil {
+      return nil, err
+    }
+    session.Set(state, urlSessionRedirectTo.String())
+  }
+  err = session.Save()
+  if err != nil {
+    return nil, err
+  }
+  ret := ChallengeSession{
+    SessionStateKey: newChallengeSession.SessionStateKey,
+    SessionRedirectTo: newChallengeSession.SessionRedirectTo,
+    OnVerifiedRedirectTo: urlRedirectToOnVerified.String(),
+    State: state,
+  }
+  return &ret, nil
+}
+
 func FetchInvite(idpClient *idp.IdpClient, id string) (*idp.Invite, error) {
 
   inviteRequest := []idp.ReadInvitesRequest{ {Id: id} }
