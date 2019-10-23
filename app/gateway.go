@@ -22,23 +22,18 @@ import (
 func LoadIdentity(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    var idToken *oidc.IDToken
-
-    session := sessions.Default(c)
-    t := session.Get(environment.SessionIdTokenKey)
-    if t == nil {
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
-      return
-    }
-
-    idToken = t.(*oidc.IDToken)
+    var idToken *oidc.IDToken = IdToken(c)
     if idToken == nil {
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Missing id_token in session"})
+      c.AbortWithStatus(http.StatusUnauthorized)
       return
     }
 
-    var accessToken *oauth2.Token
-    accessToken = session.Get(environment.SessionTokenKey).(*oauth2.Token)
+    var accessToken *oauth2.Token = AccessToken(c)
+    if accessToken == nil {
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
     idpClient := idp.NewIdpClientWithUserAccessToken(env.HydraConfig, accessToken)
 
     // Look up profile information for user.
@@ -81,6 +76,33 @@ func RequireIdentity(c *gin.Context) *idp.Human {
     return &human
   }
   return nil
+}
+
+func AccessToken(c *gin.Context) (*oauth2.Token) {
+  session := sessions.Default(c)
+  t := session.Get(environment.SessionTokenKey)
+  if t != nil {
+    return t.(*oauth2.Token)
+  }
+  return nil
+}
+
+func IdToken(c *gin.Context) (*oidc.IDToken) {
+  session := sessions.Default(c)
+  t := session.Get(environment.SessionIdTokenKey)
+  if t != nil {
+    return  t.(*oidc.IDToken)
+  }
+  return nil
+}
+
+func IdTokenRaw(c *gin.Context) (string) {
+  session := sessions.Default(c)
+  t := session.Get(environment.SessionRawIdTokenKey)
+  if t != nil {
+    return t.(string)
+  }
+  return ""
 }
 
 func IdpClientUsingAuthorizationCode(env *environment.State, c *gin.Context) (*idp.IdpClient) {
