@@ -224,6 +224,10 @@ func serve(env *environment.State) {
     ep.POST( "/delete",             AuthorizationRequired(env, "openid"), credentials.SubmitProfileDelete(env) )
     ep.GET(  "/deleteverification", AuthorizationRequired(env, "openid"), credentials.ShowProfileDeleteVerification(env) )
     ep.POST( "/deleteverification", AuthorizationRequired(env, "openid"), credentials.SubmitProfileDeleteVerification(env) )
+
+    // Signout
+    ep.GET(  "/logout", AuthorizationRequired(env, "openid"), credentials.ShowLogout(env) )
+    ep.POST( "/logout", AuthorizationRequired(env, "openid"), credentials.SubmitLogout(env) )
   }
 
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))
