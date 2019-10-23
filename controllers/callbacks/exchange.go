@@ -103,6 +103,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State) gin.HandlerFunc {
       session := sessions.Default(c)
       session.Set(environment.SessionTokenKey, token)
       session.Set(environment.SessionIdTokenKey, idToken)
+      session.Set(environment.SessionRawIdTokenKey, rawIdToken)
       session.Delete(sessionState) // Cleanup session redirect.
       err = session.Save()
       if err == nil {

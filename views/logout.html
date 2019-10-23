@@ -1,0 +1,25 @@
+{{ template "htmlbegin" . }}
+
+<div class="ui padded middle aligned center aligned grid">
+  <div class="column">
+
+    {{ template "providerheader" . }}
+
+    <div class="ui divider hidden"></div>
+
+    <form class="ui large form" action="{{ .logoutUrl }}" method="post">
+      {{ .csrfField }}
+      <input type="hidden" name="challenge" value="{{ .challenge }}" />
+
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Logout" />
+
+    </form>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Logout challenge: {{ .challenge }}</div>
+
+  </div>
+</div>
+
+{{ template "htmlend" . }}
