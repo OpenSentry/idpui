@@ -1,0 +1,17 @@
+{{ template "htmlbegin" . }}
+
+<div class="ui padded middle aligned center aligned grid">
+  <div class="column">
+
+    {{ template "providerheader" . }}
+
+    <div class="ui divider hidden"></div>
+
+    <p>See you later!</p>
+
+    <p>Session Cleared: {{.sessionCleared}}</p>
+
+  </div>
+</div>
+
+{{ template "htmlend" . }}
