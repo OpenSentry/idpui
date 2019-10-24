@@ -190,6 +190,9 @@ func serve(env *environment.State) {
     ep.GET(  "/login", credentials.ShowLogin(env) )
     ep.POST( "/login", credentials.SubmitLogin(env) )
 
+    // Signout
+    ep.GET( "/seeyoulater", credentials.ShowSeeYouLater(env))
+
     // Verify OTP code
     ep.GET(  "/verify", credentials.ShowVerify(env) )
     ep.POST( "/verify", credentials.SubmitVerify(env) )
