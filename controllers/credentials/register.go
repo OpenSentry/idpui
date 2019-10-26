@@ -4,6 +4,7 @@ import (
   "strings"
   "net/http"
   "reflect"
+  "errors"
   "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
@@ -76,15 +77,17 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
         return
       }
 
-      invite, err := fetchInvites(idpClient, challenge.Subject)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
+      if challenge != nil {
+        invite, err := fetchInvites(idpClient, challenge.Subject)
+        if err != nil {
+          log.Debug(err.Error())
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
 
-      if invite.Username != "" {
-        username = invite.Username
+        if invite != nil && invite.Username != "" {
+          username = invite.Username
+        }
       }
 
     }
@@ -333,7 +336,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
           }
 
           // Registration successful, return to create new ones, but with success message
-          redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.profile")
+          redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.login")
           log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
           c.Redirect(http.StatusFound, redirectTo)
           c.Abort()
@@ -345,6 +348,12 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
             errors["username"] = append(errors["username"], e.Error)
           }
         }
+      } else {
+
+        // FIXME: Better error handling please
+        c.AbortWithStatus(status)
+        return
+
       }
 
     } else {
@@ -384,6 +393,12 @@ func fetchChallenge(idpClient *idp.IdpClient, challenge string) (*idp.Challenge,
       challenge := &resp[0]
       return challenge, nil
     }
+  } else {
+
+    if status == 403 {
+      return nil, errors.New("Access to read challenges denied")
+    }
+
   }
 
   return nil, nil
@@ -404,6 +419,12 @@ func fetchInvites(idpClient *idp.IdpClient, id string) (*idp.Invite, error) {
       invite := &resp[0]
       return invite, nil
     }
+  } else {
+
+    if status == 403 {
+      return nil, errors.New("Access to read invites denied")
+    }
+
   }
 
   return nil, nil

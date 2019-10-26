@@ -26,6 +26,7 @@ import (
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/controllers/credentials"
   "github.com/charmixer/idpui/controllers/callbacks"
+
 )
 
 const appName = "idpui"
@@ -212,25 +213,25 @@ func serve(env *environment.State) {
   ep = r.Group("/")
   ep.Use(adapterCSRF)
   ep.Use( AuthenticationRequired(env) )
-  ep.Use( app.LoadIdentity(env) )
+  ep.Use( app.RequireIdentity(env) ) // Checks Authorization
   {
     // Change password
-    ep.GET(  "/password", AuthorizationRequired(env, "openid"), credentials.ShowPassword(env) )
-    ep.POST( "/password", AuthorizationRequired(env, "openid"), credentials.SubmitPassword(env) )
+    ep.GET(  "/password", credentials.ShowPassword(env) )
+    ep.POST( "/password", credentials.SubmitPassword(env) )
 
     // Enable TOTP
-    ep.GET(  "/totp", AuthorizationRequired(env, "openid"), credentials.ShowTotp(env) )
-    ep.POST( "/totp", AuthorizationRequired(env, "openid"), credentials.SubmitTotp(env) )
+    ep.GET(  "/totp", credentials.ShowTotp(env) )
+    ep.POST( "/totp", credentials.SubmitTotp(env) )
 
     // Profile
-    ep.GET(  "/delete",             AuthorizationRequired(env, "openid"), credentials.ShowProfileDelete(env) )
-    ep.POST( "/delete",             AuthorizationRequired(env, "openid"), credentials.SubmitProfileDelete(env) )
-    ep.GET(  "/deleteverification", AuthorizationRequired(env, "openid"), credentials.ShowProfileDeleteVerification(env) )
-    ep.POST( "/deleteverification", AuthorizationRequired(env, "openid"), credentials.SubmitProfileDeleteVerification(env) )
+    ep.GET(  "/delete",             credentials.ShowProfileDelete(env) )
+    ep.POST( "/delete",             credentials.SubmitProfileDelete(env) )
+    ep.GET(  "/deleteverification", credentials.ShowProfileDeleteVerification(env) )
+    ep.POST( "/deleteverification", credentials.SubmitProfileDeleteVerification(env) )
 
     // Signout
-    ep.GET(  "/logout", AuthorizationRequired(env, "openid"), credentials.ShowLogout(env) )
-    ep.POST( "/logout", AuthorizationRequired(env, "openid"), credentials.SubmitLogout(env) )
+    ep.GET(  "/logout", credentials.ShowLogout(env) )
+    ep.POST( "/logout", credentials.SubmitLogout(env) )
   }
 
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))
@@ -394,32 +395,62 @@ func AuthenticationRequired(env *environment.State) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func AuthorizationRequired(env *environment.State, requiredScopes ...string) gin.HandlerFunc {
+/*func AuthorizationRequired(env *environment.State, requiredScopes ...string) gin.HandlerFunc {
   fn := func(c *gin.Context) {
     log := c.MustGet(environment.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "AuthorizationRequired",
     })
 
+    // Read identity from access token in IDP
+    app.GetIdentity()
+
+    idpClient := idp.IdpClientUsingClientCredentials(env, c)
+
+    readRequest := []idp.ReadHumans{ {Id: } }
+
+
+
     strRequiredScopes := strings.Join(requiredScopes, " ")
     log.WithFields(logrus.Fields{"scope": strRequiredScopes}).Debug("Required Scopes");
 
-    var grantedScopes []string = requiredScopes
+    aapClient := app.AapClientUsingClientCredentials(env, c)
 
-    // See #3 of QTNA
-    log.WithFields(logrus.Fields{"fixme": 1, "qtna": 3}).Debug("Missing check if access token is granted the required scopes")
-
-    // See #4 of QTNA
-    log.WithFields(logrus.Fields{"fixme": 1, "qtna": 4}).Debug("Missing check if the user or client giving the grants in the access token  isauthorized to operate the granted scopes")
-
-    if len(grantedScopes) == len(requiredScopes) {
-
-      strGrantedScopes := strings.Join(grantedScopes, " ")
-      log.WithFields(logrus.Fields{"scope": strGrantedScopes}).Debug("Granted Scopes");
-
-      log.Debug("Authorized")
-      c.Next()
+    judgeRequest := []aap.ReadEntitiesJudgeRequest{ {
+      Publisher: "e044d683-5daf-42af-a31a-938094611be9", // Resource Server. For IdpUI this is IDP, FIXME: We should be able to specify audience instead of id (as thirdparty might not know id)
+      Owners: []string{config.GetString("id")},
+      Scopes: requiredScopes,
+    }}
+    status, responses, err := aap.ReadEntitiesJudge(aapClient, config.GetString("aap.public.url") + config.GetString("aap.public.endpoints.entities.judge"), judgeRequest)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
+    }
+
+    if status == 200 {
+
+      // QTNA answered by app judge endpoint
+      // #3 - Access token granted required scopes? (hydra token introspect)
+      // #4 - User or client in access token authorized to execute the granted scopes?
+      var verdict aap.ReadEntitiesJudgeResponse
+      status, restErr := bulky.Unmarshal(0, responses, &verdict)
+      if restErr != nil {
+        log.Debug("Unmarshal failed")
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      if status == 200 {
+
+        if verdict.Granted == true {
+          log.Debug("Authorized")
+          c.Next()
+          return
+        }
+
+      }
+
     }
 
     // Deny by Default
@@ -428,7 +459,7 @@ func AuthorizationRequired(env *environment.State, requiredScopes ...string) gin
     return
   }
   return gin.HandlerFunc(fn)
-}
+}*/
 
 func authenticateWithBearer(req *http.Request) (*oauth2.Token) {
   auth := req.Header.Get("Authorization")
