@@ -32,7 +32,7 @@ func ShowProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       "func": "ShowProfileDeleteVerification",
     })
 
-    identity := app.RequireIdentity(c)
+    identity := app.GetIdentity(c)
     if identity == nil {
       log.Debug("Missing Identity")
       c.AbortWithStatus(http.StatusForbidden)
@@ -92,7 +92,7 @@ func SubmitProfileDeleteVerification(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    identity := app.RequireIdentity(c)
+    identity := app.GetIdentity(c)
     if identity == nil {
       log.Debug("Missing Identity")
       c.AbortWithStatus(http.StatusForbidden)

@@ -222,7 +222,6 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
       return
     }
 
-
     if form.Email != "" {
 
       idpClient := app.IdpClientUsingClientCredentials(env, c)
@@ -243,6 +242,12 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
           invite := resp[0]
           inviteId = invite.Id
         }
+      } else {
+
+        // FIXME: Better error handling please
+        c.AbortWithStatus(status)
+        return
+
       }
 
       if inviteId == "" {
@@ -255,14 +260,20 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
           return
         }
         if status == 200 {
-
           var invResp idp.CreateInvitesResponse
           status, _ := bulky.Unmarshal(0, responses, &invResp)
           if status == 200 {
             inviteId = invResp.Id
           }
 
+        } else {
+
+          // FIXME: Better error handling please
+          c.AbortWithStatus(status)
+          return
+
         }
+
       }
 
       if inviteId != "" {
@@ -286,7 +297,6 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
           return
         }
         if status == 200 {
-
           var challengeResp idp.CreateInvitesClaimResponse
           status, _ := bulky.Unmarshal(0, responses, &challengeResp)
           if status == 200 {
@@ -305,6 +315,12 @@ func SubmitClaimEmail(env *environment.State) gin.HandlerFunc {
             c.Abort()
             return
           }
+
+        } else {
+
+          // FIXME: Better error handling please
+          c.AbortWithStatus(status)
+          return
 
         }
 
