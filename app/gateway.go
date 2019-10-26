@@ -12,6 +12,7 @@ import (
   oidc "github.com/coreos/go-oidc"
 
   idp "github.com/charmixer/idp/client"
+  aap "github.com/charmixer/aap/client"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/environment"
 
@@ -19,7 +20,7 @@ import (
 )
 
 // Use this handler as middleware to enable gateway functions in controllers
-func LoadIdentity(env *environment.State) gin.HandlerFunc {
+func RequireIdentity(env *environment.State) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     var idToken *oidc.IDToken = IdToken(c)
@@ -63,13 +64,12 @@ func LoadIdentity(env *environment.State) gin.HandlerFunc {
     }
 
     // Deny by default
-    logrus.WithFields(logrus.Fields{ "status":status }).Debug("Unmarshal response failed")
     c.AbortWithStatus(http.StatusForbidden)
   }
   return gin.HandlerFunc(fn)
 }
 
-func RequireIdentity(c *gin.Context) *idp.Human {
+func GetIdentity(c *gin.Context) *idp.Human {
   identity, exists := c.Get("identity")
   if exists == true {
     human := identity.(idp.Human)
@@ -117,6 +117,10 @@ func IdpClientUsingAuthorizationCode(env *environment.State, c *gin.Context) (*i
 
 func IdpClientUsingClientCredentials(env *environment.State, c *gin.Context) (*idp.IdpClient) {
   return idp.NewIdpClient(env.IdpApiConfig)
+}
+
+func AapClientUsingClientCredentials(env *environment.State, c *gin.Context) (*aap.AapClient) {
+  return aap.NewAapClient(env.AapApiConfig)
 }
 
 func CreateRandomStringWithNumberOfBytes(numberOfBytes int) (string, error) {
