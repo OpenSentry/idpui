@@ -14,7 +14,6 @@ import (
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
 
@@ -30,10 +29,10 @@ type registrationForm struct {
     PasswordRetyped string `form:"password_retyped"   validate:"required,notblank"`
 }
 
-func ShowRegistration(env *environment.State) gin.HandlerFunc {
+func ShowRegistration(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ShowRegistration",
     })
@@ -51,16 +50,16 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
     }
 
     session := sessions.Default(c)
-    v := session.Get(environment.SessionClaimStateKey)
+    v := session.Get(env.Constants.SessionClaimStateKey)
     if v == nil {
-      log.WithFields(logrus.Fields{ "key":environment.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
+      log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
       c.AbortWithStatus(http.StatusBadRequest)
       return
     }
     sessionState := v.(string)
 
     if state != sessionState {
-      log.WithFields(logrus.Fields{ "key":environment.SessionClaimStateKey }).Debug("Request did not originate from app. Hint: session state and request state differs")
+      log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request did not originate from app. Hint: session state and request state differs")
       c.AbortWithStatus(http.StatusBadRequest)
       return
     }
@@ -172,10 +171,10 @@ func ShowRegistration(env *environment.State) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func SubmitRegistration(env *environment.State) gin.HandlerFunc {
+func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "SubmitRegistration",
     })
@@ -205,16 +204,16 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
     }
 
     session := sessions.Default(c)
-    v := session.Get(environment.SessionClaimStateKey)
+    v := session.Get(env.Constants.SessionClaimStateKey)
     if v == nil {
-      log.WithFields(logrus.Fields{ "key":environment.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
+      log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
       c.AbortWithStatus(http.StatusBadRequest)
       return
     }
     sessionState := v.(string)
 
     if form.State != sessionState {
-      log.WithFields(logrus.Fields{ "key":environment.SessionClaimStateKey }).Debug("Request did not originate from app. Hint: session state and request state differs")
+      log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request did not originate from app. Hint: session state and request state differs")
       c.AbortWithStatus(http.StatusBadRequest)
       return
     }
@@ -323,7 +322,7 @@ func SubmitRegistration(env *environment.State) gin.HandlerFunc {
         status, restErr := bulky.Unmarshal(0, responses, &resp)
         if status == 200 {
           // Cleanup session
-          session.Delete(environment.SessionClaimStateKey)
+          session.Delete(env.Constants.SessionClaimStateKey)
           session.Delete("register.fields")
           session.Delete("register.errors")
 

@@ -6,24 +6,25 @@ import (
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
+
   oidc "github.com/coreos/go-oidc"
 
+  "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/environment"
 )
 
-func ExchangeAuthorizationCodeCallback(env *environment.State) gin.HandlerFunc {
+func ExchangeAuthorizationCodeCallback(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ExchangeAuthorizationCodeCallback",
     })
 
     session := sessions.Default(c)
-    v := session.Get(environment.SessionStateKey)
+    v := session.Get(env.Constants.SessionExchangeStateKey)
     if v == nil {
-      log.WithFields(logrus.Fields{"key": environment.SessionStateKey}).Debug("Request not initiated by app. Hint: Missing session state")
+      log.WithFields(logrus.Fields{ "key":env.Constants.SessionExchangeStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
       c.JSON(http.StatusBadRequest, gin.H{"error": "Request not initiated by idpui. Hint: Missing session state"})
       c.Abort()
       return;
@@ -63,7 +64,7 @@ func ExchangeAuthorizationCodeCallback(env *environment.State) gin.HandlerFunc {
     }
 
     // Found a code try and exchange it for access token.
-    token, err := env.HydraConfig.Exchange(context.Background(), code)
+    token, err := env.OAuth2Delegator.Exchange(context.Background(), code)
     if err != nil {
       log.WithFields(logrus.Fields{"error": err.Error()}).Debug("Token exchange failed")
       c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
@@ -80,30 +81,29 @@ func ExchangeAuthorizationCodeCallback(env *environment.State) gin.HandlerFunc {
         redirectTo = redirect.(string)
       }
 
-      rawIdToken, ok := token.Extra("id_token").(string)
-      if !ok {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "No id_token found with access token"})
-        c.Abort()
-        return
-      }
+      var idToken string
+      __idToken, ok := token.Extra("id_token").(string)
+      if ok == true {
+        oidcConfig := &oidc.Config{
+          ClientID: config.GetString("oauth2.client.id"),
+        }
 
-      oidcConfig := &oidc.Config{
-        ClientID: config.GetString("oauth2.client.id"),
-      }
-      verifier := env.Provider.Verifier(oidcConfig)
+        verifier := env.Provider.Verifier(oidcConfig)
 
-      idToken, err := verifier.Verify(context.Background(), rawIdToken)
-      if err != nil {
-        log.WithFields(logrus.Fields{"error": err.Error()}).Debug("Id token verification failed")
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to verify id_token. Hint: " + err.Error()})
-        c.Abort()
-        return
+        _ /* idToken *oidc.IDToken*/, err = verifier.Verify(context.Background(), __idToken)
+        if err != nil {
+          log.Debug(err.Error())
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+        idToken = __idToken
       }
 
       session := sessions.Default(c)
-      session.Set(environment.SessionTokenKey, token)
-      session.Set(environment.SessionIdTokenKey, idToken)
-      session.Set(environment.SessionRawIdTokenKey, rawIdToken)
+      session.Set(env.Constants.IdentityStoreKey, app.IdentityStore{
+        Token: token,
+        IdToken: idToken, // Save the raw Id token as we need it to hint logout.
+      })
       session.Delete(sessionState) // Cleanup session redirect.
       err = session.Save()
       if err == nil {
