@@ -13,7 +13,6 @@ import (
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
 
@@ -24,10 +23,10 @@ type recoverForm struct {
     Email string `form:"email" binding:"required" validate:"required,email"`
 }
 
-func ShowRecover(env *environment.State) gin.HandlerFunc {
+func ShowRecover(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ShowRecover",
     })
@@ -67,10 +66,10 @@ func ShowRecover(env *environment.State) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func SubmitRecover(env *environment.State) gin.HandlerFunc {
+func SubmitRecover(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "SubmitRecover",
     })

@@ -1,12 +1,9 @@
 package main
 
 import (
-  "strings"
   "net/url"
-  "net/http"
   "encoding/gob"
   "os"
-  "time"
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
@@ -16,14 +13,11 @@ import (
   "github.com/gin-contrib/sessions/cookie"
   "github.com/gorilla/csrf"
   "github.com/gwatts/gin-adapter"
-  "github.com/gofrs/uuid"
   oidc "github.com/coreos/go-oidc"
   "github.com/pborman/getopt"
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/environment"
-  "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/controllers/credentials"
   "github.com/charmixer/idpui/controllers/callbacks"
 
@@ -38,7 +32,6 @@ var (
   log *logrus.Logger
 
   appFields logrus.Fields
-  sessionKeys environment.SessionKeys
 )
 
 func init() {
@@ -70,13 +63,10 @@ func init() {
     "log.format": logFormat,
   }
 
-  sessionKeys = environment.SessionKeys{
-    SessionAppStore: appName,
-  }
+  gob.Register(&app.IdentityStore{})
 
-  gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
-  gob.Register(&oidc.IDToken{})
-  //gob.Register(&idp.Profile{})
+  //gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
+  //gob.Register(&oidc.IDToken{})
   gob.Register(make(map[string][]string))
 }
 
@@ -122,12 +112,30 @@ func main() {
   }
 
   // Setup app state variables. Can be used in handler functions by doing closures see exchangeAuthorizationCodeCallback
-  env := &environment.State{
-    SessionKeys: &sessionKeys,
+  env := &app.Environment{
+    Constants: &app.EnvironmentConstants{
+      RequestIdKey: "RequestId",
+      LogKey: "log",
+      AccessTokenKey: "access_token",
+      IdTokenKey: "id_token",
+
+      SessionStoreKey: appName,
+      SessionExchangeStateKey: "exchange.state",
+      SessionClaimStateKey: "claim.state",
+      SessionLogoutStateKey: "logout.state",
+
+      ContextAccessTokenKey: "access_token",
+      ContextIdTokenKey: "id_token",
+      ContextIdTokenHintKey: "id_token_hint",
+      ContextIdentityKey: "id",
+
+      IdentityStoreKey: "idstore",
+    },
     Provider: provider,
-    HydraConfig: hydraConfig,
-    IdpApiConfig: idpConfig,
-    AapApiConfig: aapConfig,
+    OAuth2Delegator: hydraConfig,
+    IdpConfig: idpConfig,
+    AapConfig: aapConfig,
+    Logger: log,
   }
 
   optServe := getopt.BoolLong("serve", 0, "Serve application")
@@ -148,12 +156,12 @@ func main() {
 
 }
 
-func serve(env *environment.State) {
+func serve(env *app.Environment) {
   r := gin.New() // Clean gin to take control with logging.
   r.Use(gin.Recovery())
 
-  r.Use(requestId())
-  r.Use(RequestLogger(env))
+  r.Use(app.RequestId())
+  r.Use(app.RequestLogger(env, appFields))
 
   store := cookie.NewStore([]byte(config.GetString("session.authKey")))
   // Ref: https://godoc.org/github.com/gin-gonic/contrib/sessions#Options
@@ -163,7 +171,7 @@ func serve(env *environment.State) {
     Secure: true,
     HttpOnly: true,
   })
-  r.Use(sessions.Sessions(env.SessionKeys.SessionAppStore, store))
+  r.Use(sessions.Sessions(env.Constants.SessionStoreKey, store))
 
   // Use CSRF on all idpui forms.
   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.GetString("csrf.authKey")), csrf.Secure(true)))
@@ -212,7 +220,7 @@ func serve(env *environment.State) {
   // Endpoints that require Authentication and Authorization
   ep = r.Group("/")
   ep.Use(adapterCSRF)
-  ep.Use( AuthenticationRequired(env) )
+  ep.Use( app.AuthenticationRequired(env) )
   ep.Use( app.RequireIdentity(env) ) // Checks Authorization
   {
     // Change password
@@ -235,269 +243,4 @@ func serve(env *environment.State) {
   }
 
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))
-}
-
-func RequestLogger(env *environment.State) gin.HandlerFunc {
-  fn := func(c *gin.Context) {
-
-    // Start timer
-    start := time.Now()
-    path := c.Request.URL.Path
-    raw := c.Request.URL.RawQuery
-
-    var requestId string = c.MustGet(environment.RequestIdKey).(string)
-    requestLog := log.WithFields(appFields).WithFields(logrus.Fields{
-      "request.id": requestId,
-    })
-    c.Set(environment.LogKey, requestLog)
-
-  c.Next()
-
-  // Stop timer
-  stop := time.Now()
-  latency := stop.Sub(start)
-
-    ipData, err := utils.GetRequestIpData(c.Request)
-    if err != nil {
-      log.WithFields(appFields).WithFields(logrus.Fields{
-        "func": "RequestLogger",
-      }).Debug(err.Error())
-    }
-
-    forwardedForIpData, err := utils.GetForwardedForIpData(c.Request)
-    if err != nil {
-      log.WithFields(appFields).WithFields(logrus.Fields{
-        "func": "RequestLogger",
-      }).Debug(err.Error())
-    }
-
-  method := c.Request.Method
-  statusCode := c.Writer.Status()
-  errorMessage := c.Errors.ByType(gin.ErrorTypePrivate).String()
-
-  bodySize := c.Writer.Size()
-
-    var fullpath string = path
-  if raw != "" {
-  fullpath = path + "?" + raw
-  }
-
-    // if public data is requested successfully, then dont log it since its just spam when debugging
-    if strings.Contains(path, "/public/") && ( statusCode == http.StatusOK || statusCode == http.StatusNotModified ) {
-     return
-    }
-
-  log.WithFields(appFields).WithFields(logrus.Fields{
-      "latency": latency,
-      "forwarded_for.ip": forwardedForIpData.Ip,
-      "forwarded_for.port": forwardedForIpData.Port,
-      "ip": ipData.Ip,
-      "port": ipData.Port,
-      "method": method,
-      "status": statusCode,
-      "error": errorMessage,
-      "body_size": bodySize,
-      "path": fullpath,
-      "request.id": requestId,
-    }).Info("")
-  }
-  return gin.HandlerFunc(fn)
-}
-
-// # Authentication and Authorization
-// Gin middleware to secure idp fe endpoints using oauth2.
-//
-// ## QTNA - Questions that need answering before granting access to a protected resource
-// 1. Is the user or client authenticated? Answered by the process of obtaining an access token.
-// 2. Is the access token expired?
-// 3. Is the access token granted the required scopes?
-// 4. Is the user or client giving the grants in the access token authorized to operate the scopes granted?
-// 5. Is the access token revoked?
-
-func AuthenticationRequired(env *environment.State) gin.HandlerFunc {
-  fn := func(c *gin.Context) {
-
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
-    log = log.WithFields(logrus.Fields{
-      "func": "AuthenticationRequired",
-    })
-
-    session := sessions.Default(c)
-
-    // Authenticate by looking for valid access token
-    var token *oauth2.Token
-
-    token = authenticateWithBearer(c.Request)
-    if token != nil {
-      log = log.WithFields(logrus.Fields{"authorization": "bearer"})
-      log.Debug("Access token found")
-    } else {
-
-      token = authenticateWithSession(session, environment.SessionTokenKey)
-      if token != nil {
-        log = log.WithFields(logrus.Fields{"authorization": "session"})
-        log.Debug("Access token found")
-      }
-
-    }
-
-    if token != nil {
-
-      tokenSource := env.HydraConfig.TokenSource(oauth2.NoContext, token)
-      newToken, err := tokenSource.Token()
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-
-      if newToken.AccessToken != token.AccessToken {
-        log.Debug("Access token refreshed")
-        token = newToken
-      }
-
-      // See #2 of QTNA
-      // https://godoc.org/golang.org/x/oauth2#Token.Valid
-      if token.Valid() == true {
-        log.Debug("Access token valid")
-
-        // See #5 of QTNA
-        log.WithFields(logrus.Fields{"fixme": 1, "qtna": 5}).Debug("Missing check against token-revoked-list to check if token is revoked") // Call token revoked list to check if token is revoked.
-
-        session.Set(environment.SessionTokenKey, token)
-        err = session.Save()
-        if err != nil {
-          log.Debug(err.Error())
-          c.AbortWithStatus(http.StatusInternalServerError)
-          return
-        }
-
-        log.Debug("Authenticated")
-        c.Next()
-        return
-      }
-
-    }
-
-    // Deny by default
-    log.Debug("Unauthorized")
-
-    initUrl, err := app.StartAuthenticationSession(env, c, log)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
-    c.Redirect(http.StatusFound, initUrl.String())
-    c.Abort()
-    return
-  }
-  return gin.HandlerFunc(fn)
-}
-
-/*func AuthorizationRequired(env *environment.State, requiredScopes ...string) gin.HandlerFunc {
-  fn := func(c *gin.Context) {
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
-    log = log.WithFields(logrus.Fields{
-      "func": "AuthorizationRequired",
-    })
-
-    // Read identity from access token in IDP
-    app.GetIdentity()
-
-    idpClient := idp.IdpClientUsingClientCredentials(env, c)
-
-    readRequest := []idp.ReadHumans{ {Id: } }
-
-
-
-    strRequiredScopes := strings.Join(requiredScopes, " ")
-    log.WithFields(logrus.Fields{"scope": strRequiredScopes}).Debug("Required Scopes");
-
-    aapClient := app.AapClientUsingClientCredentials(env, c)
-
-    judgeRequest := []aap.ReadEntitiesJudgeRequest{ {
-      Publisher: "e044d683-5daf-42af-a31a-938094611be9", // Resource Server. For IdpUI this is IDP, FIXME: We should be able to specify audience instead of id (as thirdparty might not know id)
-      Owners: []string{config.GetString("id")},
-      Scopes: requiredScopes,
-    }}
-    status, responses, err := aap.ReadEntitiesJudge(aapClient, config.GetString("aap.public.url") + config.GetString("aap.public.endpoints.entities.judge"), judgeRequest)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
-
-    if status == 200 {
-
-      // QTNA answered by app judge endpoint
-      // #3 - Access token granted required scopes? (hydra token introspect)
-      // #4 - User or client in access token authorized to execute the granted scopes?
-      var verdict aap.ReadEntitiesJudgeResponse
-      status, restErr := bulky.Unmarshal(0, responses, &verdict)
-      if restErr != nil {
-        log.Debug("Unmarshal failed")
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-
-      if status == 200 {
-
-        if verdict.Granted == true {
-          log.Debug("Authorized")
-          c.Next()
-          return
-        }
-
-      }
-
-    }
-
-    // Deny by Default
-    log.Debug("Forbidden")
-    c.AbortWithStatus(http.StatusForbidden)
-    return
-  }
-  return gin.HandlerFunc(fn)
-}*/
-
-func authenticateWithBearer(req *http.Request) (*oauth2.Token) {
-  auth := req.Header.Get("Authorization")
-  split := strings.SplitN(auth, " ", 2)
-  if len(split) == 2 || strings.EqualFold(split[0], "bearer") {
-    token := &oauth2.Token{
-      AccessToken: split[1],
-      TokenType: split[0],
-    }
-    return token
-  }
-  return nil
-}
-
-func authenticateWithSession(session sessions.Session, tokenKey string) (*oauth2.Token) {
-  v := session.Get(tokenKey)
-  if v != nil {
-    return v.(*oauth2.Token)
-  }
-  return nil
-}
-
-func requestId() gin.HandlerFunc {
-  return func(c *gin.Context) {
-  // Check for incoming header, use it if exists
-  requestID := c.Request.Header.Get("X-Request-Id")
-
-  // Create request id with UUID4
-  if requestID == "" {
-  uuid4, _ := uuid.NewV4()
-  requestID = uuid4.String()
-  }
-
-  // Expose it for use in the application
-  c.Set("RequestId", requestID)
-
-  // Set X-Request-Id header
-  c.Writer.Header().Set("X-Request-Id", requestID)
-  c.Next()
-  }
 }

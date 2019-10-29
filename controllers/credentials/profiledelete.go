@@ -11,7 +11,6 @@ import (
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
 
   bulky "github.com/charmixer/bulky/client"
@@ -21,15 +20,15 @@ type profileDeleteForm struct {
   RiskAccepted string `form:"risk_accepted"`
 }
 
-func ShowProfileDelete(env *environment.State) gin.HandlerFunc {
+func ShowProfileDelete(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ShowProfileDelete",
     })
 
-    identity := app.GetIdentity(c)
+    identity := app.GetIdentity(env, c)
     if identity == nil {
       log.Debug("Missing Identity")
       c.AbortWithStatus(http.StatusForbidden)
@@ -75,10 +74,10 @@ func ShowProfileDelete(env *environment.State) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func SubmitProfileDelete(env *environment.State) gin.HandlerFunc {
+func SubmitProfileDelete(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "SubmitProfileDelete",
     })
@@ -91,7 +90,7 @@ func SubmitProfileDelete(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    identity := app.GetIdentity(c)
+    identity := app.GetIdentity(env, c)
     if identity == nil {
       log.Debug("Missing Identity")
       c.AbortWithStatus(http.StatusForbidden)

@@ -19,7 +19,6 @@ import (
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
 )
@@ -30,15 +29,15 @@ type totpForm struct {
   Secret string `form:"secret" binding:"required" validate:"required,notblank"`
 }
 
-func ShowTotp(env *environment.State) gin.HandlerFunc {
+func ShowTotp(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ShowTotp",
     })
 
-    identity := app.GetIdentity(c)
+    identity := app.GetIdentity(env, c)
     if identity == nil {
       log.Debug("Missing Identity")
       c.AbortWithStatus(http.StatusForbidden)
@@ -148,10 +147,10 @@ func ShowTotp(env *environment.State) gin.HandlerFunc {
   }
   return gin.HandlerFunc(fn)
 }
-func SubmitTotp(env *environment.State) gin.HandlerFunc {
+func SubmitTotp(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "SubmitTotp",
     })
@@ -163,7 +162,7 @@ func SubmitTotp(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    identity := app.GetIdentity(c)
+    identity := app.GetIdentity(env, c)
     if identity == nil {
       log.Debug("Missing Identity")
       c.AbortWithStatus(http.StatusForbidden)
