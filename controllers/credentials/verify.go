@@ -14,7 +14,6 @@ import (
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/environment"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
 
@@ -26,10 +25,10 @@ type verifyForm struct {
   Code string `form:"code" binding:"required" validate:"required,notblank"`
 }
 
-func ShowVerify(env *environment.State) gin.HandlerFunc {
+func ShowVerify(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ShowVerify",
     })
@@ -80,10 +79,10 @@ func ShowVerify(env *environment.State) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func SubmitVerify(env *environment.State) gin.HandlerFunc {
+func SubmitVerify(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "SubmitVerify",
     })

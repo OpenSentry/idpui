@@ -6,13 +6,13 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
 
-  "github.com/charmixer/idpui/environment"
+  "github.com/charmixer/idpui/app"
 )
 
-func ShowSeeYouLater(env *environment.State) gin.HandlerFunc {
+func ShowSeeYouLater(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ShowSeeYouLater",
     })

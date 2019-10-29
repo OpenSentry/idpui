@@ -11,7 +11,6 @@ import (
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/environment"
 
   bulky "github.com/charmixer/bulky/client"
 )
@@ -20,28 +19,31 @@ type logoutForm struct {
   Challenge string `form:"challenge" binding:"required" validate:"required,notblank"`
 }
 
-const LogoutSessionStateKey = "logout.state"
-
-func ShowLogout(env *environment.State) gin.HandlerFunc {
+func ShowLogout(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "ShowLogout",
     })
 
     var err error
 
-    session := sessions.Default(c)
+    identity := app.GetIdentity(env, c)
+    if identity == nil {
+      log.Debug("Missing Identity")
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
 
-    idpClient := app.IdpClientUsingClientCredentials(env, c)
+    idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
     logoutChallenge := c.Query("logout_challenge")
     if logoutChallenge == "" {
 
-      idToken := app.IdTokenRaw(c)
-      if idToken == "" {
-        log.Debug("Missing raw id_token")
+      idTokenHint := app.IdTokenHint(env, c)
+      if idTokenHint == "" {
+        log.Debug("Missing id_token_hint")
         c.AbortWithStatus(http.StatusUnauthorized)
         return
       }
@@ -66,7 +68,7 @@ func ShowLogout(env *environment.State) gin.HandlerFunc {
 
       }
 
-      logoutRequest := []idp.CreateHumansLogoutRequest{ { IdToken:idToken, RedirectTo:postLogoutRedirectUrl.String(), State:state } }
+      logoutRequest := []idp.CreateHumansLogoutRequest{ { IdToken:idTokenHint, RedirectTo:postLogoutRedirectUrl.String(), State:state } }
       status, responses, err := idp.CreateHumansLogout(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.logout"), logoutRequest)
       if err != nil {
         log.Debug(err.Error())
@@ -80,7 +82,8 @@ func ShowLogout(env *environment.State) gin.HandlerFunc {
         status, _ = bulky.Unmarshal(0, responses, &logoutResponse)
         if status == 200 {
 
-          session.Set(LogoutSessionStateKey, state)
+          session := sessions.Default(c)
+          session.Set(env.Constants.SessionLogoutStateKey, state)
           err = session.Save()
           if err != nil {
             log.Debug(err.Error())
@@ -133,10 +136,10 @@ func ShowLogout(env *environment.State) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func SubmitLogout(env *environment.State) gin.HandlerFunc {
+func SubmitLogout(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
-    log := c.MustGet(environment.LogKey).(*logrus.Entry)
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
       "func": "SubmitLogout",
     })
@@ -149,7 +152,8 @@ func SubmitLogout(env *environment.State) gin.HandlerFunc {
       return
     }
 
-    idpClient := app.IdpClientUsingClientCredentials(env, c)
+    //idpClient := app.IdpClientUsingClientCredentials(env, c)
+    idpClient := app.IdpClientUsingAuthorizationCode(env, c)
 
     challenge, err := readLogoutChallenge(idpClient, form.Challenge)
     if err != nil {
@@ -176,7 +180,7 @@ func SubmitLogout(env *environment.State) gin.HandlerFunc {
         if status == 200 {
 
           session := sessions.Default(c)
-          session.Delete(LogoutSessionStateKey)
+          session.Delete(env.Constants.SessionLogoutStateKey)
           err = session.Save()
           if err != nil {
             log.Debug(err.Error())
