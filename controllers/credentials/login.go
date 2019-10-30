@@ -98,7 +98,7 @@ func ShowLogin(env *app.Environment) gin.HandlerFunc {
         return
       }
 
-      session := sessions.Default(c)
+      session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
       // Retain the values that was submittet, except passwords!
       var email string
@@ -172,7 +172,7 @@ func SubmitLogin(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     // Save value if submit fails
     session.AddFlash(form.Email, "authenticate.email")

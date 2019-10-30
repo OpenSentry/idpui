@@ -21,7 +21,7 @@ func ExchangeAuthorizationCodeCallback(env *app.Environment) gin.HandlerFunc {
       "func": "ExchangeAuthorizationCodeCallback",
     })
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
     v := session.Get(env.Constants.SessionExchangeStateKey)
     if v == nil {
       log.WithFields(logrus.Fields{ "key":env.Constants.SessionExchangeStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
@@ -99,14 +99,23 @@ func ExchangeAuthorizationCodeCallback(env *app.Environment) gin.HandlerFunc {
         idToken = __idToken
       }
 
-      session := sessions.Default(c)
-      session.Set(env.Constants.IdentityStoreKey, app.IdentityStore{
+      credentialsStore := sessions.DefaultMany(c, env.Constants.SessionCredentialsStoreKey)
+      credentialsStore.Set(env.Constants.IdentityStoreKey, app.IdentityStore{
         Token: token,
         IdToken: idToken, // Save the raw Id token as we need it to hint logout.
       })
-      session.Delete(sessionState) // Cleanup session redirect.
-      err = session.Save()
+      err = credentialsStore.Save()
       if err == nil {
+
+        session.Delete(sessionState) // Cleanup session redirect.
+        err = session.Save()
+        if err != nil {
+          log.Debug("Failed to save session data: " + err.Error())
+          c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to save application session data"})
+          c.Abort()
+          return
+        }
+
         log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
         c.Redirect(http.StatusFound, redirectTo)
         c.Abort()
@@ -114,7 +123,7 @@ func ExchangeAuthorizationCodeCallback(env *app.Environment) gin.HandlerFunc {
       }
 
       log.Debug("Failed to save session data: " + err.Error())
-      c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to save session data"})
+      c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to save credentials session data"})
       c.Abort()
       return
     }

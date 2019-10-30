@@ -31,7 +31,7 @@ func ShowRecover(env *app.Environment) gin.HandlerFunc {
       "func": "ShowRecover",
     })
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     errors := session.Flashes("recover.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -81,7 +81,7 @@ func SubmitRecover(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     // Save values if submit fails
     session.Set("recover.email", form.Email)

@@ -39,8 +39,8 @@ func AuthenticationRequired(env *Environment) gin.HandlerFunc {
     var idToken *oidc.IDToken
     var __idToken string
 
-    session := sessions.Default(c)
-    obj := session.Get(env.Constants.IdentityStoreKey)
+    credentialsStore := sessions.DefaultMany(c, env.Constants.SessionCredentialsStoreKey)
+    obj := credentialsStore.Get(env.Constants.IdentityStoreKey)
     if obj != nil {
       idStore := obj.(*IdentityStore)
       if idStore != nil {
@@ -189,7 +189,7 @@ func StartAuthenticationSession(env *Environment, c *gin.Context, log *logrus.En
   redirectTo := c.Request.RequestURI
 
   // Always generate a new authentication session state
-  session := sessions.Default(c)
+  session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
   // Create random bytes that are based64 encoded to prevent character problems with the session store.
   // The base 64 means that more than 64 bytes are stored! Which can cause "securecookie: the value is too long"

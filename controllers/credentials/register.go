@@ -49,7 +49,7 @@ func ShowRegistration(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
     v := session.Get(env.Constants.SessionClaimStateKey)
     if v == nil {
       log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
@@ -203,7 +203,7 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
     v := session.Get(env.Constants.SessionClaimStateKey)
     if v == nil {
       log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")

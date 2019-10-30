@@ -35,7 +35,7 @@ func ShowProfileDelete(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     riskAccepted := session.Flashes("profiledelete.risk_accepted")
 
@@ -97,7 +97,7 @@ func SubmitProfileDelete(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
     errors := make(map[string][]string)
 
     riskAccepted := len(form.RiskAccepted) > 0
