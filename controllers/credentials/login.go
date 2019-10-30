@@ -36,8 +36,6 @@ func ShowLogin(env *app.Environment) gin.HandlerFunc {
 
     loginChallenge := c.Query("login_challenge")
     if loginChallenge == "" {
-      // User is visiting login page as the first part of the process, probably meaning. Want to view profile or change it.
-      // IdpUi should ask hydra for a challenge to login
       initUrl, err := app.StartAuthenticationSession(env, c, log)
       if err != nil {
         log.Debug(err.Error())
