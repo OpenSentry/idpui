@@ -34,7 +34,7 @@ func ShowRecoverVerification(env *app.Environment) gin.HandlerFunc {
       "func": "ShowRecoverVerification",
     })
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     id := session.Get("recoververification.id")
     if id == nil {
@@ -104,7 +104,7 @@ func SubmitRecoverVerification(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     errors := make(map[string][]string)
     validate := validator.New()

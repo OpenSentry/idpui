@@ -46,7 +46,7 @@ type ChallengeSession struct {
   State string
 }
 
-func StartChallengeSession(c *gin.Context, newChallengeSession ChallengeSession) (challengeSession *ChallengeSession, err error) {
+func StartChallengeSession(env *Environment, c *gin.Context, newChallengeSession ChallengeSession) (challengeSession *ChallengeSession, err error) {
   var state string
 
   // Create random bytes that are based64 encoded to prevent character problems with the session store.
@@ -63,7 +63,7 @@ func StartChallengeSession(c *gin.Context, newChallengeSession ChallengeSession)
   q.Add("state", state)
   urlRedirectToOnVerified.RawQuery = q.Encode()
 
-  session := sessions.Default(c)
+  session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
   session.Set(newChallengeSession.SessionStateKey, state)
   if newChallengeSession.SessionRedirectTo != "" {
     urlSessionRedirectTo, err := url.Parse(newChallengeSession.SessionRedirectTo)

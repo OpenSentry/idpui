@@ -19,9 +19,17 @@ func ShowSeeYouLater(env *app.Environment) gin.HandlerFunc {
 
     var sessionCleared bool = true
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
     session.Clear()
     err := session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+      sessionCleared = false
+    }
+
+    session = sessions.DefaultMany(c, env.Constants.SessionCredentialsStoreKey)
+    session.Clear()
+    err = session.Save()
     if err != nil {
       log.Debug(err.Error())
       sessionCleared = false

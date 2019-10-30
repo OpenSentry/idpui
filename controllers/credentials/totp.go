@@ -44,7 +44,7 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     millis := time.Now().UnixNano() / 1000000
 
@@ -169,7 +169,7 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     errors := make(map[string][]string)
     validate := validator.New()

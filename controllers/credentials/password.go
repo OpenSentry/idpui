@@ -37,7 +37,7 @@ func ShowPassword(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     errors := session.Flashes("password.errors")
     err := session.Save() // Remove flashes read, and save submit fields
@@ -111,7 +111,7 @@ func SubmitPassword(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     errors := make(map[string][]string)
     validate := validator.New()
