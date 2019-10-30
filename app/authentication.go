@@ -1,6 +1,7 @@
 package app
 
 import (
+  "strings"
   "net/http"
   "net/url"
   "golang.org/x/net/context"
@@ -177,6 +178,34 @@ func GetIdentity(env *Environment, c *gin.Context) *idp.Human {
   return nil
 }
 
+func createPostRedirectUri(requestedUrl string) (redirectTo string, err error) {
+
+  loginUrl, err := url.Parse(config.GetString("idpui.public.endpoints.login"))
+  if err != nil {
+    return "", err
+  }
+
+  // Redirect to after successful authentication
+  wantUrl, err := url.Parse(requestedUrl)
+  if err != nil {
+    return "", err
+  }
+
+  // Clean query params before comparing
+  q := url.Values{}
+
+  loginUrl.RawQuery = q.Encode()
+  wantUrl.RawQuery = q.Encode()
+
+  if strings.EqualFold(wantUrl.String(), loginUrl.String()) {
+    redirectTo = config.GetString("idpui.public.endpoints.root") // Do not allow landing login controller after authentication as it will create an inf. loop.
+  } else {
+    redirectTo = requestedUrl
+  }
+
+  return redirectTo, nil
+}
+
 func StartAuthenticationSession(env *Environment, c *gin.Context, log *logrus.Entry) (*url.URL, error) {
   var state string
   var err error
@@ -185,8 +214,10 @@ func StartAuthenticationSession(env *Environment, c *gin.Context, log *logrus.En
     "func": "StartAuthenticationSession",
   })
 
-  // Redirect to after successful authentication
-  redirectTo := c.Request.RequestURI
+  redirectTo, err := createPostRedirectUri(c.Request.RequestURI)
+  if err != nil {
+    return nil, err
+  }
 
   // Always generate a new authentication session state
   session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
