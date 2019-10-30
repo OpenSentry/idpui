@@ -119,6 +119,7 @@ func main() {
       AccessTokenKey: "access_token",
       IdTokenKey: "id_token",
 
+      SessionCredentialsStoreKey: appName + ".credentials",
       SessionStoreKey: appName,
       SessionExchangeStateKey: "exchange.state",
       SessionClaimStateKey: "claim.state",
@@ -171,7 +172,8 @@ func serve(env *app.Environment) {
     Secure: true,
     HttpOnly: true,
   })
-  r.Use(sessions.Sessions(env.Constants.SessionStoreKey, store))
+  r.Use(sessions.SessionsMany([]string{env.Constants.SessionCredentialsStoreKey, env.Constants.SessionStoreKey}, store))
+  //r.Use(sessions.Sessions(env.Constants.SessionStoreKey, store))
 
   // Use CSRF on all idpui forms.
   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.GetString("csrf.authKey")), csrf.Secure(true)))

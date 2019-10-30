@@ -82,7 +82,7 @@ func ShowLogout(env *app.Environment) gin.HandlerFunc {
         status, _ = bulky.Unmarshal(0, responses, &logoutResponse)
         if status == 200 {
 
-          session := sessions.Default(c)
+          session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
           session.Set(env.Constants.SessionLogoutStateKey, state)
           err = session.Save()
           if err != nil {
@@ -179,7 +179,7 @@ func SubmitLogout(env *app.Environment) gin.HandlerFunc {
         status, _ = bulky.Unmarshal(0, responses, &acceptResponse)
         if status == 200 {
 
-          session := sessions.Default(c)
+          session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
           session.Delete(env.Constants.SessionLogoutStateKey)
           err = session.Save()
           if err != nil {

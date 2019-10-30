@@ -31,7 +31,7 @@ func ShowClaimEmail(env *app.Environment) gin.HandlerFunc {
       "func": "ShowClaimEmail",
     })
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     var err error
     var invite *idp.Invite
@@ -44,7 +44,7 @@ func ShowClaimEmail(env *app.Environment) gin.HandlerFunc {
         SessionStateKey: env.Constants.SessionClaimStateKey,
         OnVerifiedRedirectTo: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.register"),
       }
-      challengeSession, err := app.StartChallengeSession(c, newChallengeSession)
+      challengeSession, err := app.StartChallengeSession(env, c, newChallengeSession)
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatus(http.StatusInternalServerError)
@@ -153,7 +153,7 @@ func SubmitClaimEmail(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     // Save values if submit fails
     registerFields := make(map[string][]string)
@@ -281,7 +281,7 @@ func SubmitClaimEmail(env *app.Environment) gin.HandlerFunc {
           SessionStateKey: env.Constants.SessionClaimStateKey,
           OnVerifiedRedirectTo: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.register"),
         }
-        challengeSession, err := app.StartChallengeSession(c, newChallengeSession)
+        challengeSession, err := app.StartChallengeSession(env, c, newChallengeSession)
         if err != nil {
           log.Debug(err.Error())
           c.AbortWithStatus(http.StatusInternalServerError)

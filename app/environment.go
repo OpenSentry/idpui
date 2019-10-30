@@ -25,10 +25,11 @@ type EnvironmentConstants struct {
   AccessTokenKey string
   IdTokenKey     string
 
-  SessionStoreKey         string
-  SessionExchangeStateKey string
-  SessionClaimStateKey    string
-  SessionLogoutStateKey   string
+  SessionCredentialsStoreKey string // This hold the access token and id token
+  SessionStoreKey            string // This holds the application data
+  SessionExchangeStateKey    string
+  SessionClaimStateKey       string
+  SessionLogoutStateKey      string
 
   ContextAccessTokenKey string
   ContextIdTokenKey string

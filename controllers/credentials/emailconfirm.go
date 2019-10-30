@@ -53,7 +53,7 @@ func ShowEmailConfirm(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     errors := session.Flashes("emailconfirm.errors")
     err = session.Save() // Remove flashes read, and save submit fields
@@ -109,7 +109,7 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
     q := url.Values{}
     q.Add("email_challenge", form.Challenge)
 
-    session := sessions.Default(c)
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     errors := make(map[string][]string)
     validate := validator.New()
