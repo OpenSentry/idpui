@@ -1,7 +1,7 @@
 {{ template "htmlbegin" . }}
 
 <div class="ui padded middle aligned center aligned grid">
-  <div class="column">
+  <div class="column ui left aligned">
 
     {{ template "providerheader" . }}
 
@@ -13,7 +13,7 @@
 
       <div class="ui left aligned segment totp">
 
-      <div class="ui tiny fluid vertical steps">
+      <div class="ui tiny fluid vertical steps unstackable">
         <div class="step">
           <i class="mobile alternate icon"></i>
           <div class="content">
@@ -36,7 +36,7 @@
         <div class="white" style="text-align:center;margin-top:4px">Secret: {{ .secret }}</div>
       </div>
 
-      <div class="ui tiny fluid vertical steps">
+      <div class="ui tiny fluid vertical steps unstackable">
         <div class="step">
           <i class="handshake icon"></i>
           <div class="content">
