@@ -59,11 +59,19 @@ func ShowClaimEmail(env *app.Environment) gin.HandlerFunc {
         return
       }
 
-      if status == 200 {
+      if status == http.StatusOK {
 
         var claimResp idp.CreateInvitesClaimResponse
-        status, _ := bulky.Unmarshal(0, responses, &claimResp)
-        if status == 200 {
+        status, restErr := bulky.Unmarshal(0, responses, &claimResp)
+        if len(restErr) > 0 {
+          for _,e := range restErr {
+            log.Debug("Rest error: " + e.Error)
+          }
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+
+        if status == http.StatusOK {
 
           // Cleanup session
           session.Delete("register.fields")
