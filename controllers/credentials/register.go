@@ -344,7 +344,7 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
           }
 
           // Registration successful, return to create new ones, but with success message
-          redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.login")
+          redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile")
           log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
           c.Redirect(http.StatusFound, redirectTo)
           c.Abort()
