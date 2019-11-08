@@ -3,6 +3,7 @@ package credentials
 import (
   "strings"
   "net/http"
+  "net/url"
   "reflect"
   "errors"
   "gopkg.in/go-playground/validator.v9"
@@ -190,7 +191,10 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
+    q := url.Values{}
+    q.Add("state", form.State)
+    q.Add("email_challenge", form.Challenge)
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
@@ -311,16 +315,21 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
       status, responses, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
       if err != nil {
         log.Debug(err.Error())
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        c.Abort()
+        c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
 
-      if status == 200 {
+      if status != http.StatusOK {
+        log.WithFields(logrus.Fields{ "status":status }).Debug("Request failed")
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
 
-        var resp idp.CreateHumansResponse
-        status, restErr := bulky.Unmarshal(0, responses, &resp)
-        if status == 200 {
+      var resp idp.CreateHumansResponse
+      status, restErr := bulky.Unmarshal(0, responses, &resp)
+      if len(restErr) <= 0 {
+
+        if status == http.StatusOK {
           // Cleanup session
           session.Delete(env.Constants.SessionClaimStateKey)
           session.Delete("register.fields")
@@ -342,16 +351,11 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
           return
         }
 
-        if restErr != nil {
-          for _,e := range restErr {
-            errors["username"] = append(errors["username"], e.Error)
-          }
-        }
       } else {
 
-        // FIXME: Better error handling please
-        c.AbortWithStatus(status)
-        return
+        for _,e := range restErr {
+          errors["username"] = append(errors["username"], e.Error)
+        }
 
       }
 
