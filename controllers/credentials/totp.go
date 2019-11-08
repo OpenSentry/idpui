@@ -259,7 +259,7 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
 
       log.Debug(updatedHumans)
 
-      redirectTo := "/me"
+      redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") // FIXME: This should not referene meui!
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
