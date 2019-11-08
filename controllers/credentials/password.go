@@ -185,7 +185,7 @@ func SubmitPassword(env *app.Environment) gin.HandlerFunc {
         return
       }
 
-      redirectTo := config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.profile")
+      redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") // FIXME
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
