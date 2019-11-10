@@ -7,8 +7,9 @@
 
     <div class="ui divider hidden"></div>
 
-    <form class="ui large form" action="/me/deleteverification" method="post">
+    <form class="ui large form" action="{{.submitUrl}}" method="post">
       {{ .csrfField }}
+      <input type="hidden" name="challenge" value="{{ .challenge }}" />
 
       <div class="ui left aligned segment totp">
 
@@ -16,23 +17,23 @@
         <div class="step">
           <i class="mail icon"></i>
           <div class="content">
-            <div class="title">Verify Deletion</div>
-            <div class="description">Enter the verification code sent to your email</div>
+            <div class="title">Confirm Deletion</div>
+            <div class="description">Enter the code sent to your email</div>
           </div>
         </div>
       </div>
 
       </div>
 
-      {{template "input.code" . }}
+      {{ template "input.code" . }}
 
-      <input type="submit" name="submit" class="ui fluid large green submit button" value="Verify and Delete Profile" />
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Confirm" />
 
     </form>
 
     <div class="ui divider hidden"></div>
 
-    <div class="white">Id: {{ .id }}</div>
+    <div class="white">Delete challenge: {{ .challenge }}</div>
 
   </div>
 </div>

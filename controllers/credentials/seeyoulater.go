@@ -27,13 +27,13 @@ func ShowSeeYouLater(env *app.Environment) gin.HandlerFunc {
       sessionCleared = false
     }
 
-    session = sessions.DefaultMany(c, env.Constants.SessionCredentialsStoreKey)
-    session.Clear()
-    err = session.Save()
-    if err != nil {
-      log.Debug(err.Error())
-      sessionCleared = false
-    }
+    // session = sessions.DefaultMany(c, env.Constants.SessionCredentialsStoreKey)
+    // session.Clear()
+    // err = session.Save()
+    // if err != nil {
+    //   log.Debug(err.Error())
+    //   sessionCleared = false
+    // }
 
     c.HTML(http.StatusOK, "seeyoulater.html", gin.H{
       "title": "See You Later",

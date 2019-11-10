@@ -11,6 +11,8 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
+  "golang.org/x/oauth2"
+
   idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/app"
@@ -26,7 +28,7 @@ type authenticationForm struct {
   Password string `form:"password" binding:"required" validate:"required,notblank"`
 }
 
-func ShowLogin(env *app.Environment) gin.HandlerFunc {
+func ShowLogin(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
@@ -36,7 +38,7 @@ func ShowLogin(env *app.Environment) gin.HandlerFunc {
 
     loginChallenge := c.Query("login_challenge")
     if loginChallenge == "" {
-      initUrl, err := app.StartAuthenticationSession(env, c, log)
+      initUrl, err := app.StartAuthenticationSession(env, oauth2Config, c)
       if err != nil {
         log.Debug(err.Error())
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

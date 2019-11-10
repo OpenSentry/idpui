@@ -9,6 +9,9 @@
 
     <form class="ui large form" action="{{ .totpUrl }}" method="post">
       {{ .csrfField }}
+      <input type="hidden" name="access_token" value="{{ .access_token }}" />
+      <input type="hidden" name="id" value="{{ .id }}" />
+      <input type="hidden" name="redirect_to" value="{{ .redirect_to }}" />
       <input type="hidden" name="secret" value="{{ .secret }}">
 
       <div class="ui left aligned segment totp">

@@ -15,19 +15,29 @@ import (
   "github.com/gorilla/csrf"
   "github.com/pquerna/otp"
   "github.com/pquerna/otp/totp"
+  "golang.org/x/oauth2"
+
   idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/utils"
   "github.com/charmixer/idpui/validators"
+
+  bulky "github.com/charmixer/bulky/client"
 )
 
 
 type totpForm struct {
+  AccessToken string `form:"access_token" binding:"required" validate:"required,notblank"`
+  Id string `form:"id" binding:"required" validate:"required,uuid"`
+  RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
+
   Totp string `form:"totp" binding:"required" validate:"required,notblank"`
   Secret string `form:"secret" binding:"required" validate:"required,notblank"`
 }
+
+const TOTP_ERRORS = "totp.errors"
 
 func ShowTotp(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
@@ -36,6 +46,11 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
     log = log.WithFields(logrus.Fields{
       "func": "ShowTotp",
     })
+
+    redirectTo := c.Request.Referer() // FIXME: This does not work, when force to login the refrer will be login uri. This should be a param in the /totp?redirect_uri=... param and should be forced to only be allowed to be specified redirect uris for the client.
+    if redirectTo == "" {
+      redirectTo = config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") // FIXME should be a config default.
+    }
 
     identity := app.GetIdentity(env, c)
     if identity == nil {
@@ -111,7 +126,7 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
   	png.Encode(&buf, img)
     embedQrCode := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-    errors := session.Flashes("totp.errors")
+    errors := session.Flashes(TOTP_ERRORS)
     err = session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
@@ -130,6 +145,8 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
       }
     }
 
+    token := app.AccessToken(env, c)
+
     c.HTML(http.StatusOK, "totp.html", gin.H{
       "title": "Two Factor Authentication",
       "links": []map[string]string{
@@ -138,7 +155,9 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
       "provideraction": "Enable two-factor authentication for better security",
+      "access_token": token.AccessToken,
       "id": identity.Id,
+      "redirect_to": redirectTo,
       "issuer": key.Issuer(),
       "secret": key.Secret(),
       "qrcode": embedQrCode,
@@ -147,7 +166,7 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
   }
   return gin.HandlerFunc(fn)
 }
-func SubmitTotp(env *app.Environment) gin.HandlerFunc {
+func SubmitTotp(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
@@ -162,10 +181,11 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    identity := app.GetIdentity(env, c)
-    if identity == nil {
-      log.Debug("Missing Identity")
-      c.AbortWithStatus(http.StatusForbidden)
+    // Fetch the url that the submit happen to, so we can redirect back to it.
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
@@ -223,7 +243,7 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
     }
 
     if len(errors) > 0 {
-      session.AddFlash(errors, "totp.errors")
+      session.AddFlash(errors, TOTP_ERRORS)
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
@@ -243,36 +263,69 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
 
     if valid == true {
 
-      idpClient := app.IdpClientUsingAuthorizationCode(env, c)
-
-      totpRequest := []idp.UpdateHumansTotpRequest{{
-        Id: identity.Id,
-        TotpRequired: true,
-        TotpSecret: form.Secret,
-      }}
-      _, updatedHumans, err := idp.UpdateHumansTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.totp"), totpRequest);
+      // Cleanup session state for controller.
+      session.Delete(TOTP_ERRORS)
+      err := session.Save() // Remove flashes read, and save submit fields
       if err != nil {
         log.Debug(err.Error())
-        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
 
-      log.Debug(updatedHumans)
+      idpClient := idp.NewIdpClientWithUserAccessToken(oauth2Config, &oauth2.Token{
+        AccessToken: form.AccessToken,
+      })
 
-      redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") // FIXME: This should not referene meui!
-      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, redirectTo)
+      totpRequest := []idp.UpdateHumansTotpRequest{ {Id:form.Id, TotpRequired:true, TotpSecret:form.Secret} }
+      status, responses, err := idp.UpdateHumansTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.totp"), totpRequest);
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      if status == http.StatusForbidden {
+        c.AbortWithStatus(http.StatusForbidden)
+        return
+      }
+
+      if status != http.StatusOK {
+        log.WithFields(logrus.Fields{ "status":status }).Debug("Update TOTP failed")
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      var resp idp.UpdateHumansTotpResponse
+      reqStatus, reqErrors := bulky.Unmarshal(0, responses, &resp)
+
+      if reqStatus == http.StatusForbidden {
+        c.AbortWithStatus(http.StatusForbidden)
+        return
+      }
+
+      if reqStatus != http.StatusOK {
+
+        errors := []string{}
+        if len(reqErrors) > 0 {
+          for _,e := range reqErrors {
+            errors = append(errors, e.Error)
+          }
+        }
+        // FIXME: Encode errors to json
+
+        log.WithFields(logrus.Fields{ "status":reqStatus, "errors":strings.Join(errors, ", ") }).Debug("Unmarshal UpdateHumansTotpResponse failed")
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      // Success
+      log.WithFields(logrus.Fields{"redirect_to": form.RedirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, form.RedirectTo)
       c.Abort()
       return
     }
 
-    // Deny by default. Failed to fill in the form correctly.
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
+    // Deny by default.
     log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
     c.Redirect(http.StatusFound, submitUrl)
     c.Abort()

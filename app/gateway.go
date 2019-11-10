@@ -6,6 +6,7 @@ import (
   "encoding/base64"
   "github.com/gin-gonic/gin"
   "github.com/gin-contrib/sessions"
+  "golang.org/x/oauth2"
 
   idp "github.com/charmixer/idp/client"
   aap "github.com/charmixer/aap/client"
@@ -14,10 +15,10 @@ import (
   bulky "github.com/charmixer/bulky/client"
 )
 
-func IdpClientUsingAuthorizationCode(env *Environment, c *gin.Context) (*idp.IdpClient) {
+func IdpClientUsingAuthorizationCode(env *Environment, oauth2Delegator *oauth2.Config, c *gin.Context) (*idp.IdpClient) {
   accessToken := AccessToken(env, c)
   if accessToken != nil {
-    return idp.NewIdpClientWithUserAccessToken(env.OAuth2Delegator, accessToken)
+    return idp.NewIdpClientWithUserAccessToken(oauth2Delegator, accessToken)
   }
   return nil
 }
