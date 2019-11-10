@@ -215,9 +215,9 @@
 {{ define "input.risk_accepted"}}
 {{if .errorRiskAccepted}}
   <div class="required field {{if .errorRiskAccepted}}error{{end}}">
-    <div class="ui right labeled checkbox">
-      <input type="checkbox" tabindex="0" name="risk_accepted" value="accept">
-      <label for="risk_accepted">I accept the risk of deleting my profile</label>
+    <div class="ui toggle checkbox">
+      <input type="checkbox" tabindex="0" name="risk_accepted">
+      <label for="risk_accepted">I accept the risk</label>
     </div>
     <div class="ui red tag label" style="margin-left: 20px;">
       {{ .errorRiskAccepted }}
@@ -225,9 +225,9 @@
   </div>
 {{else}}
   <div class="required field">
-    <div class="ui checkbox">
-      <input type="checkbox" tabindex="0" name="risk_accepted" value="accept">
-      <label for="risk_accepted">I accept the risk of deleting my profile</label>
+    <div class="ui toggle checkbox">
+      <input type="checkbox" tabindex="0" name="risk_accepted">
+      <label for="risk_accepted">I accept the risk</label>
     </div>
   </div>
 {{end}}

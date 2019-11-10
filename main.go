@@ -19,7 +19,7 @@ import (
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/controllers/credentials"
-  "github.com/charmixer/idpui/controllers/callbacks"
+  //"github.com/charmixer/idpui/controllers/callbacks"
 
 )
 
@@ -81,21 +81,32 @@ func main() {
   endpoint := provider.Endpoint()
   endpoint.AuthStyle = 2 // Force basic secret, so token exchange does not auto to post which we did not allow.
 
+  clientId := config.GetString("oauth2.client.id")
+  if clientId == "" {
+    log.Panic("Missing config oauth2.client.id")
+    return
+  }
+
+  clientSecret := config.GetString("oauth2.client.secret")
+  if clientSecret == "" {
+    log.Panic("Missing config oauth2.client.secret")
+    return
+  }
 
   // IdpApi needs to be able to act as an App using its client_id to bootstrap Authorization Code flow
   // Eg. Users accessing /me directly from browser.
-  hydraConfig := &oauth2.Config{
-    ClientID:     config.GetString("oauth2.client.id"),
-    ClientSecret: config.GetString("oauth2.client.secret"),
+  /*hydraConfig := &oauth2.Config{
+    ClientID:     clientId,
+    ClientSecret: clientSecret,
     Endpoint:     endpoint,
     RedirectURL:  config.GetString("oauth2.callback"),
     Scopes:       config.GetStringSlice("oauth2.scopes.required"),
-  }
+  }*/
 
   // IdpFe needs to be able as an App using client_id to access idp endpoints. Using client credentials flow
   idpConfig := &clientcredentials.Config{
-    ClientID:  config.GetString("oauth2.client.id"),
-    ClientSecret: config.GetString("oauth2.client.secret"),
+    ClientID:  clientId,
+    ClientSecret: clientSecret,
     TokenURL: provider.Endpoint().TokenURL,
     Scopes: config.GetStringSlice("oauth2.scopes.required"),
     EndpointParams: url.Values{"audience": {"idp"}},
@@ -103,8 +114,8 @@ func main() {
   }
 
   aapConfig := &clientcredentials.Config{
-    ClientID:  config.GetString("oauth2.client.id"),
-    ClientSecret: config.GetString("oauth2.client.secret"),
+    ClientID:  clientId,
+    ClientSecret: clientSecret,
     TokenURL: provider.Endpoint().TokenURL,
     Scopes: config.GetStringSlice("oauth2.scopes.required"),
     EndpointParams: url.Values{"audience": {"aap"}},
@@ -129,11 +140,13 @@ func main() {
       ContextIdTokenKey: "id_token",
       ContextIdTokenHintKey: "id_token_hint",
       ContextIdentityKey: "id",
+      IdpClientKey: "idpclient",
+      ContextOAuth2ConfigKey: "oauth2_config",
 
       IdentityStoreKey: "idstore",
     },
     Provider: provider,
-    OAuth2Delegator: hydraConfig,
+    // OAuth2Delegators: &oAuth2Delegators,
     IdpConfig: idpConfig,
     AapConfig: aapConfig,
     Logger: log,
@@ -158,6 +171,12 @@ func main() {
 }
 
 func serve(env *app.Environment) {
+
+  clientId := config.GetString("oauth2.client.id")
+  clientSecret := config.GetString("oauth2.client.secret")
+  endpoint := env.Provider.Endpoint()
+  endpoint.AuthStyle = 2 // Force basic secret, so token exchange does not auto to post which we did not allow.
+
   r := gin.New() // Clean gin to take control with logging.
   r.Use(gin.Recovery())
 
@@ -172,7 +191,7 @@ func serve(env *app.Environment) {
     Secure: true,
     HttpOnly: true,
   })
-  r.Use(sessions.SessionsMany([]string{env.Constants.SessionCredentialsStoreKey, env.Constants.SessionStoreKey}, store))
+  r.Use(sessions.SessionsMany([]string{env.Constants.SessionStoreKey}, store))
   //r.Use(sessions.Sessions(env.Constants.SessionStoreKey, store))
 
   // Use CSRF on all idpui forms.
@@ -186,10 +205,6 @@ func serve(env *app.Environment) {
   ep := r.Group("/")
   ep.Use(adapterCSRF)
   {
-    // Token exchange
-    // FIXME: Must be public accessible until we figure out to enfore that only hydra client may make callbacks
-    ep.GET("/callback", callbacks.ExchangeAuthorizationCodeCallback(env) )
-
     // Signup
     ep.GET(  "/claim", credentials.ShowClaimEmail(env) )
     ep.POST( "/claim", credentials.SubmitClaimEmail(env) )
@@ -198,10 +213,28 @@ func serve(env *app.Environment) {
     ep.POST( "/register", credentials.SubmitRegistration(env) )
 
     // Signin
-    ep.GET(  "/login", credentials.ShowLogin(env) )
+    loginConfig := &oauth2.Config{
+      ClientID: clientId,
+      ClientSecret: clientSecret,
+      Endpoint: endpoint,
+      RedirectURL: config.GetString("oauth2.callback"),
+      Scopes: config.GetStringSlice("oauth2.scopes.required"),
+    }
+    ep.GET(  "/login", credentials.ShowLogin(env, loginConfig) )
     ep.POST( "/login", credentials.SubmitLogin(env) )
 
-    // Signout
+    // Logout
+    // logoutConfig := &oauth2.Config{
+    //   ClientID: clientId,
+    //   ClientSecret: clientSecret,
+    //   Endpoint: endpoint,
+    //   RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.logout"),
+    //   Scopes: []string{"openid", "offline", "idp:read:humans"},
+    // }
+    ep.GET( "/logout", credentials.ShowLogout(env))
+    ep.POST( "/logout", credentials.SubmitLogout(env) )
+
+    // Clear cookies shortcut - FIXME: This should not be needed once logout works correctly.
     ep.GET( "/seeyoulater", credentials.ShowSeeYouLater(env))
 
     // Verify OTP code
@@ -212,36 +245,53 @@ func serve(env *app.Environment) {
     ep.GET( "/emailconfirm", credentials.ShowEmailConfirm(env) )
     ep.POST( "/emailconfirm", credentials.SubmitEmailConfirm(env) )
 
+    // Verify delete using OTP code
+    ep.GET( "/deleteconfirm", credentials.ShowDeleteConfirm(env) )
+    ep.POST( "/deleteconfirm", credentials.SubmitDeleteConfirm(env) )
+
+    // ep.GET("/untilnexttime", credentials.ShowUntilNextTime(env))
+
     // Recover
     ep.GET(  "/recover", credentials.ShowRecover(env) )
     ep.POST( "/recover", credentials.SubmitRecover(env) )
     ep.GET(  "/recoververification", credentials.ShowRecoverVerification(env) )
     ep.POST( "/recoververification", credentials.SubmitRecoverVerification(env) )
-  }
 
-  // Endpoints that require Authentication and Authorization
-  ep = r.Group("/")
-  ep.Use(adapterCSRF)
-  ep.Use( app.AuthenticationRequired(env) )
-  ep.Use( app.RequireIdentity(env) ) // Checks Authorization
-  {
+    // # Endpoints that require authentication
+
     // Change password
-    ep.GET(  "/password", credentials.ShowPassword(env) )
-    ep.POST( "/password", credentials.SubmitPassword(env) )
+    passwordConfig := &oauth2.Config{
+      ClientID: clientId,
+      ClientSecret: clientSecret,
+      Endpoint: endpoint,
+      RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.password"),
+      Scopes: []string{"openid", "offline", "idp:read:humans", "idp:update:humans:password"},
+    }
+    ep.GET( "/password", app.RequestAccessToken(env, passwordConfig), credentials.ShowPassword(env))
+    ep.POST( "/password", credentials.SubmitPassword(env, passwordConfig) ) // Renders the obtained access token in hidden input field for posting. (maybe it should just render into bearer token header?)
 
     // Enable TOTP
-    ep.GET(  "/totp", credentials.ShowTotp(env) )
-    ep.POST( "/totp", credentials.SubmitTotp(env) )
+    totpConfig := &oauth2.Config{
+      ClientID: clientId,
+      ClientSecret: clientSecret,
+      Endpoint: endpoint,
+      RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.totp"),
+      Scopes: []string{"openid", "offline", "idp:read:humans", "idp:update:humans:totp"},
+    }
+    ep.GET( "/totp", app.RequestAccessToken(env, totpConfig), credentials.ShowTotp(env))
+    ep.POST( "/totp", credentials.SubmitTotp(env, totpConfig) )
 
-    // Profile
-    ep.GET(  "/delete",             credentials.ShowProfileDelete(env) )
-    ep.POST( "/delete",             credentials.SubmitProfileDelete(env) )
-    ep.GET(  "/deleteverification", credentials.ShowProfileDeleteVerification(env) )
-    ep.POST( "/deleteverification", credentials.SubmitProfileDeleteVerification(env) )
+    // Delete Profile
+    deleteProfileConfig := &oauth2.Config{
+      ClientID: clientId,
+      ClientSecret: clientSecret,
+      Endpoint: endpoint,
+      RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.delete"),
+      Scopes: []string{"openid", "offline", "idp:read:humans", "idp:delete:humans"},
+    }
+    ep.GET( "/delete", app.RequestAccessToken(env, deleteProfileConfig), credentials.ShowProfileDelete(env))
+    ep.POST( "/delete", credentials.SubmitProfileDelete(env, deleteProfileConfig) )
 
-    // Signout
-    ep.GET(  "/logout", credentials.ShowLogout(env) )
-    ep.POST( "/logout", credentials.SubmitLogout(env) )
   }
 
   r.RunTLS(":" + config.GetString("serve.public.port"), config.GetString("serve.tls.cert.path"), config.GetString("serve.tls.key.path"))

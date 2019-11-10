@@ -7,6 +7,9 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
+  //"golang.org/x/oauth2"
+
+
   idp "github.com/charmixer/idp/client"
 
   "github.com/charmixer/idpui/app"
@@ -27,16 +30,7 @@ func ShowLogout(env *app.Environment) gin.HandlerFunc {
       "func": "ShowLogout",
     })
 
-    var err error
-
-    identity := app.GetIdentity(env, c)
-    if identity == nil {
-      log.Debug("Missing Identity")
-      c.AbortWithStatus(http.StatusForbidden)
-      return
-    }
-
-    idpClient := app.IdpClientUsingAuthorizationCode(env, c)
+    idpClient := app.IdpClientUsingClientCredentials(env, c)
 
     logoutChallenge := c.Query("logout_challenge")
     if logoutChallenge == "" {
@@ -114,6 +108,7 @@ func ShowLogout(env *app.Environment) gin.HandlerFunc {
     if challenge != nil {
 
       // Challenge exists, render so we can accept it.
+      log.Debug(challenge)
 
       c.HTML(200, "logout.html", gin.H{
         "links": []map[string]string{
@@ -152,8 +147,8 @@ func SubmitLogout(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    //idpClient := app.IdpClientUsingClientCredentials(env, c)
-    idpClient := app.IdpClientUsingAuthorizationCode(env, c)
+    idpClient := app.IdpClientUsingClientCredentials(env, c)
+    //idpClient := app.IdpClientUsingAuthorizationCode(env, oauth2Config, c)
 
     challenge, err := readLogoutChallenge(idpClient, form.Challenge)
     if err != nil {

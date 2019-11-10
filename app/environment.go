@@ -36,6 +36,9 @@ type EnvironmentConstants struct {
   ContextIdTokenRawKey string
   ContextIdTokenHintKey string
   ContextIdentityKey string
+  IdpClientKey string
+
+  ContextOAuth2ConfigKey string
 
   IdentityStoreKey string
 }
@@ -46,7 +49,7 @@ type Environment struct {
   Logger *logrus.Logger
 
   Provider        *oidc.Provider
-  OAuth2Delegator *oauth2.Config // hydra
+  // OAuth2Delegators *OAuth2Delegators
 
   IdpConfig *clientcredentials.Config
   AapConfig *clientcredentials.Config
