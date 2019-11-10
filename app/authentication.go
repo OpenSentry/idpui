@@ -17,6 +17,201 @@ import (
   bulky "github.com/charmixer/bulky/client"
 )
 
+func ConfigureOAuth2(env *Environment, clientId string, clientSecret string, redirectUrl string, Scopes ...string) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "func": "ConfigureOAuth2",
+    })
+
+    if clientId == "" {
+      log.Debug("Missing client_id")
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    if clientSecret == "" {
+      log.Debug("Missing client_secret")
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    endpoint := env.Provider.Endpoint()
+    endpoint.AuthStyle = 2 // Force basic secret, so token exchange does not auto to post which we did not allow.
+
+    config := &oauth2.Config{
+      ClientID:     clientId,
+      ClientSecret: clientSecret,
+      Endpoint:     endpoint,
+      RedirectURL:  redirectUrl,
+      Scopes:       Scopes,
+    }
+
+    c.Set(env.Constants.ContextOAuth2ConfigKey, config)
+    c.Next()
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func RequestAccessToken(env *Environment, oauth2Delegator *oauth2.Config) gin.HandlerFunc {
+  fn := func(c *gin.Context) {
+
+    log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
+    log = log.WithFields(logrus.Fields{
+      "func": "RequestAccessToken",
+    })
+
+    error := c.Query("error");
+    if error != "" {
+      errorHint := c.Query("error_hint")
+      c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": error, "hint": errorHint})
+      return
+    }
+
+    if oauth2Delegator == nil {
+      log.Debug("No OAuth2 config")
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    code := c.Query("code")
+    if code != "" {
+
+      // Try and exchange code for access token to use.
+      requestState := c.Query("state")
+      if requestState == "" {
+        log.Debug("Missing state in query")
+        c.AbortWithStatus(http.StatusBadRequest)
+        return
+      }
+      log = log.WithFields(logrus.Fields{ "query.state":requestState })
+
+      log = log.WithFields(logrus.Fields{ "session.key":env.Constants.SessionExchangeStateKey })
+      session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
+      v := session.Get(env.Constants.SessionExchangeStateKey)
+      if v == nil {
+        log.Debug("Missing session state. Hint: Request was not initiated by idpui")
+        c.AbortWithStatus(http.StatusBadRequest)
+        return
+      }
+      sessionState := v.(string)
+      log = log.WithFields(logrus.Fields{ "session.state":sessionState })
+
+      // Require redirect_to registered to session exchange state
+      v = session.Get(sessionState)
+      if v == nil {
+        log.Debug("Missing redirect_to in session")
+        c.AbortWithStatus(http.StatusBadRequest)
+        return
+      }
+      redirectTo := v.(string)
+      log = log.WithFields(logrus.Fields{ "session.redirect_to":redirectTo })
+
+      // Sanity check. Query state and session state must match. (CSRF on redirects)
+      if requestState != sessionState {
+        log.Debug("Request state and session state mismatch")
+        c.AbortWithStatus(http.StatusBadRequest)
+        return
+      }
+
+      // Found a code try and exchange it for access token.
+      token, err := oauth2Delegator.Exchange(context.Background(), code)
+      if err != nil {
+        log.Debug(err.Error())
+        // FIXME: Maybe we should redirect back reboot the process. Since the access token was not aquired.
+        c.AbortWithStatus(http.StatusBadRequest)
+        return
+      }
+
+      if token.Valid() == true {
+
+        idpClient := idp.NewIdpClientWithUserAccessToken(oauth2Delegator, token)
+
+        __idToken, ok := token.Extra("id_token").(string)
+        if ok == true {
+
+          // Found id_token, verify it.
+          oidcConfig := &oidc.Config{ ClientID:oauth2Delegator.ClientID }
+          verifier := env.Provider.Verifier(oidcConfig)
+          idToken, err := verifier.Verify(context.Background(), __idToken)
+          if err != nil {
+            log.Debug(err.Error())
+            c.AbortWithStatus(http.StatusInternalServerError)
+            return
+          }
+
+          // Id token found lookup identity.
+          identityRequest := []idp.ReadHumansRequest{ {Id: idToken.Subject} }
+          status, responses, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
+          if err != nil {
+            log.Debug(err.Error())
+            c.AbortWithStatus(http.StatusInternalServerError)
+            return
+          }
+
+          if status != http.StatusOK {
+            log.WithFields(logrus.Fields{ "status":status }).Debug("Humans read failed")
+            c.AbortWithStatus(http.StatusInternalServerError)
+            return
+          }
+
+          var resp idp.ReadHumansResponse
+          reqStatus, reqErrors := bulky.Unmarshal(0, responses, &resp)
+          if len(reqErrors) > 0 {
+            log.Debug(reqErrors)
+            log.Debug("Humans unmarshal failed")
+            c.AbortWithStatus(http.StatusInternalServerError)
+            return
+          }
+
+          if reqStatus == 200 {
+            c.Set(env.Constants.ContextIdentityKey, resp[0])
+            c.Set(env.Constants.ContextIdTokenKey, idToken)
+            c.Set(env.Constants.ContextIdTokenHintKey, __idToken)
+          }
+
+        }
+
+        c.Set(env.Constants.ContextAccessTokenKey, token)
+
+        c.Set(env.Constants.IdpClientKey, idpClient)
+        c.Next()
+        return
+      }
+
+    }
+
+    // Unauthorized, request a code
+    initUrl, err := StartAuthenticationSession(env, oauth2Delegator, c)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+    c.Redirect(http.StatusFound, initUrl.String())
+    c.Abort()
+    return
+  }
+  return gin.HandlerFunc(fn)
+}
+
+func OAuth2Config(env *Environment, c *gin.Context) (*oauth2.Config) {
+  t, exists := c.Get(env.Constants.ContextOAuth2ConfigKey)
+  if exists == true {
+    return t.(*oauth2.Config)
+  }
+  return nil
+}
+
+func IdpClientWithToken(env *Environment, c *gin.Context) (*idp.IdpClient) {
+  t, exists := c.Get(env.Constants.IdpClientKey)
+  if exists == true {
+    return t.(*idp.IdpClient)
+  }
+  return nil
+}
+
 // # Authentication and Authorization
 // Gin middleware to secure idp fe endpoints using oauth2.
 //
@@ -27,7 +222,7 @@ import (
 // 4. Is the user or client giving the grants in the access token authorized to operate the scopes granted?
 // 5. Is the access token revoked?
 
-func AuthenticationRequired(env *Environment) gin.HandlerFunc {
+/*func AuthenticationRequired(env *Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
@@ -117,10 +312,10 @@ func AuthenticationRequired(env *Environment) gin.HandlerFunc {
     return
   }
   return gin.HandlerFunc(fn)
-}
+}*/
 
 // Use this handler as middleware to enable gateway functions in controllers
-func RequireIdentity(env *Environment) gin.HandlerFunc {
+/*func RequireIdentity(env *Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     var idToken *oidc.IDToken = IdToken(env, c)
@@ -167,7 +362,7 @@ func RequireIdentity(env *Environment) gin.HandlerFunc {
     c.AbortWithStatus(http.StatusForbidden)
   }
   return gin.HandlerFunc(fn)
-}
+}*/
 
 func GetIdentity(env *Environment, c *gin.Context) *idp.Human {
   identity, exists := c.Get(env.Constants.ContextIdentityKey)
@@ -206,13 +401,8 @@ func createPostRedirectUri(requestedUrl string) (redirectTo string, err error) {
   return redirectTo, nil
 }
 
-func StartAuthenticationSession(env *Environment, c *gin.Context, log *logrus.Entry) (*url.URL, error) {
+func StartAuthenticationSession(env *Environment, oauth2Delegator *oauth2.Config, c *gin.Context) (authorizationCodeUrl *url.URL, err error) {
   var state string
-  var err error
-
-  log = log.WithFields(logrus.Fields{
-    "func": "StartAuthenticationSession",
-  })
 
   redirectTo, err := createPostRedirectUri(c.Request.RequestURI)
   if err != nil {
@@ -227,7 +417,6 @@ func StartAuthenticationSession(env *Environment, c *gin.Context, log *logrus.En
   // To prevent this we need to use a filesystem store instead of broser cookies.
   state, err = CreateRandomStringWithNumberOfBytes(32);
   if err != nil {
-    log.Debug(err.Error())
     return nil, err
   }
 
@@ -235,18 +424,16 @@ func StartAuthenticationSession(env *Environment, c *gin.Context, log *logrus.En
   session.Set(state, redirectTo)
   err = session.Save()
   if err != nil {
-    log.Debug(err.Error())
     return nil, err
   }
 
-  logSession := log.WithFields(logrus.Fields{
-    "redirect_to": redirectTo,
-    "state": state,
-  })
-  logSession.Debug("Started session")
-  authUrl := env.OAuth2Delegator.AuthCodeURL(state)
-  u, err := url.Parse(authUrl)
-  return u, err
+  authUrl := oauth2Delegator.AuthCodeURL(state)
+  authorizationCodeUrl, err = url.Parse(authUrl)
+  if err != nil {
+    return nil, err
+  }
+
+  return authorizationCodeUrl, err
 }
 
 func AccessToken(env *Environment, c *gin.Context) (*oauth2.Token) {

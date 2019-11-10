@@ -1,48 +1,69 @@
 {{ template "htmlbegin" . }}
 
-<div class="grid-container">
+<div class="ui padded middle aligned center aligned grid">
+  <div class="column">
 
-  {{ template "header" . }}
+    {{ template "providerheader" . }}
 
-  {{ template "sidenav" . }}
+    <div class="ui divider hidden"></div>
 
-  <main class="main">
-    <div class="main__header">
-      <div class="main-header__heading">Hello {{ .name }}</div>
-      <div class="main-header__updates">Recent Events</div>
-    </div>
+    <div class="ui left aligned segment totp">
 
-    <div class="main__cards">
-        <h1>{{ .title }}</h1>
+      <form class="ui large form" action="{{ .profileDeleteUrl }}" method="post">
+        {{ .csrfField }}
+        <input type="hidden" name="access_token" value="{{ .access_token }}" />
+        <input type="hidden" name="id" value="{{ .id }}" />
+        <input type="hidden" name="redirect_to" value="{{ .redirect_to }}" />
 
-        <div class="ui segments">
-
-          <div class="ui segment">
-
-            <form class="ui form" action="{{ .profileDeleteUrl }}" method="post">
-              {{ .csrfField }}
-
-              <p>You are about to delete your profile.</p>
-              <p>
-                If you wish to delete your identity, you can start the process here. You must accept the risk to start the process.<br><br>
-                Beware this is a non recoverable action. Meaning we cannot restore your profile once deleted.<br><br>
-                All information will be lost.<br><br>
-                We will send you an email with a verification code, which must be entered when prompted for the deletion to happen.<br><br>
-                Stay safe.
-              </p>
-
-              {{template "input.risk_accepted" . }}
-
-              <button class="ui red button" type="submit"><i class="power icon"></i> Delete Identity</button>
-            </form>
-
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="user icon"></i>
+            <div class="content">
+              <div class="title">{{ .name }}</div>
+              <div class="description">E-mail: {{.email}}</div>
+            </div>
           </div>
-
         </div>
 
-    </div>
-  </main>
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="exclamation icon"></i>
+            <div class="content">
+              <div class="title">Accept the risk</div>
+              <div class="description">You must accept the risk of deleting your profile</div>
+            </div>
+            <div style="margin-top:10px;">
+              <p>Beware deletion of profile is a non recoverable action. Meaning it is impossible to restore your profile once deleted.</p>
+              <p>All information will be lost.</p>
+              <p>Stay safe.</p>
+            </div>
 
-  {{ template "footer" . }}
+            <div style="margin-top:10px;">
+              {{template "input.risk_accepted" . }}
+            </div>
+
+          </div>
+          <div class="step">
+            <i class="mail icon"></i>
+            <div class="content">
+              <div class="title">Confirm deletion</div>
+              <div class="description">You will receive an E-mail with a confirmation code</div>
+            </div>
+          </div>
+        </div>
+
+        <input type="submit" name="submit" class="ui fluid large red submit button" value="Delete Profile" />
+
+      </form>
+
+      <div class="ui divider hidden"></div>
+
+      <div class="white">Id: {{ .id }}</div>
+
+      </div>
+
+  </div>
 </div>
+
+{{ template "htmlend" . }}
 
