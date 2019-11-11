@@ -264,7 +264,11 @@ func SubmitTotp(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFu
     if valid == true {
 
       // Cleanup session state for controller.
-      session.Delete(TOTP_ERRORS)
+
+      // session.Delete("totp.key")
+      // session.Delete("totp.exp")
+      // session.Delete(TOTP_ERRORS)
+      session.Clear()
       err := session.Save() // Remove flashes read, and save submit fields
       if err != nil {
         log.Debug(err.Error())
