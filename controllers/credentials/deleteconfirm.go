@@ -75,13 +75,13 @@ func ShowDeleteConfirm(env *app.Environment) gin.HandlerFunc {
     }
 
     c.HTML(200, "deleteconfirm.html", gin.H{
-      "title": "Email Confirmation",
+      "title": "Delete Confirmation",
       "links": []map[string]string{
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
-      "provideraction": "Confirm your email",
+      "provideraction": "Confirm deletion of your profile",
       "challenge": deleteChallenge,
       "errorCode": errorCode,
       "submitUrl": submitUrl,
