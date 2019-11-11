@@ -7,28 +7,36 @@
 
     <div class="ui divider hidden"></div>
 
-    <form class="ui large form" action="{{ .recoverUrl }}" method="post">
-      {{ .csrfField }}
+    <div class="ui left aligned segment totp">
 
-      <div class="ui left aligned segment totp">
+      <form class="ui large form" action="{{ .recoverUrl }}" method="post">
+        {{ .csrfField }}
+        <input type="hidden" name="redirect_to" value="{{ .redirect_to }}" />
 
         <div class="ui tiny fluid vertical steps unstackable">
           <div class="step">
             <i class="mail icon"></i>
             <div class="content">
               <div class="title">Recover using Email</div>
-              <div class="description">Enter the email of the identity you want to recover</div>
+              <div class="description">Enter the email of the profile you want to recover</div>
+            </div>
+          </div>
+          <div class="step">
+            <i class="handshake icon"></i>
+            <div class="content">
+              <div class="title">Confirm recover</div>
+              <div class="description">You will receive an E-mail with a confirmation code</div>
             </div>
           </div>
         </div>
 
-      </div>
+        {{template "input.email" . }}
 
-      {{template "input.email" . }}
+        <input type="submit" name="submit" class="ui fluid large green submit button" value="Recover" />
 
-      <input type="submit" name="submit" class="ui fluid large green submit button" value="Recover" />
+      </form>
 
-    </form>
+    </div>
 
     <div class="ui divider hidden"></div>
 

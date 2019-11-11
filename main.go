@@ -249,13 +249,15 @@ func serve(env *app.Environment) {
     ep.GET( "/deleteconfirm", credentials.ShowDeleteConfirm(env) )
     ep.POST( "/deleteconfirm", credentials.SubmitDeleteConfirm(env) )
 
+    // Verify recover using OTP code
+    ep.GET( "/recoverconfirm", credentials.ShowRecoverConfirm(env) )
+    ep.POST( "/recoverconfirm", credentials.SubmitRecoverConfirm(env) )
+
     // ep.GET("/untilnexttime", credentials.ShowUntilNextTime(env))
 
     // Recover
     ep.GET(  "/recover", credentials.ShowRecover(env) )
     ep.POST( "/recover", credentials.SubmitRecover(env) )
-    ep.GET(  "/recoververification", credentials.ShowRecoverVerification(env) )
-    ep.POST( "/recoververification", credentials.SubmitRecoverVerification(env) )
 
     // # Endpoints that require authentication
 

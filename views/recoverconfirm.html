@@ -1,0 +1,58 @@
+{{ template "htmlbegin" . }}
+
+<div class="ui padded middle aligned center aligned grid">
+  <div class="column">
+
+    {{ template "providerheader" . }}
+
+    <div class="ui divider hidden"></div>
+
+    <form class="ui large form" action="{{.submitUrl}}" method="post">
+      {{ .csrfField }}
+      <input type="hidden" name="challenge" value="{{ .challenge }}" />
+
+      <div class="ui left aligned segment totp">
+
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="handshake icon"></i>
+            <div class="content">
+              <div class="title">Confirm Recover</div>
+              <div class="description">Enter the code sent to your email</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {{ template "input.code" . }}
+
+      <div class="ui left aligned segment totp">
+
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="lock icon"></i>
+            <div class="content">
+              <div class="title">Change Password</div>
+              <div class="description">Enter a new password</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {{template "input.password" . }}
+      {{template "input.password_retyped" . }}
+
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Confirm and Change Password" />
+
+    </form>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Recover challenge: {{ .challenge }}</div>
+
+  </div>
+</div>
+
+{{ template "htmlend" . }}
