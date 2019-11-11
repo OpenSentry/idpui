@@ -20,7 +20,8 @@ import (
 )
 
 type recoverForm struct {
-    Email string `form:"email" binding:"required" validate:"required,email"`
+  Email      string `form:"email"       binding:"required" validate:"required,email"`
+  RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
 }
 
 func ShowRecover(env *app.Environment) gin.HandlerFunc {
@@ -30,6 +31,11 @@ func ShowRecover(env *app.Environment) gin.HandlerFunc {
     log = log.WithFields(logrus.Fields{
       "func": "ShowRecover",
     })
+
+    redirectTo := c.Request.Referer() // FIXME: This does not work, when force to login the refrer will be login uri. This should be a param in the /recover?redirect_uri=... param and should be forced to only be allowed to be specified redirect uris for the client.
+    if redirectTo == "" {
+      redirectTo = config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") // FIXME should be a config default.
+    }
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
@@ -58,6 +64,7 @@ func ShowRecover(env *app.Environment) gin.HandlerFunc {
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
       "provideraction": "Recover an identity registered in the system",
+      "redirect_to": redirectTo,
       "recoverUrl": config.GetString("idpui.public.endpoints.recover"),
       "loginUrl": config.GetString("idpui.public.endpoints.login"),
       "errorEmail": errorEmail,
@@ -78,6 +85,14 @@ func SubmitRecover(env *app.Environment) gin.HandlerFunc {
     err := c.Bind(&form)
     if err != nil {
       c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+      return
+    }
+
+    // Fetch the url that the submit happen to, so we can redirect back to it.
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
@@ -135,64 +150,116 @@ func SubmitRecover(env *app.Environment) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    identityRequest := []idp.ReadHumansRequest{ {Email: form.Email} }
-    _, humans, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequest)
+    identityRequests := []idp.ReadHumansRequest{ {Email: form.Email} }
+    status, responses, err := idp.ReadHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), identityRequests)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
 
-    if humans != nil {
+    if status == http.StatusForbidden {
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
 
-      var resp idp.ReadHumansResponse
-      status, _ := bulky.Unmarshal(0, humans, &resp)
-      if status == 200 {
+    if status != http.StatusOK {
+      log.WithFields(logrus.Fields{ "status":status }).Debug("Read humans failed")
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
 
-        human := resp[0]
+    if responses == nil {
+      // Not found
+      c.AbortWithStatus(http.StatusNotFound)
+      return
+    }
 
-        log.WithFields(logrus.Fields{ "id":human.Id, "username":human.Username, "email":human.Email }).Debug("Human found")
+    var humans idp.ReadHumansResponse
+    reqStatus, reqErrors := bulky.Unmarshal(0, responses, &humans)
 
-        recoverRequest := []idp.CreateHumansRecoverRequest{ {Id: human.Id} }
-        _, recoverResponse, err := idp.RecoverHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.recover"), recoverRequest)
-        if err != nil {
-          log.Debug(err.Error())
-          c.AbortWithStatus(http.StatusInternalServerError)
-          return
+    if reqStatus == http.StatusForbidden {
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
+    if reqStatus != http.StatusOK {
+
+      errors := []string{}
+      if len(reqErrors) > 0 {
+        for _,e := range reqErrors {
+          errors = append(errors, e.Error)
         }
-
-        if recoverResponse == nil {
-          log.Debug("Recover failed")
-          c.AbortWithStatus(http.StatusInternalServerError)
-          return
-        }
-
-        var resp idp.CreateHumansRecoverResponse
-        status, _ := bulky.Unmarshal(0, recoverResponse, &resp)
-        if status == 200 {
-
-          recover := resp
-
-          // Propagate selected user to verification controller to keep urls clean
-          session.Set("recoververification.id", recover.Id)
-
-          // Cleanup session
-          session.Delete("recover.email")
-          session.Delete("recover.errors")
-
-          err = session.Save()
-          if err != nil {
-            log.Debug(err.Error())
-          }
-
-          log.WithFields(logrus.Fields{ "redirect_to": recover.RedirectTo }).Debug("Redirecting");
-          c.Redirect(http.StatusFound, recover.RedirectTo)
-          c.Abort()
-          return
-        }
-
       }
 
+      log.WithFields(logrus.Fields{ "status":reqStatus, "errors":strings.Join(errors, ", ") }).Debug("Unmarshal ReadHumansResponse failed")
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    human := humans[0]
+    recoverRequests := []idp.CreateHumansRecoverRequest{ {Id: human.Id, RedirectTo: form.RedirectTo} }
+    status, responses, err = idp.RecoverHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.recover"), recoverRequests)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    if status == http.StatusForbidden {
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
+    if status != http.StatusOK {
+      log.WithFields(logrus.Fields{ "status":status }).Debug("Read human recover failed")
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    if responses == nil {
+      // Not found
+      c.AbortWithStatus(http.StatusNotFound)
+      return
+    }
+
+    var recover idp.CreateHumansRecoverResponse
+    reqStatus, reqErrors = bulky.Unmarshal(0, responses, &recover)
+
+    if reqStatus == http.StatusForbidden {
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
+    if reqStatus != http.StatusOK {
+
+      errors := []string{}
+      if len(reqErrors) > 0 {
+        for _,e := range reqErrors {
+          errors = append(errors, e.Error)
+        }
+      }
+
+      log.WithFields(logrus.Fields{ "status":reqStatus, "errors":strings.Join(errors, ", ") }).Debug("Unmarshal CreateHumansRecoverResponse failed")
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
+
+    if reqStatus == http.StatusOK {
+
+      // Cleanup session
+      //session.Delete("recover.email")
+      //session.Delete("recover.errors")
+      session.Clear()
+      err = session.Save()
+      if err != nil {
+        log.Debug(err.Error())
+      }
+
+      log.WithFields(logrus.Fields{ "redirect_to": recover.RedirectTo }).Debug("Redirecting");
+      c.Redirect(http.StatusFound, recover.RedirectTo)
+      c.Abort()
+      return
     }
 
     errors["email"] = append(errors["email"], "Not Found")
@@ -202,12 +269,6 @@ func SubmitRecover(env *app.Environment) gin.HandlerFunc {
       log.Debug(err.Error())
     }
 
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
     log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
     c.Redirect(http.StatusFound, submitUrl)
     c.Abort()
