@@ -191,7 +191,8 @@ func SubmitPassword(env *app.Environment, oauth2Config *oauth2.Config) gin.Handl
     if form.Password == form.PasswordRetyped { // Just for safety is caught in the input error detection.
 
       // Cleanup session state for controller.
-      session.Delete(PASSWORD_ERRORS)
+      // session.Delete(PASSWORD_ERRORS)
+      session.Clear()
       err := session.Save() // Remove flashes read, and save submit fields
       if err != nil {
         log.Debug(err.Error())

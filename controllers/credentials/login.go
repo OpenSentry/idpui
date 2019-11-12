@@ -11,7 +11,7 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  "golang.org/x/oauth2"
+  //"golang.org/x/oauth2"
 
   idp "github.com/charmixer/idp/client"
 
@@ -28,7 +28,9 @@ type authenticationForm struct {
   Password string `form:"password" binding:"required" validate:"required,notblank"`
 }
 
-func ShowLogin(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFunc {
+const LOGIN_CHALLENGE_KEY = "login_challenge"
+
+func ShowLogin(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
@@ -36,18 +38,11 @@ func ShowLogin(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFun
       "func": "ShowLogin",
     })
 
-    loginChallenge := c.Query("login_challenge")
+    // Require login_challenge from oauth delegator (hydra), meaning one cannot start the login process on this endpoint by accessing it directly.
+    loginChallenge := c.Query(LOGIN_CHALLENGE_KEY)
     if loginChallenge == "" {
-      initUrl, err := app.StartAuthenticationSession(env, oauth2Config, c)
-      if err != nil {
-        log.Debug(err.Error())
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        c.Abort()
-        return
-      }
-      log.WithFields(logrus.Fields{"redirect_to": initUrl.String()}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, initUrl.String())
-      c.Abort()
+      log.Debug("Missing " + LOGIN_CHALLENGE_KEY)
+      c.AbortWithStatus(http.StatusBadRequest)
       return
     }
 
