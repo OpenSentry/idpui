@@ -30,6 +30,9 @@ type registrationForm struct {
     PasswordRetyped string `form:"password_retyped"   validate:"required,notblank"`
 }
 
+const REGISTER_ERRORS = "register.errors"
+const REGISTER_FIELDS = "register.fields"
+
 func ShowRegistration(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -65,7 +68,7 @@ func ShowRegistration(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    challengeId := c.Query("email_challenge")
+    challengeId := c.Query(EMAIL_CHALLENGE_KEY)
     if challengeId != "" {
 
       idpClient := app.IdpClientUsingClientCredentials(env, c)
@@ -93,7 +96,7 @@ func ShowRegistration(env *app.Environment) gin.HandlerFunc {
     }
 
     // Retain the values that was submittet
-    rf := session.Flashes("register.fields")
+    rf := session.Flashes(REGISTER_FIELDS)
     if len(rf) > 0 {
       registerFields := rf[0].(map[string][]string)
       for k, v := range registerFields {
@@ -117,7 +120,7 @@ func ShowRegistration(env *app.Environment) gin.HandlerFunc {
     }
 
 
-    errors := session.Flashes("register.errors")
+    errors := session.Flashes(REGISTER_ERRORS)
     err = session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
@@ -193,7 +196,8 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
 
     q := url.Values{}
     q.Add("state", form.State)
-    q.Add("email_challenge", form.Challenge)
+    q.Add(EMAIL_CHALLENGE_KEY, form.Challenge)
+
     submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
     if err != nil {
       log.Debug(err.Error())
@@ -229,7 +233,7 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
     registerFields["display-name"] = append(registerFields["display-name"], form.Name)
     registerFields["username"] = append(registerFields["username"], form.Username)
 
-    session.AddFlash(registerFields, "register.fields")
+    session.AddFlash(registerFields, REGISTER_FIELDS)
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
@@ -283,7 +287,7 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
     }
 
     if len(errors) > 0 {
-      session.AddFlash(errors, "register.errors")
+      session.AddFlash(errors, REGISTER_ERRORS)
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
@@ -331,9 +335,10 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
 
         if status == http.StatusOK {
           // Cleanup session
-          session.Delete(env.Constants.SessionClaimStateKey)
-          session.Delete("register.fields")
-          session.Delete("register.errors")
+          // session.Delete(env.Constants.SessionClaimStateKey)
+          // session.Delete(REGISTER_FIELDS)
+          // session.Delete(REGISTER_ERRORS)
+          session.Clear()
 
           // Propagate email to authenticate controller
           session.AddFlash(resp.Email, "authenticate.email")
@@ -366,7 +371,7 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
     }
 
     if len(errors) > 0 {
-      session.AddFlash(errors, "register.errors")
+      session.AddFlash(errors, REGISTER_ERRORS)
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())

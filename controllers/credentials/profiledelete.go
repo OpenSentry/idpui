@@ -129,8 +129,9 @@ func SubmitProfileDelete(env *app.Environment, oauth2Config *oauth2.Config) gin.
     if len(errors) <= 0 && riskAccepted == true {
 
       // Cleanup session state for controller.
-      session.Delete("profiledelete.risk_accepted")
-      session.Delete(PROFILEDELETE_ERRORS)
+      // session.Delete("profiledelete.risk_accepted")
+      // session.Delete(PROFILEDELETE_ERRORS)
+      session.Clear()
       err := session.Save() // Remove flashes read, and save submit fields
       if err != nil {
         log.Debug(err.Error())
