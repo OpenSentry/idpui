@@ -25,26 +25,27 @@ type emailConfirmForm struct {
   Code string `form:"code" binding:"required" validate:"required,notblank"`
 }
 
+const EMAILCONFIRM_ERRORS = "emailconfirm.errors"
+const EMAIL_CHALLENGE_KEY = "email_challenge"
+
 func ShowEmailConfirm(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "ShowVerify",
+      "func": "ShowEmailConfirm",
     })
 
-    emailChallenge := c.Query("email_challenge")
+    emailChallenge := c.Query(EMAIL_CHALLENGE_KEY)
     if emailChallenge == "" {
-      log.WithFields(logrus.Fields{
-        "email_challenge": emailChallenge,
-      }).Debug("Missing email_challenge")
-      c.JSON(http.StatusNotFound, gin.H{"error": "Missing email_challenge"})
-      c.Abort()
+      log.Debug("Missing " + EMAIL_CHALLENGE_KEY)
+      c.AbortWithStatus(http.StatusNotFound)
       return
     }
+    log = log.WithFields(logrus.Fields{ EMAIL_CHALLENGE_KEY: emailChallenge })
 
     q := url.Values{}
-    q.Add("email_challenge", emailChallenge)
+    q.Add(EMAIL_CHALLENGE_KEY, emailChallenge)
 
     submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
     if err != nil {
@@ -55,7 +56,7 @@ func ShowEmailConfirm(env *app.Environment) gin.HandlerFunc {
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
-    errors := session.Flashes("emailconfirm.errors")
+    errors := session.Flashes(EMAILCONFIRM_ERRORS)
     err = session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
@@ -95,7 +96,7 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "SubmitVerify",
+      "func": "SubmitEmailConfirm",
     })
 
     var form emailConfirmForm
@@ -105,9 +106,17 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
       c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       return
     }
+    log = log.WithFields(logrus.Fields{ EMAIL_CHALLENGE_KEY: form.Challenge})
 
     q := url.Values{}
-    q.Add("email_challenge", form.Challenge)
+    q.Add(EMAIL_CHALLENGE_KEY, form.Challenge)
+
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
@@ -155,18 +164,12 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
     }
 
     if len(errors) > 0 {
-      session.AddFlash(errors, "emailconfirm.errors")
+      session.AddFlash(errors, EMAILCONFIRM_ERRORS)
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
       }
 
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
       log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
       c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
@@ -180,10 +183,7 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
       Code: form.Code,
     } })
     if err != nil {
-      log.WithFields(logrus.Fields{
-        "email_challenge": form.Challenge,
-        // Do not log the code is like logging a password!
-      }).Debug(err.Error())
+      log.Debug(err.Error()) // Security Warning: Do not log the code is like logging a password!
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
@@ -195,25 +195,30 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    var resp idp.UpdateChallengesVerifyResponse
-    status, restErr := bulky.Unmarshal(0, responses, &resp)
+    var challengeVerification idp.UpdateChallengesVerifyResponse
+    status, restErr := bulky.Unmarshal(0, responses, &challengeVerification)
     if restErr != nil {
       for _,e := range restErr {
         errors["notification"] = append(errors["notification"], e.Error)
       }
     }
 
-    if status == 200 {
-
-      challengeVerification := resp
+    if status == http.StatusOK {
 
       if challengeVerification.Verified == true {
+
+        // Destroy user session
+        session.Clear()
+        err = session.Save()
+        if err != nil {
+          log.Debug(err.Error())
+        }
 
         // Append email_challenge to redirect_to
         u, err := url.Parse(challengeVerification.RedirectTo)
         if err != nil {
           log.WithFields(logrus.Fields{
-            "email_challenge": challengeVerification.OtpChallenge,
+            EMAIL_CHALLENGE_KEY: challengeVerification.OtpChallenge,
             "redirect_to": challengeVerification.RedirectTo,
           }).Debug(err.Error())
           c.AbortWithStatus(http.StatusInternalServerError)
@@ -221,7 +226,7 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
         }
 
         q := u.Query()
-        q.Set("email_challenge", challengeVerification.OtpChallenge)
+        q.Set(EMAIL_CHALLENGE_KEY, challengeVerification.OtpChallenge)
         u.RawQuery = q.Encode()
         redirectTo := u.String()
 
@@ -235,18 +240,12 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
 
     // Deny by default
     errors["code"] = append(errors["code"], "Invalid")
-    session.AddFlash(errors, "emailconfirm.errors")
+    session.AddFlash(errors, EMAILCONFIRM_ERRORS)
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
     }
 
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
     log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
     c.Redirect(http.StatusFound, submitUrl)
     c.Abort()

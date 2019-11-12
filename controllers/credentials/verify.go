@@ -25,6 +25,9 @@ type verifyForm struct {
   Code string `form:"code" binding:"required" validate:"required,notblank"`
 }
 
+const VERIFY_ERRORS = "verify.errors"
+const OTP_CHALLENGE_KEY = "otp_challenge"
+
 func ShowVerify(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -33,10 +36,10 @@ func ShowVerify(env *app.Environment) gin.HandlerFunc {
       "func": "ShowVerify",
     })
 
-    otpChallenge := c.Query("otp_challenge")
+    otpChallenge := c.Query(OTP_CHALLENGE_KEY)
     if otpChallenge == "" {
       log.WithFields(logrus.Fields{
-        "otp_challenge": otpChallenge,
+        OTP_CHALLENGE_KEY: otpChallenge,
       }).Debug("Missing otp_challenge")
       c.JSON(http.StatusNotFound, gin.H{"error": "Missing otp_challenge"})
       c.Abort()
@@ -45,7 +48,7 @@ func ShowVerify(env *app.Environment) gin.HandlerFunc {
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
-    errors := session.Flashes("verify.errors")
+    errors := session.Flashes(VERIFY_ERRORS)
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
@@ -96,7 +99,14 @@ func SubmitVerify(env *app.Environment) gin.HandlerFunc {
     }
 
     q := url.Values{}
-    q.Add("otp_challenge", form.Challenge)
+    q.Add(OTP_CHALLENGE_KEY, form.Challenge)
+
+    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
+      return
+    }
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
@@ -144,18 +154,12 @@ func SubmitVerify(env *app.Environment) gin.HandlerFunc {
     }
 
     if len(errors) > 0 {
-      session.AddFlash(errors, "verify.errors")
+      session.AddFlash(errors, VERIFY_ERRORS)
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
       }
 
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
       log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
       c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
@@ -170,7 +174,7 @@ func SubmitVerify(env *app.Environment) gin.HandlerFunc {
     } })
     if err != nil {
       log.WithFields(logrus.Fields{
-        "otp_challenge": form.Challenge,
+        OTP_CHALLENGE_KEY: form.Challenge,
         // Do not log the code is like logging a password!
       }).Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
@@ -202,7 +206,7 @@ func SubmitVerify(env *app.Environment) gin.HandlerFunc {
         u, err := url.Parse(challengeVerification.RedirectTo)
         if err != nil {
           log.WithFields(logrus.Fields{
-            "otp_challenge": challengeVerification.OtpChallenge,
+            OTP_CHALLENGE_KEY: challengeVerification.OtpChallenge,
             "redirect_to": challengeVerification.RedirectTo,
           }).Debug(err.Error())
           c.AbortWithStatus(http.StatusInternalServerError)
@@ -210,7 +214,7 @@ func SubmitVerify(env *app.Environment) gin.HandlerFunc {
         }
 
         q := u.Query()
-        q.Set("otp_challenge", challengeVerification.OtpChallenge)
+        q.Set(OTP_CHALLENGE_KEY, challengeVerification.OtpChallenge)
         u.RawQuery = q.Encode()
         redirectTo := u.String()
 
@@ -224,18 +228,12 @@ func SubmitVerify(env *app.Environment) gin.HandlerFunc {
 
     // Deny by default
     errors["code"] = append(errors["code"], "Invalid")
-    session.AddFlash(errors, "verify.errors")
+    session.AddFlash(errors, VERIFY_ERRORS)
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
     }
 
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
     log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
     c.Redirect(http.StatusFound, submitUrl)
     c.Abort()
