@@ -9,10 +9,6 @@ import (
   "golang.org/x/oauth2"
 
   idp "github.com/charmixer/idp/client"
-  aap "github.com/charmixer/aap/client"
-  "github.com/charmixer/idpui/config"
-
-  bulky "github.com/charmixer/bulky/client"
 )
 
 func IdpClientUsingAuthorizationCode(env *Environment, oauth2Delegator *oauth2.Config, c *gin.Context) (*idp.IdpClient) {
@@ -25,10 +21,6 @@ func IdpClientUsingAuthorizationCode(env *Environment, oauth2Delegator *oauth2.C
 
 func IdpClientUsingClientCredentials(env *Environment, c *gin.Context) (*idp.IdpClient) {
   return idp.NewIdpClient(env.IdpConfig)
-}
-
-func AapClientUsingClientCredentials(env *Environment, c *gin.Context) (*aap.AapClient) {
-  return aap.NewAapClient(env.AapConfig)
 }
 
 func CreateRandomStringWithNumberOfBytes(numberOfBytes int) (string, error) {
@@ -84,24 +76,4 @@ func StartChallengeSession(env *Environment, c *gin.Context, newChallengeSession
     State: state,
   }
   return &ret, nil
-}
-
-func FetchInvite(idpClient *idp.IdpClient, id string) (*idp.Invite, error) {
-
-  inviteRequest := []idp.ReadInvitesRequest{ {Id: id} }
-  status, responses, err := idp.ReadInvites(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.collection"), inviteRequest)
-  if err != nil {
-    return nil, err
-  }
-
-  if status == 200 {
-    var resp idp.ReadInvitesResponse
-    status, _ := bulky.Unmarshal(0, responses, &resp)
-    if status == 200 {
-      invite := &resp[0]
-      return invite, nil
-    }
-  }
-
-  return nil, nil
 }

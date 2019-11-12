@@ -74,8 +74,9 @@ func ShowClaimEmail(env *app.Environment) gin.HandlerFunc {
         if status == http.StatusOK {
 
           // Cleanup session
-          session.Delete("register.fields")
-          session.Delete("register.errors")
+          // session.Delete("register.fields")
+          // session.Delete("register.errors")
+          session.Clear()
           err = session.Save()
           if err != nil {
             log.Debug(err.Error())
@@ -309,8 +310,9 @@ func SubmitClaimEmail(env *app.Environment) gin.HandlerFunc {
           if status == 200 {
 
             // Cleanup session
-            session.Delete("register.fields")
-            session.Delete("register.errors")
+            // session.Delete("register.fields")
+            // session.Delete("register.errors")
+            session.Clear()
             err = session.Save()
             if err != nil {
               log.Debug(err.Error())

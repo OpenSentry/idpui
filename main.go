@@ -63,10 +63,6 @@ func init() {
     "log.format": logFormat,
   }
 
-  gob.Register(&app.IdentityStore{})
-
-  //gob.Register(&oauth2.Token{}) // This is required to make session in idpui able to persist tokens.
-  //gob.Register(&oidc.IDToken{})
   gob.Register(make(map[string][]string))
 }
 
@@ -130,7 +126,6 @@ func main() {
       AccessTokenKey: "access_token",
       IdTokenKey: "id_token",
 
-      SessionCredentialsStoreKey: appName + ".credentials",
       SessionStoreKey: appName,
       SessionExchangeStateKey: "exchange.state",
       SessionClaimStateKey: "claim.state",
@@ -142,11 +137,8 @@ func main() {
       ContextIdentityKey: "id",
       IdpClientKey: "idpclient",
       ContextOAuth2ConfigKey: "oauth2_config",
-
-      IdentityStoreKey: "idstore",
     },
     Provider: provider,
-    // OAuth2Delegators: &oAuth2Delegators,
     IdpConfig: idpConfig,
     AapConfig: aapConfig,
     Logger: log,
@@ -213,14 +205,14 @@ func serve(env *app.Environment) {
     ep.POST( "/register", credentials.SubmitRegistration(env) )
 
     // Signin
-    loginConfig := &oauth2.Config{
+    /*loginConfig := &oauth2.Config{
       ClientID: clientId,
       ClientSecret: clientSecret,
       Endpoint: endpoint,
       RedirectURL: config.GetString("oauth2.callback"),
       Scopes: config.GetStringSlice("oauth2.scopes.required"),
-    }
-    ep.GET(  "/login", credentials.ShowLogin(env, loginConfig) )
+    }*/
+    ep.GET(  "/login", credentials.ShowLogin(env) )
     ep.POST( "/login", credentials.SubmitLogin(env) )
 
     // Logout
