@@ -230,7 +230,6 @@ func SubmitDeleteConfirm(env *app.Environment) gin.HandlerFunc {
 
     if challengeVerification.Verified == true {
 
-      // FIXME: Call delete endpoint and redirect to success redirect.
       // FIXME: Maybe this should use an access token instead of client credentials.
 
       deleteRequests := []idp.UpdateHumansDeleteVerifyRequest{ {DeleteChallenge: challengeVerification.OtpChallenge} }

@@ -16,41 +16,51 @@
 
       <div class="ui left aligned segment totp">
 
-      <div class="ui tiny fluid vertical steps unstackable">
-        <div class="step">
-          <i class="mobile alternate icon"></i>
-          <div class="content">
-            <div class="title">Install Authenticator</div>
-            <div class="description">Download Authenticator App on your Phone</div>
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="user icon"></i>
+            <div class="content">
+              <div class="title">{{ .name }}</div>
+              <div class="description">E-mail: {{.email}}</div>
+            </div>
           </div>
         </div>
 
-        <div class="step">
-          <i class="qrcode icon"></i>
-          <div class="content">
-            <div class="title">Scan QR-code</div>
-            <div class="description">Scan the QR-code with the Authenticator App</div>
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="mobile alternate icon"></i>
+            <div class="content">
+              <div class="title">Install Authenticator</div>
+              <div class="description">Download Authenticator App on your Phone</div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="image">
-        <img class="ui centered image" src="data:image/png;base64, {{ .qrcode }}" alt="{{.secret}}" />
-        <div class="white" style="text-align:center;margin-top:4px">Secret: {{ .secret }}</div>
-      </div>
-
-      <div class="ui tiny fluid vertical steps unstackable">
-        <div class="step">
-          <i class="handshake icon"></i>
-          <div class="content">
-            <div class="title">Verify installation</div>
-            <div class="description">Enter code from Authenticator App to verify installation</div>
+          <div class="step">
+            <i class="qrcode icon"></i>
+            <div class="content">
+              <div class="title">Scan QR-code</div>
+              <div class="description">Scan the QR-code with the Authenticator App</div>
+            </div>
           </div>
         </div>
 
-      </div>
+        <div class="image">
+          <img class="ui centered image" src="data:image/png;base64, {{ .qrcode }}" alt="{{.secret}}" />
+          <div class="white" style="text-align:center;margin-top:4px">Secret: {{ .secret }}</div>
+        </div>
 
-      {{template "input.totp" . }}
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="handshake icon"></i>
+            <div class="content">
+              <div class="title">Verify installation</div>
+              <div class="description">Enter code from Authenticator App to verify installation</div>
+            </div>
+          </div>
+
+        </div>
+
+        {{template "input.totp" . }}
 
       </div>
 

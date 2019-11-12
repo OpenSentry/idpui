@@ -24,6 +24,8 @@ type recoverForm struct {
   RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
 }
 
+const RECOVER_ERRORS = "recover.errors"
+
 func ShowRecover(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -39,7 +41,7 @@ func ShowRecover(env *app.Environment) gin.HandlerFunc {
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
-    errors := session.Flashes("recover.errors")
+    errors := session.Flashes(RECOVER_ERRORS)
     err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
@@ -249,7 +251,7 @@ func SubmitRecover(env *app.Environment) gin.HandlerFunc {
 
       // Cleanup session
       //session.Delete("recover.email")
-      //session.Delete("recover.errors")
+      //session.Delete(RECOVER_ERRORS)
       session.Clear()
       err = session.Save()
       if err != nil {
@@ -263,7 +265,7 @@ func SubmitRecover(env *app.Environment) gin.HandlerFunc {
     }
 
     errors["email"] = append(errors["email"], "Not Found")
-    session.AddFlash(errors, "recover.errors")
+    session.AddFlash(errors, RECOVER_ERRORS)
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())

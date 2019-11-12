@@ -157,6 +157,8 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
       "provideraction": "Enable two-factor authentication for better security",
       "access_token": token.AccessToken,
       "id": identity.Id,
+      "name": identity.Name,
+      "email": identity.Email,
       "redirect_to": redirectTo,
       "issuer": key.Issuer(),
       "secret": key.Secret(),
@@ -249,12 +251,6 @@ func SubmitTotp(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFu
         log.Debug(err.Error())
       }
 
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, nil)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
       log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
       c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
