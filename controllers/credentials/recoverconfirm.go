@@ -180,12 +180,6 @@ func SubmitRecoverConfirm(env *app.Environment) gin.HandlerFunc {
         log.Debug(err.Error())
       }
 
-      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
       log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
       c.Redirect(http.StatusFound, submitUrl)
       c.Abort()

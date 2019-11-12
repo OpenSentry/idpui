@@ -4,7 +4,6 @@ import (
   "strings"
   "time"
   "net/http"
-  "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
   oidc "github.com/coreos/go-oidc"
   "github.com/sirupsen/logrus"
@@ -14,18 +13,12 @@ import (
   "github.com/charmixer/idpui/utils"
 )
 
-type IdentityStore struct {
-  Token *oauth2.Token
-  IdToken string
-}
-
 type EnvironmentConstants struct {
   RequestIdKey   string
   LogKey         string
   AccessTokenKey string
   IdTokenKey     string
 
-  SessionCredentialsStoreKey string // This hold the access token and id token
   SessionStoreKey            string // This holds the application data
   SessionExchangeStateKey    string
   SessionClaimStateKey       string
@@ -39,8 +32,6 @@ type EnvironmentConstants struct {
   IdpClientKey string
 
   ContextOAuth2ConfigKey string
-
-  IdentityStoreKey string
 }
 
 type Environment struct {
@@ -49,7 +40,6 @@ type Environment struct {
   Logger *logrus.Logger
 
   Provider        *oidc.Provider
-  // OAuth2Delegators *OAuth2Delegators
 
   IdpConfig *clientcredentials.Config
   AapConfig *clientcredentials.Config
