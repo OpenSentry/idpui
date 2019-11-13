@@ -93,35 +93,29 @@ func RequestAccessToken(env *Environment, oauth2Delegator *oauth2.Config) gin.Ha
         c.AbortWithStatus(http.StatusBadRequest)
         return
       }
-      log = log.WithFields(logrus.Fields{ "query.state":requestState })
+      log = log.WithFields(logrus.Fields{ "state":requestState })
 
-      log = log.WithFields(logrus.Fields{ "session.key":env.Constants.SessionExchangeStateKey })
-      session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
-      v := session.Get(env.Constants.SessionExchangeStateKey)
-      if v == nil {
-        log.Debug("Missing session state. Hint: Request was not initiated by idpui")
+      valid, err := ValidateRequestStateWithRedirectCsrfSession(env, c, env.Constants.SessionExchangeStateKey, requestState)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
+
+      if valid == false {
+        log.Debug("Request state invalid")
         c.AbortWithStatus(http.StatusBadRequest)
         return
       }
-      sessionState := v.(string)
-      log = log.WithFields(logrus.Fields{ "session.state":sessionState })
 
       // Require redirect_to registered to session exchange state
-      v = session.Get(sessionState)
-      if v == nil {
-        log.Debug("Missing redirect_to in session")
+      redirectTo, err := FetchRedirectToForRedirectCsrfSession(env, c, env.Constants.SessionExchangeStateKey)
+      if err != nil {
+        log.Debug(err.Error())
         c.AbortWithStatus(http.StatusBadRequest)
         return
       }
-      redirectTo := v.(string)
       log = log.WithFields(logrus.Fields{ "session.redirect_to":redirectTo })
-
-      // Sanity check. Query state and session state must match. (CSRF on redirects)
-      if requestState != sessionState {
-        log.Debug("Request state and session state mismatch")
-        c.AbortWithStatus(http.StatusBadRequest)
-        return
-      }
 
       // Found a code try and exchange it for access token.
       token, err := oauth2Delegator.Exchange(context.Background(), code)
@@ -266,7 +260,7 @@ func StartAuthenticationSession(env *Environment, oauth2Delegator *oauth2.Config
   }
 
   // Always generate a new authentication session state
-  session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
+  session := sessions.DefaultMany(c, env.Constants.SessionRedirectCsrfStoreKey)
 
   // Create random bytes that are based64 encoded to prevent character problems with the session store.
   // The base 64 means that more than 64 bytes are stored! Which can cause "securecookie: the value is too long"

@@ -127,6 +127,7 @@ func main() {
       IdTokenKey: "id_token",
 
       SessionStoreKey: appName,
+      SessionRedirectCsrfStoreKey: appName + ".redirectcsrf",
       SessionExchangeStateKey: "exchange.state",
       SessionClaimStateKey: "claim.state",
       SessionLogoutStateKey: "logout.state",
@@ -183,8 +184,7 @@ func serve(env *app.Environment) {
     Secure: true,
     HttpOnly: true,
   })
-  r.Use(sessions.SessionsMany([]string{env.Constants.SessionStoreKey}, store))
-  //r.Use(sessions.Sessions(env.Constants.SessionStoreKey, store))
+  r.Use(sessions.SessionsMany([]string{env.Constants.SessionRedirectCsrfStoreKey, env.Constants.SessionStoreKey}, store))
 
   // Use CSRF on all idpui forms.
   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.GetString("csrf.authKey")), csrf.Secure(true)))
@@ -205,24 +205,10 @@ func serve(env *app.Environment) {
     ep.POST( "/register", credentials.SubmitRegistration(env) )
 
     // Signin
-    /*loginConfig := &oauth2.Config{
-      ClientID: clientId,
-      ClientSecret: clientSecret,
-      Endpoint: endpoint,
-      RedirectURL: config.GetString("oauth2.callback"),
-      Scopes: config.GetStringSlice("oauth2.scopes.required"),
-    }*/
     ep.GET(  "/login", credentials.ShowLogin(env) )
     ep.POST( "/login", credentials.SubmitLogin(env) )
 
     // Logout
-    // logoutConfig := &oauth2.Config{
-    //   ClientID: clientId,
-    //   ClientSecret: clientSecret,
-    //   Endpoint: endpoint,
-    //   RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.logout"),
-    //   Scopes: []string{"openid", "offline", "idp:read:humans"},
-    // }
     ep.GET( "/logout", credentials.ShowLogout(env))
     ep.POST( "/logout", credentials.SubmitLogout(env) )
 
@@ -245,7 +231,9 @@ func serve(env *app.Environment) {
     ep.GET( "/recoverconfirm", credentials.ShowRecoverConfirm(env) )
     ep.POST( "/recoverconfirm", credentials.SubmitRecoverConfirm(env) )
 
-    // ep.GET("/untilnexttime", credentials.ShowUntilNextTime(env))
+    // Verify emailchange using OTP code
+    // ep.GET( "/emailchangeconfirm", credentials.ShowEmailChangeConfirm(env) )
+    // ep.POST( "/emailchangeconfirm", credentials.SubmitEmailChangeConfirm(env) )
 
     // Recover
     ep.GET(  "/recover", credentials.ShowRecover(env) )
@@ -259,10 +247,21 @@ func serve(env *app.Environment) {
       ClientSecret: clientSecret,
       Endpoint: endpoint,
       RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.password"),
-      Scopes: []string{"openid", "offline", "idp:read:humans", "idp:update:humans:password"},
+      Scopes: []string{"openid", "idp:read:humans", "idp:update:humans:password"},
     }
     ep.GET( "/password", app.RequestAccessToken(env, passwordConfig), credentials.ShowPassword(env))
     ep.POST( "/password", credentials.SubmitPassword(env, passwordConfig) ) // Renders the obtained access token in hidden input field for posting. (maybe it should just render into bearer token header?)
+
+    // Change email (change recovery email)
+    // emailChangeConfig := &oauth2.Config{
+    //   ClientID: clientId,
+    //   ClientSecret: clientSecret,
+    //   Endpoint: endpoint,
+    //   RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.emailchange"),
+    //   Scopes: []string{"openid", "idp:read:humans", "idp:create:humans:emailchange"},
+    // }
+    // ep.GET( "/emailchange", app.RequestAccessToken(env, emailChangeConfig), credentials.ShowEmailChange(env))
+    // ep.POST( "/emailchange", credentials.SubmitEmailChange(env, emailChangeConfig) )
 
     // Enable TOTP
     totpConfig := &oauth2.Config{
@@ -270,7 +269,7 @@ func serve(env *app.Environment) {
       ClientSecret: clientSecret,
       Endpoint: endpoint,
       RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.totp"),
-      Scopes: []string{"openid", "offline", "idp:read:humans", "idp:update:humans:totp"},
+      Scopes: []string{"openid", "idp:read:humans", "idp:update:humans:totp"},
     }
     ep.GET( "/totp", app.RequestAccessToken(env, totpConfig), credentials.ShowTotp(env))
     ep.POST( "/totp", credentials.SubmitTotp(env, totpConfig) )
@@ -281,7 +280,7 @@ func serve(env *app.Environment) {
       ClientSecret: clientSecret,
       Endpoint: endpoint,
       RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.delete"),
-      Scopes: []string{"openid", "offline", "idp:read:humans", "idp:delete:humans"},
+      Scopes: []string{"openid", "idp:read:humans", "idp:delete:humans"},
     }
     ep.GET( "/delete", app.RequestAccessToken(env, deleteProfileConfig), credentials.ShowProfileDelete(env))
     ep.POST( "/delete", credentials.SubmitProfileDelete(env, deleteProfileConfig) )

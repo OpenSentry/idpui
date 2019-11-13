@@ -53,20 +53,20 @@ func ShowRegistration(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
-    v := session.Get(env.Constants.SessionClaimStateKey)
-    if v == nil {
-      log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
-      c.AbortWithStatus(http.StatusBadRequest)
+    valid, err := app.ValidateRequestStateWithRedirectCsrfSession(env, c, env.Constants.SessionClaimStateKey, state)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-    sessionState := v.(string)
 
-    if state != sessionState {
-      log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request did not originate from app. Hint: session state and request state differs")
+    if valid == false {
+      log.Debug("Request state invalid")
       c.AbortWithStatus(http.StatusBadRequest)
       return
     }
+
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     challengeId := c.Query(EMAIL_CHALLENGE_KEY)
     if challengeId != "" {
@@ -211,20 +211,20 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
-    v := session.Get(env.Constants.SessionClaimStateKey)
-    if v == nil {
-      log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request not initiated by app. Hint: Missing session state")
-      c.AbortWithStatus(http.StatusBadRequest)
+    valid, err := app.ValidateRequestStateWithRedirectCsrfSession(env, c, env.Constants.SessionClaimStateKey, form.State)
+    if err != nil {
+      log.Debug(err.Error())
+      c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-    sessionState := v.(string)
 
-    if form.State != sessionState {
-      log.WithFields(logrus.Fields{ "key":env.Constants.SessionClaimStateKey }).Debug("Request did not originate from app. Hint: session state and request state differs")
+    if valid == false {
+      log.Debug("Request state invalid")
       c.AbortWithStatus(http.StatusBadRequest)
       return
     }
+
+    session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
     // Save values if submit fails
     registerFields := make(map[string][]string)
@@ -339,6 +339,9 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
           // session.Delete(REGISTER_FIELDS)
           // session.Delete(REGISTER_ERRORS)
           session.Clear()
+
+          // Done using the claim state, clean it up.
+          app.ClearRedirectCsrfSession(env, c, env.Constants.SessionClaimStateKey)
 
           // Propagate email to authenticate controller
           session.AddFlash(resp.Email, "authenticate.email")
