@@ -1,0 +1,7 @@
+/*******************************
+     User Global Variables
+*******************************/
+
+@importGoogleFonts : false;
+@headerFont        : 'Roboto', 'Helvetica Neue', Arial, Helvetica, sans-serif;
+@pageFont          : 'Roboto', 'Helvetica Neue', Arial, Helvetica, sans-serif;

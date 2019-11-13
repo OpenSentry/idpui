@@ -9,18 +9,16 @@
   <meta name="author" content="CharMixer">
 
   <!-- load all styles -->
-  <!--<link rel="stylesheet" type="text/css" href="/public/lib/semanticui/semantic.min.css"> -->
-  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.7.8/dist/semantic.min.css">
-  <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
+  <link rel="stylesheet" type="text/css" href="/public/lib/fomantic/dist/semantic.min.css">
+  <link href="/public/css/roboto.css" rel="stylesheet">
 
   {{ range $value := .links }}
     <link rel="{{ or $value.rel "stylesheet" }}" type="{{ or $value.type "text/css" }}" href="{{ $value.href }}">
   {{ end }}
 
   <!-- load all scripts -->
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.7.8/dist/semantic.min.js"></script>
-  <!-- <script src="/public/lib/semanticui/semantic.min.js"></script>-->
+  <script src="/public/js/jquery-3.3.1.min.js"></script>
+  <script src="/public/lib/fomantic/dist/semantic.min.js"></script>
   {{ range $value := .scripts }}
     <script type="{{ or $value.type "text/javascript" }}" src="{{ $value.src }}"></script>
   {{ end }}
