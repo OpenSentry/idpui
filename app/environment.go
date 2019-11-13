@@ -19,10 +19,11 @@ type EnvironmentConstants struct {
   AccessTokenKey string
   IdTokenKey     string
 
-  SessionStoreKey            string // This holds the application data
-  SessionExchangeStateKey    string
-  SessionClaimStateKey       string
-  SessionLogoutStateKey      string
+  SessionStoreKey             string // This holds the controller data
+  SessionRedirectCsrfStoreKey string // This holds the data that is shared between controllers (redirects and state for CSRF over redirects)
+  SessionExchangeStateKey     string
+  SessionClaimStateKey        string
+  SessionLogoutStateKey       string
 
   ContextAccessTokenKey string
   ContextIdTokenKey string
