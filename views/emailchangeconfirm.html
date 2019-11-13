@@ -1,0 +1,41 @@
+{{ template "htmlbegin" . }}
+
+<div class="ui padded middle aligned center aligned grid">
+  <div class="column">
+
+    {{ template "providerheader" . }}
+
+    <div class="ui divider hidden"></div>
+
+    <form class="ui large form" action="{{.submitUrl}}" method="post">
+      {{ .csrfField }}
+      <input type="hidden" name="challenge" value="{{ .challenge }}" />
+
+      <div class="ui left aligned segment totp">
+
+      <div class="ui tiny fluid vertical steps unstackable">
+        <div class="step">
+          <i class="mail icon"></i>
+          <div class="content">
+            <div class="title">Confirm Email Change</div>
+            <div class="description">Enter the code sent to your email</div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+
+      {{ template "input.code" . }}
+
+      <input type="submit" name="submit" class="ui fluid large green submit button" value="Confirm Email Change" />
+
+    </form>
+
+    <div class="ui divider hidden"></div>
+
+    <div class="white">Email challenge: {{ .challenge }}</div>
+
+  </div>
+</div>
+
+{{ template "htmlend" . }}
