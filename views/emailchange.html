@@ -1,0 +1,44 @@
+{{ template "htmlbegin" . }}
+
+<div class="ui padded middle aligned center aligned grid">
+  <div class="column">
+
+    {{ template "providerheader" . }}
+
+    <div class="ui divider hidden"></div>
+
+    <div class="ui left aligned segment totp">
+
+      <form class="ui large form" action="{{ .emailChangeUrl }}" method="post">
+        {{ .csrfField }}
+        <input type="hidden" name="access_token" value="{{ .access_token }}" />
+        <input type="hidden" name="id" value="{{ .id }}" />
+        <input type="hidden" name="redirect_to" value="{{ .redirect_to }}" />
+
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="user icon"></i>
+            <div class="content">
+              <div class="title">{{ .name }}</div>
+              <div class="description">E-mail: {{.email}}</div>
+            </div>
+          </div>
+        </div>
+
+        {{template "input.email" . }}
+
+        <input type="submit" name="submit" class="ui fluid large green submit button" value="Change Email" />
+
+      </form>
+
+      <div class="ui divider hidden"></div>
+
+      <div class="white">Id: {{ .id }}</div>
+
+    </div>
+
+  </div>
+</div>
+
+{{ template "htmlend" . }}
+
