@@ -1,3 +1,4 @@
 /idpui
 tmp/
 application-build-*
+node_modules/
