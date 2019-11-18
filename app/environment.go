@@ -21,8 +21,7 @@ type EnvironmentConstants struct {
 
   SessionStoreKey             string // This holds the controller data
   SessionRedirectCsrfStoreKey string // This holds the data that is shared between controllers (redirects and state for CSRF over redirects)
-  SessionExchangeStateKey     string
-  SessionClaimStateKey        string
+  SessionChallengeStoreKey    string // This holds the data from challenges
   SessionLogoutStateKey       string
 
   ContextAccessTokenKey string
@@ -30,9 +29,9 @@ type EnvironmentConstants struct {
   ContextIdTokenRawKey string
   ContextIdTokenHintKey string
   ContextIdentityKey string
-  IdpClientKey string
-
   ContextOAuth2ConfigKey string
+  ContextRequiredScopesKey string
+  ContextPrecalculatedStateKey string
 }
 
 type Environment struct {
@@ -41,6 +40,9 @@ type Environment struct {
   Logger *logrus.Logger
 
   Provider        *oidc.Provider
+
+  ClientId string
+  ClientSecret string
 
   IdpConfig *clientcredentials.Config
   AapConfig *clientcredentials.Config

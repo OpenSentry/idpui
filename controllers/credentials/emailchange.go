@@ -1,20 +1,15 @@
 package credentials
 
 import (
+  //"fmt"
   "net/http"
-  "bytes"
   "strings"
-  "image/png"
-  "encoding/base64"
-  "time"
   "reflect"
   "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
-  "github.com/gin-contrib/sessions"
   "github.com/gorilla/csrf"
-  "github.com/pquerna/otp"
-  "github.com/pquerna/otp/totp"
+  "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
 
   idp "github.com/charmixer/idp/client"
@@ -27,22 +22,19 @@ import (
   bulky "github.com/charmixer/bulky/client"
 )
 
-
-type totpForm struct {
+type emailChangeForm struct {
   AccessToken string `form:"access_token" binding:"required" validate:"required,notblank"`
   Id string `form:"id" binding:"required" validate:"required,uuid"`
   //RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
-
-  Totp string `form:"totp" binding:"required" validate:"required,notblank"`
-  Secret string `form:"secret" binding:"required" validate:"required,notblank"`
+  Email string `form:"email" binding:"required" validate:"required,email"`
 }
 
-func ShowTotp(env *app.Environment) gin.HandlerFunc {
+func ShowEmailChange(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "ShowTotp",
+      "func": "ShowEmailChange",
     })
 
     identity := app.GetIdentity(env, c)
@@ -54,85 +46,20 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
-    millis := time.Now().UnixNano() / 1000000
-
-    var err error
-    var key *otp.Key
-    isStoredTotpKeyValid := false
-
-    k := session.Get("totp.key")
-    if k != nil {
-
-      expTotp := session.Get("totp.exp")
-      if expTotp != nil {
-        exp := expTotp.(int64)
-
-        if exp > millis {
-          isStoredTotpKeyValid = true
-        }
-      }
-
-    }
-
-    if isStoredTotpKeyValid == true {
-
-      key, err = otp.NewKeyFromURL(k.(string))
-      if err != nil {
-        log.Debug(err)
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-
-    } else {
-
-      totpOpts := totp.GenerateOpts{
-        Issuer: config.GetString("idpui.public.url"),
-        AccountName: identity.Id,
-      }
-      key, err = totp.Generate(totpOpts)
-      if err != nil {
-        log.WithFields(logrus.Fields{
-          "totp.issuer": totpOpts.Issuer,
-          "totp.accountname": totpOpts.AccountName,
-        }).Debug(err)
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-
-      session.Set("totp.key", key.String())
-      session.Set("totp.exp", millis + (1000 * 60 * 15)) // 15 minutes // FIXME: Put into config
-      err = session.Save()
-      if err != nil {
-        log.Debug(err.Error())
-      }
-
-    }
-
-    // Convert TOTP key into a PNG
-  	var buf bytes.Buffer
-  	img, err := key.Image(200, 200)
-  	if err != nil {
-      log.Debug(err)
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-  	}
-  	png.Encode(&buf, img)
-    embedQrCode := base64.StdEncoding.EncodeToString(buf.Bytes())
-
-    errors := session.Flashes(TOTP_ERRORS)
-    err = session.Save() // Remove flashes read, and save submit fields
+    errors := session.Flashes(EMAILCHANGE_ERRORS)
+    err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
     }
 
-    var errorTotp string
+    var errorEmail string
 
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
       for k, v := range errorsMap {
 
-        if k == "totp" && len(v) > 0 {
-          errorTotp = strings.Join(v, ", ")
+        if k == "email" && len(v) > 0 {
+          errorEmail = strings.Join(v, ", ")
         }
 
       }
@@ -140,38 +67,39 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
 
     token := app.AccessToken(env, c)
 
-    c.HTML(http.StatusOK, "totp.html", gin.H{
-      "title": "Two Factor Authentication",
+    // c.Header("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
+    c.HTML(http.StatusOK, "emailchange.html", gin.H{
+      "title": "Email",
       "links": []map[string]string{
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
-      "provideraction": "Enable two-factor authentication for better security",
+      "provideraction": "Change your email",
       "access_token": token.AccessToken,
       "id": identity.Id,
       "name": identity.Name,
       "email": identity.Email,
-      "issuer": key.Issuer(),
-      "secret": key.Secret(),
-      "qrcode": embedQrCode,
-      "errorTotp": errorTotp,
+      "emailChangeUrl": config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.emailchange"),
+      "errorEmail": errorEmail,
     })
   }
   return gin.HandlerFunc(fn)
 }
-func SubmitTotp(env *app.Environment) gin.HandlerFunc {
+
+func SubmitEmailChange(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "SubmitTotp",
+      "func": "SubmitEmailChange",
     })
 
-    var form totpForm
+    var form emailChangeForm
     err := c.Bind(&form)
     if err != nil {
-      c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+      c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+      c.Abort()
       return
     }
 
@@ -228,28 +156,20 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
 
     }
 
-    // We need to validate that the user entered a correct otp form the authenticator app before enabling totp on the profile. Or we risk locking the user out of the system.
-    // We should also generate a set of one time recovery codes and display to the user (simple generate a set of random codes and let the user print them)
-    // see https://github.com/pquerna/otp, https://help.github.com/en/articles/configuring-two-factor-authentication-recovery-methods
-    valid := totp.Validate(form.Totp, form.Secret)
-    if len(errors) <= 0 && valid == false {
-      errors["totp"] = append(errors["totp"], "Invalid")
-    }
-
     if len(errors) > 0 {
-      session.AddFlash(errors, TOTP_ERRORS)
+      session.AddFlash(errors, EMAILCHANGE_ERRORS)
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
       }
 
-      log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
+      log.WithFields(logrus.Fields{"errors":len(errors), "redirect_to": submitUrl}).Debug("Redirecting")
       c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
       return
     }
 
-    if valid == true {
+    if form.Email != "" {
 
       // Cleanup session state for controller.
       session.Clear()
@@ -269,8 +189,8 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
       idpClient := idp.NewIdpClientWithUserAccessToken(oauth2Config, &oauth2.Token{
         AccessToken: form.AccessToken,
       })
-      totpRequest := []idp.UpdateHumansTotpRequest{ {Id:form.Id, TotpRequired:true, TotpSecret:form.Secret} }
-      status, responses, err := idp.UpdateHumansTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.totp"), totpRequest);
+      emailChangeRequests := []idp.CreateHumansEmailChangeRequest{ {Id: form.Id, RedirectTo: config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") , Email:form.Email} }
+      status, responses, err := idp.CreateHumansEmailChange(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.emailchange"), emailChangeRequests)
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatus(http.StatusInternalServerError)
@@ -283,13 +203,13 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
       }
 
       if status != http.StatusOK {
-        log.WithFields(logrus.Fields{ "status":status }).Debug("Update TOTP failed")
+        log.WithFields(logrus.Fields{ "status":status }).Debug("Create email change failed")
         c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
 
-      var resp idp.UpdateHumansTotpResponse
-      reqStatus, reqErrors := bulky.Unmarshal(0, responses, &resp)
+      var challengeResponse idp.CreateHumansEmailChangeResponse
+      reqStatus, reqErrors := bulky.Unmarshal(0, responses, &challengeResponse)
 
       if reqStatus == http.StatusForbidden {
         c.AbortWithStatus(http.StatusForbidden)
@@ -304,15 +224,14 @@ func SubmitTotp(env *app.Environment) gin.HandlerFunc {
             errors = append(errors, e.Error)
           }
         }
-        // FIXME: Encode errors to json
 
-        log.WithFields(logrus.Fields{ "status":reqStatus, "errors":strings.Join(errors, ", ") }).Debug("Unmarshal UpdateHumansTotpResponse failed")
+        log.WithFields(logrus.Fields{ "status":reqStatus, "errors":strings.Join(errors, ", ") }).Debug("Unmarshal CreateHumansEmailChangeResponse failed")
         c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
 
       // Success
-      redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile")
+      redirectTo := challengeResponse.RedirectTo
       log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
       c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
