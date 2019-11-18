@@ -21,8 +21,6 @@ type logoutForm struct {
   Challenge string `form:"challenge" binding:"required" validate:"required,notblank"`
 }
 
-const LOGOUT_CHALLENGE_KEY = "logout_challenge"
-
 func ShowLogout(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 

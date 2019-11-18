@@ -1,4 +1,4 @@
-package credentials
+package challenges
 
 import (
   "net/http"
@@ -20,31 +20,28 @@ import (
   bulky "github.com/charmixer/bulky/client"
 )
 
-type emailChangeConfirmForm struct {
+type deleteConfirmForm struct {
   Challenge string `form:"challenge" binding:"required" validate:"required,notblank"`
-  Code      string `form:"code"      binding:"required" validate:"required,notblank"`
-  Email     string `form:"email"     binding:"required" validate:"required,email"`
+  Code string `form:"code" binding:"required" validate:"required,notblank"`
 }
 
-const EMAILCHANGECONFIRM_ERRORS = "recoverconfirm.errors"
-
-func ShowEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
+func ShowDeleteConfirm(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "ShowEmailChangeConfirm",
+      "func": "ShowDeleteConfirm",
     })
 
-    emailChallenge := c.Query(EMAIL_CHALLENGE_KEY)
-    if emailChallenge == "" {
-      log.WithFields(logrus.Fields{ EMAIL_CHALLENGE_KEY: emailChallenge }).Debug("Missing " + EMAIL_CHALLENGE_KEY)
+    deleteChallenge := c.Query(DELETE_CHALLENGE_KEY)
+    if deleteChallenge == "" {
+      log.WithFields(logrus.Fields{ DELETE_CHALLENGE_KEY: deleteChallenge }).Debug("Missing " + DELETE_CHALLENGE_KEY)
       c.AbortWithStatus(http.StatusNotFound)
       return
     }
 
     q := url.Values{}
-    q.Add(EMAIL_CHALLENGE_KEY, emailChallenge)
+    q.Add(DELETE_CHALLENGE_KEY, deleteChallenge)
 
     submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
     if err != nil {
@@ -55,14 +52,13 @@ func ShowEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
-    errors := session.Flashes(EMAILCHANGECONFIRM_ERRORS)
+    errors := session.Flashes(DELETECONFIRM_ERRORS)
     err = session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
     }
 
     var errorCode string
-    var errorEmail string
 
     if len(errors) > 0 {
       errorsMap := errors[0].(map[string][]string)
@@ -71,39 +67,35 @@ func ShowEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
         if k == "code" && len(v) > 0 {
           errorCode = strings.Join(v, ", ")
         }
-        if k == "email" && len(v) > 0 {
-          errorEmail = strings.Join(v, ", ")
-        }
 
       }
     }
 
-    c.HTML(200, "emailchangeconfirm.html", gin.H{
-      "title": "Email Confirmation",
+    c.HTML(200, "deleteconfirm.html", gin.H{
+      "title": "Delete Confirmation",
       "links": []map[string]string{
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
-      "provideraction": "Change your email",
-      "challenge": emailChallenge,
+      "provideraction": "Confirm deletion of your profile",
+      "challenge": deleteChallenge,
       "errorCode": errorCode,
-      "errorEmail": errorEmail,
       "submitUrl": submitUrl,
     })
   }
   return gin.HandlerFunc(fn)
 }
 
-func SubmitEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
+func SubmitDeleteConfirm(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "SubmitEmailChangeConfirm",
+      "func": "SubmitDeleteConfirm",
     })
 
-    var form emailChangeConfirmForm
+    var form deleteConfirmForm
     err := c.Bind(&form)
     if err != nil {
       log.Debug(err.Error())
@@ -112,7 +104,7 @@ func SubmitEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
     }
 
     q := url.Values{}
-    q.Add(EMAIL_CHALLENGE_KEY, form.Challenge)
+    q.Add(DELETE_CHALLENGE_KEY, form.Challenge)
 
     submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
     if err != nil {
@@ -167,12 +159,18 @@ func SubmitEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
     }
 
     if len(errors) > 0 {
-      session.AddFlash(errors, EMAILCHANGECONFIRM_ERRORS)
+      session.AddFlash(errors, DELETECONFIRM_ERRORS)
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
       }
 
+      submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
+      if err != nil {
+        log.Debug(err.Error())
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
       log.WithFields(logrus.Fields{"redirect_to": submitUrl}).Debug("Redirecting")
       c.Redirect(http.StatusFound, submitUrl)
       c.Abort()
@@ -183,7 +181,7 @@ func SubmitEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
 
     status, responses, err := idp.VerifyChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.verify"), []idp.UpdateChallengesVerifyRequest{ {OtpChallenge: form.Challenge, Code: form.Code} })
     if err != nil {
-      log.WithFields( logrus.Fields{ EMAIL_CHALLENGE_KEY: form.Challenge }).Debug(err.Error()) // Security Warning: Do not log the code is like logging a password!
+      log.WithFields( logrus.Fields{ DELETE_CHALLENGE_KEY: form.Challenge }).Debug(err.Error()) // Security Warning: Do not log the code is like logging a password!
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
@@ -231,8 +229,8 @@ func SubmitEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
 
       // FIXME: Maybe this should use an access token instead of client credentials.
 
-      recoverRequests := []idp.UpdateHumansEmailConfirmRequest{ {EmailChallenge: challengeVerification.OtpChallenge, Email: form.Email} }
-      status, responses, err := idp.UpdateHumansEmailConfirm(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.recoververification"), recoverRequests)
+      deleteRequests := []idp.UpdateHumansDeleteVerifyRequest{ {DeleteChallenge: challengeVerification.OtpChallenge} }
+      status, responses, err := idp.DeleteHumansVerify(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.deleteverification"), deleteRequests)
       if err != nil {
         log.Debug(err.Error())
         c.AbortWithStatus(http.StatusInternalServerError)
@@ -245,12 +243,12 @@ func SubmitEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
       }
 
       if status != http.StatusOK {
-        log.WithFields(logrus.Fields{ "status":status }).Debug("Email change failed")
+        log.WithFields(logrus.Fields{ "status":status }).Debug("Delete human verify failed")
         c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
 
-      var verification idp.UpdateHumansEmailConfirmResponse
+      var verification idp.UpdateHumansDeleteVerifyResponse
       reqStatus, reqErrors := bulky.Unmarshal(0, responses, &verification)
 
       if reqStatus == http.StatusForbidden {
@@ -267,7 +265,7 @@ func SubmitEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
           }
         }
 
-        log.WithFields(logrus.Fields{ "status":reqStatus, "errors":strings.Join(errors, ", ") }).Debug("Unmarshal UpdateHumansEmailConfirmResponse failed")
+        log.WithFields(logrus.Fields{ "status":reqStatus, "errors":strings.Join(errors, ", ") }).Debug("Unmarshal UpdateHumansDeleteVerifyResponse failed")
         c.AbortWithStatus(http.StatusInternalServerError)
         return
       }
@@ -292,7 +290,7 @@ func SubmitEmailChangeConfirm(env *app.Environment) gin.HandlerFunc {
 
     // Deny by default
     errors["code"] = append(errors["code"], "Invalid")
-    session.AddFlash(errors, EMAILCHANGECONFIRM_ERRORS)
+    session.AddFlash(errors, DELETECONFIRM_ERRORS)
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
