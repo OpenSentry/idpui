@@ -24,8 +24,6 @@ type recoverForm struct {
   RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
 }
 
-const RECOVER_ERRORS = "recover.errors"
-
 func ShowRecover(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 

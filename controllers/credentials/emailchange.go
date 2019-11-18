@@ -1,10 +1,10 @@
 package credentials
 
 import (
+  //"fmt"
   "net/http"
   "strings"
   "reflect"
-  //"fmt"
   "gopkg.in/go-playground/validator.v9"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
@@ -25,11 +25,9 @@ import (
 type emailChangeForm struct {
   AccessToken string `form:"access_token" binding:"required" validate:"required,notblank"`
   Id string `form:"id" binding:"required" validate:"required,uuid"`
-  RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
+  //RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
   Email string `form:"email" binding:"required" validate:"required,email"`
 }
-
-const EMAILCHANGE_ERRORS = "emailchange.errors"
 
 func ShowEmailChange(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
@@ -38,11 +36,6 @@ func ShowEmailChange(env *app.Environment) gin.HandlerFunc {
     log = log.WithFields(logrus.Fields{
       "func": "ShowEmailChange",
     })
-
-    redirectTo := c.Request.Referer() // FIXME: This does not work, when force to login the refrer will be login uri. This should be a param in the /totp?redirect_uri=... param and should be forced to only be allowed to be specified redirect uris for the client.
-    if redirectTo == "" {
-      redirectTo = config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") // FIXME should be a config default.
-    }
 
     identity := app.GetIdentity(env, c)
     if identity == nil {
@@ -84,7 +77,6 @@ func ShowEmailChange(env *app.Environment) gin.HandlerFunc {
       "provider": "Identity Provider",
       "provideraction": "Change your email",
       "access_token": token.AccessToken,
-      "redirect_to": redirectTo,
       "id": identity.Id,
       "name": identity.Name,
       "email": identity.Email,
@@ -95,7 +87,7 @@ func ShowEmailChange(env *app.Environment) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func SubmitEmailChange(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFunc {
+func SubmitEmailChange(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
@@ -188,10 +180,16 @@ func SubmitEmailChange(env *app.Environment, oauth2Config *oauth2.Config) gin.Ha
         return
       }
 
+      oauth2Config := app.FetchOAuth2Config(env, c)
+      if oauth2Config == nil {
+        log.Debug("Context missing oauth2 config")
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
       idpClient := idp.NewIdpClientWithUserAccessToken(oauth2Config, &oauth2.Token{
         AccessToken: form.AccessToken,
       })
-      emailChangeRequests := []idp.CreateHumansEmailChangeRequest{ {Id: form.Id, RedirectTo: form.RedirectTo, Email:form.Email} }
+      emailChangeRequests := []idp.CreateHumansEmailChangeRequest{ {Id: form.Id, RedirectTo: config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") , Email:form.Email} }
       status, responses, err := idp.CreateHumansEmailChange(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.emailchange"), emailChangeRequests)
       if err != nil {
         log.Debug(err.Error())
@@ -233,8 +231,9 @@ func SubmitEmailChange(env *app.Environment, oauth2Config *oauth2.Config) gin.Ha
       }
 
       // Success
-      log.WithFields(logrus.Fields{"redirect_to": challengeResponse.RedirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, challengeResponse.RedirectTo)
+      redirectTo := challengeResponse.RedirectTo
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
       return
     }

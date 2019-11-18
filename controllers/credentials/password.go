@@ -25,12 +25,10 @@ import (
 type passwordForm struct {
   AccessToken string `form:"access_token" binding:"required" validate:"required,notblank"`
   Id string `form:"id" binding:"required" validate:"required,uuid"`
-  RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
+  //RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
   Password string `form:"password" binding:"required" validate:"required,notblank"`
   PasswordRetyped string `form:"password_retyped" binding:"required" validate:"required,notblank"`
 }
-
-const PASSWORD_ERRORS = "password.errors"
 
 func ShowPassword(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
@@ -39,11 +37,6 @@ func ShowPassword(env *app.Environment) gin.HandlerFunc {
     log = log.WithFields(logrus.Fields{
       "func": "ShowPassword",
     })
-
-    redirectTo := c.Request.Referer() // FIXME: This does not work, when force to login the refrer will be login uri. This should be a param in the /totp?redirect_uri=... param and should be forced to only be allowed to be specified redirect uris for the client.
-    if redirectTo == "" {
-      redirectTo = config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") // FIXME should be a config default.
-    }
 
     identity := app.GetIdentity(env, c)
     if identity == nil {
@@ -90,7 +83,6 @@ func ShowPassword(env *app.Environment) gin.HandlerFunc {
       "provider": "Identity Provider",
       "provideraction": "Change your password",
       "access_token": token.AccessToken,
-      "redirect_to": redirectTo,
       "id": identity.Id,
       "name": identity.Name,
       "email": identity.Email,
@@ -102,7 +94,7 @@ func ShowPassword(env *app.Environment) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func SubmitPassword(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFunc {
+func SubmitPassword(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
@@ -191,7 +183,6 @@ func SubmitPassword(env *app.Environment, oauth2Config *oauth2.Config) gin.Handl
     if form.Password == form.PasswordRetyped { // Just for safety is caught in the input error detection.
 
       // Cleanup session state for controller.
-      // session.Delete(PASSWORD_ERRORS)
       session.Clear()
       err := session.Save() // Remove flashes read, and save submit fields
       if err != nil {
@@ -200,6 +191,12 @@ func SubmitPassword(env *app.Environment, oauth2Config *oauth2.Config) gin.Handl
         return
       }
 
+      oauth2Config := app.FetchOAuth2Config(env, c)
+      if oauth2Config == nil {
+        log.Debug("Context missing oauth2 config")
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
       idpClient := idp.NewIdpClientWithUserAccessToken(oauth2Config, &oauth2.Token{
         AccessToken: form.AccessToken,
       })
@@ -245,8 +242,9 @@ func SubmitPassword(env *app.Environment, oauth2Config *oauth2.Config) gin.Handl
       }
 
       // Success
-      log.WithFields(logrus.Fields{"redirect_to": form.RedirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, form.RedirectTo)
+      redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile")
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
       return
     }
