@@ -2,6 +2,7 @@ package app
 
 import (
   "errors"
+  "fmt"
   "net/url"
   "crypto/rand"
   "encoding/base64"
@@ -34,14 +35,20 @@ func CreateRandomStringWithNumberOfBytes(numberOfBytes int) (string, error) {
 }
 
 type ChallengeSession struct {
-  SessionStateKey string
-  SessionRedirectTo string
-  OnVerifiedRedirectTo string
   State string
+
+  //RedirectToSession string
+
+  RedirectToOnSuccess string
+  RedirectToOnFailure string
 }
 
 func StartChallengeSession(env *Environment, c *gin.Context, newChallengeSession ChallengeSession) (challengeSession *ChallengeSession, err error) {
   var state string
+
+  if newChallengeSession.RedirectToOnSuccess == "" {
+    return nil, errors.New("Missing redirect on success")
+  }
 
   // Create random bytes that are based64 encoded to prevent character problems with the session store.
   state, err = CreateRandomStringWithNumberOfBytes(32);
@@ -49,67 +56,115 @@ func StartChallengeSession(env *Environment, c *gin.Context, newChallengeSession
     return nil, err
   }
 
-  urlRedirectToOnVerified, err := url.Parse(newChallengeSession.OnVerifiedRedirectTo)
+  redirectToOnSuccessUrl, err := url.Parse(newChallengeSession.RedirectToOnSuccess)
   if err != nil {
     return nil, err
   }
-  q := urlRedirectToOnVerified.Query()
+  q := redirectToOnSuccessUrl.Query()
   q.Add("state", state)
-  urlRedirectToOnVerified.RawQuery = q.Encode()
+  redirectToOnSuccessUrl.RawQuery = q.Encode()
 
-  session := sessions.DefaultMany(c, env.Constants.SessionRedirectCsrfStoreKey)
-  session.Set(newChallengeSession.SessionStateKey, state)
-  if newChallengeSession.SessionRedirectTo != "" {
-    urlSessionRedirectTo, err := url.Parse(newChallengeSession.SessionRedirectTo)
+  var _redirectToOnFailureUrl *url.URL
+  if newChallengeSession.RedirectToOnFailure != "" {
+    _redirectToOnFailureUrl, err = url.Parse(newChallengeSession.RedirectToOnFailure)
     if err != nil {
       return nil, err
     }
-    session.Set(state, urlSessionRedirectTo.String())
+    q := _redirectToOnFailureUrl.Query()
+    q.Add("state", state)
+    _redirectToOnFailureUrl.RawQuery = q.Encode()
   }
-  err = session.Save()
+
+  /*var _redirectToSessionUrl *url.URL
+  if newChallengeSession.RedirectToSession != "" {
+    _redirectToSessionUrl, err = url.Parse(newChallengeSession.RedirectToSession)
+    if err != nil {
+      return nil, err
+    }
+  }*/
+
+  err = CreateSessionRedirect(env, c, state, redirectToOnSuccessUrl.String())
   if err != nil {
     return nil, err
   }
+
+  var redirectToOnFailureUrl string
+  if _redirectToOnFailureUrl != nil {
+    redirectToOnFailureUrl = _redirectToOnFailureUrl.String()
+  }
+
   ret := ChallengeSession{
-    SessionStateKey: newChallengeSession.SessionStateKey,
-    SessionRedirectTo: newChallengeSession.SessionRedirectTo,
-    OnVerifiedRedirectTo: urlRedirectToOnVerified.String(),
     State: state,
+    //RedirectToSession: redirectToSessionUrl.String(),
+    RedirectToOnSuccess: redirectToOnSuccessUrl.String(),
+    RedirectToOnFailure: redirectToOnFailureUrl,
   }
   return &ret, nil
 }
 
-func ValidateRequestStateWithRedirectCsrfSession(env *Environment, c *gin.Context, sessionStateKey string, requestState string) (valid bool, err error) {
-  session := sessions.DefaultMany(c, env.Constants.SessionRedirectCsrfStoreKey)
-  v := session.Get(sessionStateKey)
-  if v == nil {
-    return false, errors.New("Session state not found.")
-  }
-  sessionState := v.(string)
-
-  if requestState == sessionState {
-    return true, nil
-  }
-  return false, nil
-}
-
-func FetchRedirectToForRedirectCsrfSession(env *Environment, c *gin.Context, sessionStateKey string) (redirectTo string, err error) {
+func CreateSessionRedirect(env *Environment, c *gin.Context, state string, redirectTo string) (err error) {
   session := sessions.DefaultMany(c, env.Constants.SessionRedirectCsrfStoreKey)
 
-  v := session.Get(sessionStateKey)
-  if v == nil {
-    return "", errors.New("Session state not found")
-  }
-  sessionState := v.(string)
-
-  v = session.Get(sessionState)
+  // Sanity check. Some did not cleaup properly
+  v := session.Get(state)
   if v != nil {
-    return v.(string), nil
+    return errors.New("Session state exists")
   }
-  return "", errors.New("Missing redirect_to for state")
+
+  session.Set(state, redirectTo)
+  err = session.Save()
+  if err != nil {
+    return err
+  }
+
+  fmt.Printf("Session saved %s, %s", state, redirectTo)
+
+  return nil
 }
 
-func ClearRedirectCsrfSession(env *Environment, c *gin.Context, sessionStateKey string) {
+func ClearSessionRedirect(env *Environment, c *gin.Context, state string) {
   session := sessions.DefaultMany(c, env.Constants.SessionRedirectCsrfStoreKey)
-  session.Delete(env.Constants.SessionClaimStateKey)
+  session.Delete(state)
+
+  fmt.Printf("Session cleared %s", state)
+}
+
+func ValidateSessionState(env *Environment, c *gin.Context, state string) (valid bool) {
+  session := sessions.DefaultMany(c, env.Constants.SessionRedirectCsrfStoreKey)
+  v := session.Get(state)
+  if v != nil { // Found redirect value stored in session, so is valid.
+    return true
+  }
+  return false
+}
+
+func FetchSessionRedirect(env *Environment, c *gin.Context, state string) (redirectTo string, exists bool) {
+  session := sessions.DefaultMany(c, env.Constants.SessionRedirectCsrfStoreKey)
+  v := session.Get(state)
+  if v != nil { // Found redirect value stored in session, so is valid.
+    return redirectTo, true
+  }
+  return "", false
+}
+
+// Challenge sesssion
+
+func RegisterChallengeSession(env *Environment, c *gin.Context, state string, challenge string) (err error) {
+  session := sessions.DefaultMany(c, env.Constants.SessionChallengeStoreKey)
+
+  // Sanity check. Some did not cleaup properly
+  v := session.Get(state)
+  if v != nil {
+    return errors.New("Session challenge exists")
+  }
+
+  session.Set(state, challenge)
+  err = session.Save()
+  if err != nil {
+    return err
+  }
+
+  fmt.Printf("Session challenge saved %s, %s", state, challenge)
+
+  return nil
 }

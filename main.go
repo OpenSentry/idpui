@@ -8,7 +8,6 @@ import (
   "path"
   "fmt"
   "golang.org/x/net/context"
-  "golang.org/x/oauth2"
   "golang.org/x/oauth2/clientcredentials"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
@@ -21,9 +20,8 @@ import (
 
   "github.com/charmixer/idpui/app"
   "github.com/charmixer/idpui/config"
+  "github.com/charmixer/idpui/controllers/challenges"
   "github.com/charmixer/idpui/controllers/credentials"
-  //"github.com/charmixer/idpui/controllers/callbacks"
-
 )
 
 const appName = "idpui"
@@ -99,17 +97,7 @@ func main() {
     return
   }
 
-  // IdpApi needs to be able to act as an App using its client_id to bootstrap Authorization Code flow
-  // Eg. Users accessing /me directly from browser.
-  /*hydraConfig := &oauth2.Config{
-    ClientID:     clientId,
-    ClientSecret: clientSecret,
-    Endpoint:     endpoint,
-    RedirectURL:  config.GetString("oauth2.callback"),
-    Scopes:       config.GetStringSlice("oauth2.scopes.required"),
-  }*/
-
-  // IdpFe needs to be able as an App using client_id to access idp endpoints. Using client credentials flow
+  // IdpUI needs to be able as an App using client_id to access idp endpoints. Using client credentials flow
   idpConfig := &clientcredentials.Config{
     ClientID:  clientId,
     ClientSecret: clientSecret,
@@ -138,18 +126,20 @@ func main() {
 
       SessionStoreKey: appName,
       SessionRedirectCsrfStoreKey: appName + ".redirectcsrf",
-      SessionExchangeStateKey: "exchange.state",
-      SessionClaimStateKey: "claim.state",
+      SessionChallengeStoreKey: appName + ".challenges",
       SessionLogoutStateKey: "logout.state",
 
       ContextAccessTokenKey: "access_token",
       ContextIdTokenKey: "id_token",
       ContextIdTokenHintKey: "id_token_hint",
       ContextIdentityKey: "id",
-      IdpClientKey: "idpclient",
       ContextOAuth2ConfigKey: "oauth2_config",
+      ContextRequiredScopesKey: "required_scopes",
+      ContextPrecalculatedStateKey: "precalculated_state",
     },
     Provider: provider,
+    ClientId: clientId,
+    ClientSecret: clientSecret,
     IdpConfig: idpConfig,
     AapConfig: aapConfig,
     Logger: log,
@@ -174,12 +164,6 @@ func main() {
 }
 
 func serve(env *app.Environment) {
-
-  clientId := config.GetString("oauth2.client.id")
-  clientSecret := config.GetString("oauth2.client.secret")
-  endpoint := env.Provider.Endpoint()
-  endpoint.AuthStyle = 2 // Force basic secret, so token exchange does not auto to post which we did not allow.
-
   r := gin.New() // Clean gin to take control with logging.
   r.Use(gin.Recovery())
 
@@ -194,7 +178,7 @@ func serve(env *app.Environment) {
     Secure: true,
     HttpOnly: true,
   })
-  r.Use(sessions.SessionsMany([]string{env.Constants.SessionRedirectCsrfStoreKey, env.Constants.SessionStoreKey}, store))
+  r.Use(sessions.SessionsMany([]string{env.Constants.SessionRedirectCsrfStoreKey, env.Constants.SessionStoreKey, env.Constants.SessionChallengeStoreKey}, store))
 
   // Use CSRF on all idpui forms.
   adapterCSRF := adapter.Wrap(csrf.Protect([]byte(config.GetString("csrf.authKey")), csrf.Secure(true)))
@@ -218,6 +202,14 @@ func serve(env *app.Environment) {
     ep.GET(  "/login", credentials.ShowLogin(env) )
     ep.POST( "/login", credentials.SubmitLogin(env) )
 
+    // Verify OTP code
+    ep.GET(  "/verify", challenges.ShowVerify(env) )
+    ep.POST( "/verify", challenges.SubmitVerify(env) )
+
+    // Verify email using OTP code
+    ep.GET( "/emailconfirm", challenges.ShowEmailConfirm(env) )
+    ep.POST( "/emailconfirm", challenges.SubmitEmailConfirm(env) )
+
     // Logout
     ep.GET( "/logout", credentials.ShowLogout(env))
     ep.POST( "/logout", credentials.SubmitLogout(env) )
@@ -225,75 +217,120 @@ func serve(env *app.Environment) {
     // Clear cookies shortcut - FIXME: This should not be needed once logout works correctly.
     ep.GET( "/seeyoulater", credentials.ShowSeeYouLater(env))
 
-    // Verify OTP code
-    ep.GET(  "/verify", credentials.ShowVerify(env) )
-    ep.POST( "/verify", credentials.SubmitVerify(env) )
-
-    // Verify email using OTP code
-    ep.GET( "/emailconfirm", credentials.ShowEmailConfirm(env) )
-    ep.POST( "/emailconfirm", credentials.SubmitEmailConfirm(env) )
-
     // Verify delete using OTP code
-    ep.GET( "/deleteconfirm", credentials.ShowDeleteConfirm(env) )
-    ep.POST( "/deleteconfirm", credentials.SubmitDeleteConfirm(env) )
-
-    // Verify recover using OTP code
-    ep.GET( "/recoverconfirm", credentials.ShowRecoverConfirm(env) )
-    ep.POST( "/recoverconfirm", credentials.SubmitRecoverConfirm(env) )
-
-    // Verify emailchange using OTP code
-    // ep.GET( "/emailchangeconfirm", credentials.ShowEmailChangeConfirm(env) )
-    // ep.POST( "/emailchangeconfirm", credentials.SubmitEmailChangeConfirm(env) )
+    ep.GET( "/deleteconfirm", challenges.ShowDeleteConfirm(env) )
+    ep.POST( "/deleteconfirm", challenges.SubmitDeleteConfirm(env) )
 
     // Recover
     ep.GET(  "/recover", credentials.ShowRecover(env) )
     ep.POST( "/recover", credentials.SubmitRecover(env) )
 
+    // Verify recover using OTP code
+    ep.GET( "/recoverconfirm", challenges.ShowRecoverConfirm(env) )
+    ep.POST( "/recoverconfirm", challenges.SubmitRecoverConfirm(env) )
+
     // # Endpoints that require authentication
+    ep := r.Group("/")
+    ep.Use(adapterCSRF)
+    ep.Use(app.RequireScopes(env, "openid", "idp:read:humans"))
+    {
+      // Password change
+      ep.GET(  "/password",
+        app.RequireScopes(env, "idp:update:humans:password"),
+        app.ConfigureOauth2(env),
+        app.RequestTokenUsingAuthorizationCode(env),
+        app.RequireIdentity(env),
+        credentials.ShowPassword(env),
+      )
+      ep.POST( "/password", // Renders the access token obtained in the GET request in a hidden input field for posting. (maybe it should just render into bearer token header?)
+        app.RequireScopes(env, "idp:update:humans:password"),
+        app.ConfigureOauth2(env),
+        credentials.SubmitPassword(env),
+      )
 
-    // Change password
-    passwordConfig := &oauth2.Config{
-      ClientID: clientId,
-      ClientSecret: clientSecret,
-      Endpoint: endpoint,
-      RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.password"),
-      Scopes: []string{"openid", "idp:read:humans", "idp:update:humans:password"},
+      // TOTP setup
+      ep.GET(  "/totp",
+        app.RequireScopes(env, "idp:update:humans:totp"),
+        app.ConfigureOauth2(env),
+        app.RequestTokenUsingAuthorizationCode(env),
+        app.RequireIdentity(env),
+        credentials.ShowTotp(env),
+      )
+      ep.POST( "/totp",
+        app.RequireScopes(env, "idp:update:humans:totp"),
+        app.ConfigureOauth2(env),
+        credentials.SubmitTotp(env),
+      )
+
+      // Delete identity
+      ep.GET(  "/delete",
+        app.RequireScopes(env, "idp:delete:humans"),
+        app.ConfigureOauth2(env),
+        app.RequestTokenUsingAuthorizationCode(env),
+        app.RequireIdentity(env),
+        credentials.ShowProfileDelete(env),
+      )
+      ep.POST( "/delete",
+        app.RequireScopes(env, "idp:delete:humans"),
+        app.ConfigureOauth2(env),
+        credentials.SubmitProfileDelete(env),
+      )
+
+      // Change email (change recovery email)
+      ep.GET(  "/emailchange",
+        app.RequireScopes(env, "idp:create:humans:emailchange"),
+        app.ConfigureOauth2(env),
+        app.RequestTokenUsingAuthorizationCode(env),
+        app.RequireIdentity(env),
+        credentials.ShowEmailChange(env),
+      )
+      ep.POST( "/emailchange",
+        app.RequireScopes(env, "idp:create:humans:emailchange"),
+        app.ConfigureOauth2(env),
+        credentials.SubmitEmailChange(env),
+      )
+
+/*
+
+Challenge {
+  Id: UUID,
+  Sub: UUID (human)
+  RedirectToOnSuccess: URL
+  Data: Custom Defined
+}
+
+Change email kræver identification for at få et access token til at lave challenge til at begynde med. I challenge gemmes email som der skal skiftes til.
+
+Redirect til challenge verifier for challenge.Id
+
+On success redirect Challenge.RedirectTo?challenge_id
+
+Controller som modtager verified challenge skal.
+1. Authenticate brugere for at få et access token til at gøre noget. !!!! THIS HERE CANT BE DONE WITH HYDRA redirect_uris have no params... Need to store the session of what challenge is beeing access somewhere else?
+2. Tjekke at sub challenge og sub i token er den samme
+3. Kalde PUT /email (token, id, challenge.data.email)
+
+WARNING: Using data on the challenge will effectivly split the transaction into a verify code part and and execute data change part. This will be prone to network errors, meaning a code might be validated, but client failed to get redirection of execution controller. WHAT TO DO?
+
+*/
+
+      // Confirmation of the challenge required to change email
+      ep.GET(  "/emailchangeconfirm",
+        app.RequireScopes(env, "idp:update:humans:emailchange"),
+        app.UsePrecalculatedStateFromQuery(env, "email_challenge"),
+        app.ConfigureOauth2(env),
+        app.RequestTokenUsingAuthorizationCode(env),
+        app.RequireIdentity(env),
+        challenges.ShowEmailChangeConfirm(env),
+      )
+      ep.POST( "/emailchangeconfirm",
+        app.RequireScopes(env, "idp:update:humans:emailchange"),
+        app.ConfigureOauth2(env),
+        challenges.SubmitEmailChangeConfirm(env),
+      )
+
+      // TODO: Delete confirm should be here to.
     }
-    ep.GET( "/password", app.RequestAccessToken(env, passwordConfig), credentials.ShowPassword(env))
-    ep.POST( "/password", credentials.SubmitPassword(env, passwordConfig) ) // Renders the obtained access token in hidden input field for posting. (maybe it should just render into bearer token header?)
-
-    // Change email (change recovery email)
-    // emailChangeConfig := &oauth2.Config{
-    //   ClientID: clientId,
-    //   ClientSecret: clientSecret,
-    //   Endpoint: endpoint,
-    //   RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.emailchange"),
-    //   Scopes: []string{"openid", "idp:read:humans", "idp:create:humans:emailchange"},
-    // }
-    // ep.GET( "/emailchange", app.RequestAccessToken(env, emailChangeConfig), credentials.ShowEmailChange(env))
-    // ep.POST( "/emailchange", credentials.SubmitEmailChange(env, emailChangeConfig) )
-
-    // Enable TOTP
-    totpConfig := &oauth2.Config{
-      ClientID: clientId,
-      ClientSecret: clientSecret,
-      Endpoint: endpoint,
-      RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.totp"),
-      Scopes: []string{"openid", "idp:read:humans", "idp:update:humans:totp"},
-    }
-    ep.GET( "/totp", app.RequestAccessToken(env, totpConfig), credentials.ShowTotp(env))
-    ep.POST( "/totp", credentials.SubmitTotp(env, totpConfig) )
-
-    // Delete Profile
-    deleteProfileConfig := &oauth2.Config{
-      ClientID: clientId,
-      ClientSecret: clientSecret,
-      Endpoint: endpoint,
-      RedirectURL: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.delete"),
-      Scopes: []string{"openid", "idp:read:humans", "idp:delete:humans"},
-    }
-    ep.GET( "/delete", app.RequestAccessToken(env, deleteProfileConfig), credentials.ShowProfileDelete(env))
-    ep.POST( "/delete", credentials.SubmitProfileDelete(env, deleteProfileConfig) )
 
   }
 

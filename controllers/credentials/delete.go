@@ -25,8 +25,6 @@ type profileDeleteForm struct {
   RiskAccepted string `form:"risk_accepted"`
 }
 
-const PROFILEDELETE_ERRORS = "profiledelete.errors"
-
 func ShowProfileDelete(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -93,7 +91,7 @@ func ShowProfileDelete(env *app.Environment) gin.HandlerFunc {
   return gin.HandlerFunc(fn)
 }
 
-func SubmitProfileDelete(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFunc {
+func SubmitProfileDelete(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
@@ -139,6 +137,12 @@ func SubmitProfileDelete(env *app.Environment, oauth2Config *oauth2.Config) gin.
         return
       }
 
+      oauth2Config := app.FetchOAuth2Config(env, c)
+      if oauth2Config == nil {
+        log.Debug("Context missing oauth2 config")
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
       idpClient := idp.NewIdpClientWithUserAccessToken(oauth2Config, &oauth2.Token{
         AccessToken: form.AccessToken,
       })
