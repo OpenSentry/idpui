@@ -28,8 +28,6 @@ type authenticationForm struct {
   Password string `form:"password" binding:"required" validate:"required,notblank"`
 }
 
-const LOGIN_CHALLENGE_KEY = "login_challenge"
-
 func ShowLogin(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 

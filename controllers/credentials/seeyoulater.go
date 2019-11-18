@@ -27,6 +27,13 @@ func ShowSeeYouLater(env *app.Environment) gin.HandlerFunc {
       sessionCleared = false
     }
 
+    session = sessions.DefaultMany(c, env.Constants.SessionRedirectCsrfStoreKey)
+    session.Clear()
+    err = session.Save()
+    if err != nil {
+      log.Debug(err.Error())
+    }
+
     c.HTML(http.StatusOK, "seeyoulater.html", gin.H{
       "title": "See You Later",
       "links": []map[string]string{

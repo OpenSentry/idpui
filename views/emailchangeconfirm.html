@@ -9,20 +9,30 @@
 
     <form class="ui large form" action="{{.submitUrl}}" method="post">
       {{ .csrfField }}
+      <input type="hidden" name="access_token" value="{{ .access_token }}" />
+      <input type="hidden" name="id" value="{{ .id }}" />
       <input type="hidden" name="challenge" value="{{ .challenge }}" />
 
-      <div class="ui left aligned segment totp">
+      <div class="ui tiny fluid vertical steps unstackable">
+        <div class="step">
+          <i class="user icon"></i>
+          <div class="content">
+            <div class="title">{{ .name }}</div>
+            <div class="description">E-mail: {{.email}}</div>
+          </div>
+        </div>
+      <div>
+
+      <div class="ui divider hidden"></div>
 
       <div class="ui tiny fluid vertical steps unstackable">
         <div class="step">
           <i class="mail icon"></i>
           <div class="content">
             <div class="title">Confirm Email Change</div>
-            <div class="description">Enter the code sent to your email</div>
+            <div class="description">Enter the code sent to {{.newemail}}</div>
           </div>
         </div>
-      </div>
-
       </div>
 
       {{ template "input.code" . }}

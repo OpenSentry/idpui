@@ -31,13 +31,11 @@ import (
 type totpForm struct {
   AccessToken string `form:"access_token" binding:"required" validate:"required,notblank"`
   Id string `form:"id" binding:"required" validate:"required,uuid"`
-  RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
+  //RedirectTo string `form:"redirect_to" binding:"required" validate:"required,uri"`
 
   Totp string `form:"totp" binding:"required" validate:"required,notblank"`
   Secret string `form:"secret" binding:"required" validate:"required,notblank"`
 }
-
-const TOTP_ERRORS = "totp.errors"
 
 func ShowTotp(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
@@ -46,11 +44,6 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
     log = log.WithFields(logrus.Fields{
       "func": "ShowTotp",
     })
-
-    redirectTo := c.Request.Referer() // FIXME: This does not work, when force to login the refrer will be login uri. This should be a param in the /totp?redirect_uri=... param and should be forced to only be allowed to be specified redirect uris for the client.
-    if redirectTo == "" {
-      redirectTo = config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile") // FIXME should be a config default.
-    }
 
     identity := app.GetIdentity(env, c)
     if identity == nil {
@@ -159,7 +152,6 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
       "id": identity.Id,
       "name": identity.Name,
       "email": identity.Email,
-      "redirect_to": redirectTo,
       "issuer": key.Issuer(),
       "secret": key.Secret(),
       "qrcode": embedQrCode,
@@ -168,7 +160,7 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
   }
   return gin.HandlerFunc(fn)
 }
-func SubmitTotp(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFunc {
+func SubmitTotp(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
@@ -260,10 +252,6 @@ func SubmitTotp(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFu
     if valid == true {
 
       // Cleanup session state for controller.
-
-      // session.Delete("totp.key")
-      // session.Delete("totp.exp")
-      // session.Delete(TOTP_ERRORS)
       session.Clear()
       err := session.Save() // Remove flashes read, and save submit fields
       if err != nil {
@@ -272,10 +260,15 @@ func SubmitTotp(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFu
         return
       }
 
+      oauth2Config := app.FetchOAuth2Config(env, c)
+      if oauth2Config == nil {
+        log.Debug("Context missing oauth2 config")
+        c.AbortWithStatus(http.StatusInternalServerError)
+        return
+      }
       idpClient := idp.NewIdpClientWithUserAccessToken(oauth2Config, &oauth2.Token{
         AccessToken: form.AccessToken,
       })
-
       totpRequest := []idp.UpdateHumansTotpRequest{ {Id:form.Id, TotpRequired:true, TotpSecret:form.Secret} }
       status, responses, err := idp.UpdateHumansTotp(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.totp"), totpRequest);
       if err != nil {
@@ -319,8 +312,9 @@ func SubmitTotp(env *app.Environment, oauth2Config *oauth2.Config) gin.HandlerFu
       }
 
       // Success
-      log.WithFields(logrus.Fields{"redirect_to": form.RedirectTo}).Debug("Redirecting")
-      c.Redirect(http.StatusFound, form.RedirectTo)
+      redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile")
+      log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+      c.Redirect(http.StatusFound, redirectTo)
       c.Abort()
       return
     }
