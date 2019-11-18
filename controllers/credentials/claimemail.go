@@ -41,8 +41,7 @@ func ShowClaimEmail(env *app.Environment) gin.HandlerFunc {
       idpClient := app.IdpClientUsingClientCredentials(env, c)
 
       newChallengeSession := app.ChallengeSession{
-        SessionStateKey: env.Constants.SessionClaimStateKey,
-        OnVerifiedRedirectTo: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.register"),
+        RedirectToOnSuccess: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.register"),
       }
       challengeSession, err := app.StartChallengeSession(env, c, newChallengeSession)
       if err != nil {
@@ -51,7 +50,7 @@ func ShowClaimEmail(env *app.Environment) gin.HandlerFunc {
         return
       }
 
-      claimRequest := []idp.CreateInvitesClaimRequest{ {Id:id, RedirectTo:challengeSession.OnVerifiedRedirectTo, TTL: 86400} }
+      claimRequest := []idp.CreateInvitesClaimRequest{ {Id:id, RedirectTo:challengeSession.RedirectToOnSuccess, TTL: 86400} }
       status, responses, err := idp.CreateInvitesClaim(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.claim"), claimRequest)
       if err != nil {
         log.Debug(err.Error())
@@ -287,8 +286,7 @@ func SubmitClaimEmail(env *app.Environment) gin.HandlerFunc {
       if inviteId != "" {
 
         newChallengeSession := app.ChallengeSession{
-          SessionStateKey: env.Constants.SessionClaimStateKey,
-          OnVerifiedRedirectTo: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.register"),
+          RedirectToOnSuccess: config.GetString("idpui.public.url") + config.GetString("idpui.public.endpoints.register"),
         }
         challengeSession, err := app.StartChallengeSession(env, c, newChallengeSession)
         if err != nil {
@@ -297,7 +295,7 @@ func SubmitClaimEmail(env *app.Environment) gin.HandlerFunc {
           return
         }
 
-        claimRequest := []idp.CreateInvitesClaimRequest{ {Id:inviteId, RedirectTo:challengeSession.OnVerifiedRedirectTo, TTL: 86400} }
+        claimRequest := []idp.CreateInvitesClaimRequest{ {Id:inviteId, RedirectTo:challengeSession.RedirectToOnSuccess, TTL: 86400} }
         status, responses, err := idp.CreateInvitesClaim(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.invites.claim"), claimRequest)
         if err != nil {
           log.Debug(err.Error())

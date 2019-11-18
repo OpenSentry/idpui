@@ -1,4 +1,4 @@
-package credentials
+package challenges
 
 import (
   "net/http"
@@ -24,9 +24,6 @@ type deleteConfirmForm struct {
   Challenge string `form:"challenge" binding:"required" validate:"required,notblank"`
   Code string `form:"code" binding:"required" validate:"required,notblank"`
 }
-
-const DELETECONFIRM_ERRORS = "deleteconfirm.errors"
-const DELETE_CHALLENGE_KEY = "delete_challenge"
 
 func ShowDeleteConfirm(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {

@@ -1,4 +1,4 @@
-package credentials
+package challenges
 
 import (
   "net/http"
@@ -26,9 +26,6 @@ type recoverConfirmForm struct {
   Password         string `form:"password"         binding:"required" validate:"required,notblank"`
   PasswordRetyped  string `form:"password_retyped" binding:"required" validate:"required,notblank"`
 }
-
-const RECOVERCONFIRM_ERRORS = "recoverconfirm.errors"
-const RECOVER_CHALLENGE_KEY = "recover_challenge"
 
 func ShowRecoverConfirm(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {

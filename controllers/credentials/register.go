@@ -30,9 +30,6 @@ type registrationForm struct {
     PasswordRetyped string `form:"password_retyped"   validate:"required,notblank"`
 }
 
-const REGISTER_ERRORS = "register.errors"
-const REGISTER_FIELDS = "register.fields"
-
 func ShowRegistration(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
@@ -53,13 +50,7 @@ func ShowRegistration(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    valid, err := app.ValidateRequestStateWithRedirectCsrfSession(env, c, env.Constants.SessionClaimStateKey, state)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
-
+    valid := app.ValidateSessionState(env, c, state)
     if valid == false {
       log.Debug("Request state invalid")
       c.AbortWithStatus(http.StatusBadRequest)
@@ -211,13 +202,7 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    valid, err := app.ValidateRequestStateWithRedirectCsrfSession(env, c, env.Constants.SessionClaimStateKey, form.State)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
-      return
-    }
-
+    valid := app.ValidateSessionState(env, c, form.State)
     if valid == false {
       log.Debug("Request state invalid")
       c.AbortWithStatus(http.StatusBadRequest)
@@ -334,14 +319,12 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
       if len(restErr) <= 0 {
 
         if status == http.StatusOK {
+
           // Cleanup session
-          // session.Delete(env.Constants.SessionClaimStateKey)
-          // session.Delete(REGISTER_FIELDS)
-          // session.Delete(REGISTER_ERRORS)
           session.Clear()
 
           // Done using the claim state, clean it up.
-          app.ClearRedirectCsrfSession(env, c, env.Constants.SessionClaimStateKey)
+          app.ClearSessionRedirect(env, c, form.State)
 
           // Propagate email to authenticate controller
           session.AddFlash(resp.Email, "authenticate.email")

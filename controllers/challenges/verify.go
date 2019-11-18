@@ -1,4 +1,4 @@
-package credentials
+package challenges
 
 import (
   "net/http"
@@ -20,44 +20,33 @@ import (
   bulky "github.com/charmixer/bulky/client"
 )
 
-type emailConfirmForm struct {
+type verifyForm struct {
   Challenge string `form:"challenge" binding:"required" validate:"required,notblank"`
   Code string `form:"code" binding:"required" validate:"required,notblank"`
 }
 
-const EMAILCONFIRM_ERRORS = "emailconfirm.errors"
-const EMAIL_CHALLENGE_KEY = "email_challenge"
-
-func ShowEmailConfirm(env *app.Environment) gin.HandlerFunc {
+func ShowVerify(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "ShowEmailConfirm",
+      "func": "ShowVerify",
     })
 
-    emailChallenge := c.Query(EMAIL_CHALLENGE_KEY)
-    if emailChallenge == "" {
-      log.Debug("Missing " + EMAIL_CHALLENGE_KEY)
-      c.AbortWithStatus(http.StatusNotFound)
-      return
-    }
-    log = log.WithFields(logrus.Fields{ EMAIL_CHALLENGE_KEY: emailChallenge })
-
-    q := url.Values{}
-    q.Add(EMAIL_CHALLENGE_KEY, emailChallenge)
-
-    submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
-    if err != nil {
-      log.Debug(err.Error())
-      c.AbortWithStatus(http.StatusInternalServerError)
+    otpChallenge := c.Query(OTP_CHALLENGE_KEY)
+    if otpChallenge == "" {
+      log.WithFields(logrus.Fields{
+        OTP_CHALLENGE_KEY: otpChallenge,
+      }).Debug("Missing otp_challenge")
+      c.JSON(http.StatusNotFound, gin.H{"error": "Missing otp_challenge"})
+      c.Abort()
       return
     }
 
     session := sessions.DefaultMany(c, env.Constants.SessionStoreKey)
 
-    errors := session.Flashes(EMAILCONFIRM_ERRORS)
-    err = session.Save() // Remove flashes read, and save submit fields
+    errors := session.Flashes(VERIFY_ERRORS)
+    err := session.Save() // Remove flashes read, and save submit fields
     if err != nil {
       log.Debug(err.Error())
     }
@@ -75,41 +64,39 @@ func ShowEmailConfirm(env *app.Environment) gin.HandlerFunc {
       }
     }
 
-    c.HTML(200, "emailconfirm.html", gin.H{
-      "title": "Email Confirmation",
+    c.HTML(200, "verify.html", gin.H{
+      "title": "OTP Verification",
       "links": []map[string]string{
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
       "provider": "Identity Provider",
-      "provideraction": "Confirm your email",
-      "challenge": emailChallenge,
+      "provideraction": "Verify one time password",
+      "challenge": otpChallenge,
       "errorCode": errorCode,
-      "submitUrl": submitUrl,
     })
   }
   return gin.HandlerFunc(fn)
 }
 
-func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
+func SubmitVerify(env *app.Environment) gin.HandlerFunc {
   fn := func(c *gin.Context) {
 
     log := c.MustGet(env.Constants.LogKey).(*logrus.Entry)
     log = log.WithFields(logrus.Fields{
-      "func": "SubmitEmailConfirm",
+      "func": "SubmitVerify",
     })
 
-    var form emailConfirmForm
+    var form verifyForm
     err := c.Bind(&form)
     if err != nil {
       log.Debug(err.Error())
       c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
       return
     }
-    log = log.WithFields(logrus.Fields{ EMAIL_CHALLENGE_KEY: form.Challenge})
 
     q := url.Values{}
-    q.Add(EMAIL_CHALLENGE_KEY, form.Challenge)
+    q.Add(OTP_CHALLENGE_KEY, form.Challenge)
 
     submitUrl, err := utils.FetchSubmitUrlFromRequest(c.Request, &q)
     if err != nil {
@@ -164,7 +151,7 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
     }
 
     if len(errors) > 0 {
-      session.AddFlash(errors, EMAILCONFIRM_ERRORS)
+      session.AddFlash(errors, VERIFY_ERRORS)
       err = session.Save()
       if err != nil {
         log.Debug(err.Error())
@@ -178,16 +165,19 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
 
     idpClient := app.IdpClientUsingClientCredentials(env, c)
 
-    status, responses, err := idp.VerifyChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.verify"), []idp.UpdateChallengesVerifyRequest{ {
+    status, verifiedChallenges, err := idp.VerifyChallenges(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.challenges.verify"), []idp.UpdateChallengesVerifyRequest{ {
       OtpChallenge: form.Challenge,
       Code: form.Code,
     } })
     if err != nil {
-      log.Debug(err.Error()) // Security Warning: Do not log the code is like logging a password!
+      log.WithFields(logrus.Fields{
+        OTP_CHALLENGE_KEY: form.Challenge,
+        // Do not log the code is like logging a password!
+      }).Debug(err.Error())
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-    if responses == nil {
+    if verifiedChallenges == nil {
 
       // Not found
 
@@ -195,30 +185,25 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
       return
     }
 
-    var challengeVerification idp.UpdateChallengesVerifyResponse
-    status, restErr := bulky.Unmarshal(0, responses, &challengeVerification)
+    var resp idp.UpdateChallengesVerifyResponse
+    status, restErr := bulky.Unmarshal(0, verifiedChallenges, &resp)
     if restErr != nil {
       for _,e := range restErr {
         errors["notification"] = append(errors["notification"], e.Error)
       }
     }
 
-    if status == http.StatusOK {
+    if status == 200 {
+
+      challengeVerification := resp
 
       if challengeVerification.Verified == true {
 
-        // Destroy user session
-        session.Clear()
-        err = session.Save()
-        if err != nil {
-          log.Debug(err.Error())
-        }
-
-        // Append email_challenge to redirect_to
+        // Append otp_challenge to redirect_to
         u, err := url.Parse(challengeVerification.RedirectTo)
         if err != nil {
           log.WithFields(logrus.Fields{
-            EMAIL_CHALLENGE_KEY: challengeVerification.OtpChallenge,
+            OTP_CHALLENGE_KEY: challengeVerification.OtpChallenge,
             "redirect_to": challengeVerification.RedirectTo,
           }).Debug(err.Error())
           c.AbortWithStatus(http.StatusInternalServerError)
@@ -226,7 +211,7 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
         }
 
         q := u.Query()
-        q.Set(EMAIL_CHALLENGE_KEY, challengeVerification.OtpChallenge)
+        q.Set(OTP_CHALLENGE_KEY, challengeVerification.OtpChallenge)
         u.RawQuery = q.Encode()
         redirectTo := u.String()
 
@@ -240,7 +225,7 @@ func SubmitEmailConfirm(env *app.Environment) gin.HandlerFunc {
 
     // Deny by default
     errors["code"] = append(errors["code"], "Invalid")
-    session.AddFlash(errors, EMAILCONFIRM_ERRORS)
+    session.AddFlash(errors, VERIFY_ERRORS)
     err = session.Save()
     if err != nil {
       log.Debug(err.Error())
