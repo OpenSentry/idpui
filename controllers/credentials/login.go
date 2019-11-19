@@ -66,7 +66,13 @@ func ShowLogin(env *app.Environment) gin.HandlerFunc {
       c.AbortWithStatus(http.StatusInternalServerError)
       return
     }
-    if status != 200 {
+
+    if status == http.StatusForbidden {
+      c.AbortWithStatus(http.StatusForbidden)
+      return
+    }
+
+    if status != http.StatusOK {
       log.WithFields(logrus.Fields{ "status":status, "challenge":loginChallenge }).Debug("CreateHumansAuthenticate failed")
       c.AbortWithStatus(http.StatusInternalServerError)
       return
@@ -80,7 +86,7 @@ func ShowLogin(env *app.Environment) gin.HandlerFunc {
 
     var resp idp.CreateHumansAuthenticateResponse
     status, _ = bulky.Unmarshal(0, authenticateResponse, &resp)
-    if status == 200 {
+    if status == http.StatusOK {
 
       auth := resp
 
