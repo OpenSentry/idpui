@@ -22,6 +22,7 @@ import (
   "github.com/charmixer/idpui/config"
   "github.com/charmixer/idpui/controllers/challenges"
   "github.com/charmixer/idpui/controllers/credentials"
+  "github.com/charmixer/idpui/controllers/profiles"
 )
 
 const appName = "idpui"
@@ -191,6 +192,9 @@ func serve(env *app.Environment) {
   ep := r.Group("/")
   ep.Use(adapterCSRF)
   {
+    // Public profile
+    ep.GET("/profile", profiles.ShowPublicProfile(env) )
+
     // Signup
     ep.GET(  "/claim", credentials.ShowClaimEmail(env) )
     ep.POST( "/claim", credentials.SubmitClaimEmail(env) )
