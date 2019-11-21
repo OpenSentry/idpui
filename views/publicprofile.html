@@ -1,0 +1,42 @@
+{{ template "htmlbegin" . }}
+
+<div class="ui padded middle aligned center aligned grid">
+  <div class="column">
+
+    {{ template "providerheader" . }}
+
+    <div class="ui divider hidden"></div>
+
+    <div class="ui left aligned segment totp">
+
+        <div class="ui tiny fluid vertical steps unstackable">
+          <div class="step">
+            <i class="user icon"></i>
+            <div class="content">
+
+              {{if .name}}
+                <div class="title">{{ .name }}</div>
+              {{else}}
+              <div class="title">Non disclosed</div>
+              {{end}}
+
+              {{if .email}}
+                <div class="description">E-mail: {{.email}}</div>
+              {{else}}
+              <div class="description">E-mail: n/a</div>
+              {{end}}
+
+            </div>
+          </div>
+        </div>
+
+      <div class="ui divider hidden"></div>
+
+      <div data-tooltip="The identifier used in the system to represent the identity" class="white">Id: {{ .id }}</div>
+
+    </div>
+
+  </div>
+</div>
+
+{{ template "htmlend" . }}
