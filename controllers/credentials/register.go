@@ -214,7 +214,7 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
     // Save values if submit fails
     registerFields := make(map[string][]string)
     registerFields["challenge"] = append(registerFields["challenge"], form.Challenge)
-    registerFields["state"] = append(registerFields["challenge"], form.State)
+    registerFields["state"] = append(registerFields["state"], form.State)
     registerFields["display-name"] = append(registerFields["display-name"], form.Name)
     registerFields["username"] = append(registerFields["username"], form.Username)
 
@@ -295,59 +295,67 @@ func SubmitRegistration(env *app.Environment) gin.HandlerFunc {
         return
       }
 
-      var emailConfirmedAt int64 = 0
-      if challenge.VerifiedAt > 0 { // FIXME add challenge type check
-        emailConfirmedAt = challenge.VerifiedAt
-      }
+      if challenge.VerifiedAt > 0 { // FIXME: Challenge must be claim challenge or we should not accept it as a challenge to be used.
 
-      humanRequest := []idp.CreateHumansRequest{ {Id:challenge.Subject, Password:form.Password, Name:form.Name, Username:form.Username, EmailConfirmedAt:emailConfirmedAt} }
-      status, responses, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
-      if err != nil {
-        log.Debug(err.Error())
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
+        var emailConfirmedAt int64 = challenge.VerifiedAt
 
-      if status != http.StatusOK {
-        log.WithFields(logrus.Fields{ "status":status }).Debug("Request failed")
-        c.AbortWithStatus(http.StatusInternalServerError)
-        return
-      }
-
-      var resp idp.CreateHumansResponse
-      status, restErr := bulky.Unmarshal(0, responses, &resp)
-      if len(restErr) <= 0 {
-
-        if status == http.StatusOK {
-
-          // Cleanup session
-          session.Clear()
-
-          // Done using the claim state, clean it up.
-          app.ClearSessionRedirect(env, c, form.State)
-
-          // Propagate email to authenticate controller
-          session.AddFlash(resp.Email, "authenticate.email")
-
-          err = session.Save()
-          if err != nil {
-            log.Debug(err.Error())
-          }
-
-          // Registration successful, return to create new ones, but with success message
-          redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile")
-          log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
-          c.Redirect(http.StatusFound, redirectTo)
-          c.Abort()
+        humanRequest := []idp.CreateHumansRequest{ {Id:challenge.Subject, Password:form.Password, Name:form.Name, Username:form.Username, EmailConfirmedAt:emailConfirmedAt} }
+        status, responses, err := idp.CreateHumans(idpClient, config.GetString("idp.public.url") + config.GetString("idp.public.endpoints.humans.collection"), humanRequest)
+        if err != nil {
+          log.Debug(err.Error())
+          c.AbortWithStatus(http.StatusInternalServerError)
           return
         }
 
-      } else {
-
-        for _,e := range restErr {
-          errors["username"] = append(errors["username"], e.Error)
+        if status == http.StatusForbidden {
+          c.AbortWithStatus(http.StatusForbidden)
+          return
         }
 
+        if status != http.StatusOK {
+          log.WithFields(logrus.Fields{ "status":status }).Debug("Request failed")
+          c.AbortWithStatus(http.StatusInternalServerError)
+          return
+        }
+
+        var resp idp.CreateHumansResponse
+        status, restErr := bulky.Unmarshal(0, responses, &resp)
+        if len(restErr) <= 0 {
+
+          if status == http.StatusOK {
+
+            // Cleanup session
+            session.Clear()
+
+            // Done using the claim state, clean it up.
+            app.ClearSessionRedirect(env, c, form.State)
+
+            // Propagate email to authenticate controller
+            session.AddFlash(resp.Email, "authenticate.email")
+
+            err = session.Save()
+            if err != nil {
+              log.Debug(err.Error())
+            }
+
+            // Registration successful, return to create new ones, but with success message
+            redirectTo := config.GetString("meui.public.url") + config.GetString("meui.public.endpoints.profile")
+            log.WithFields(logrus.Fields{"redirect_to": redirectTo}).Debug("Redirecting")
+            c.Redirect(http.StatusFound, redirectTo)
+            c.Abort()
+            return
+          }
+
+        } else {
+
+          for _,e := range restErr {
+            errors["username"] = append(errors["username"], e.Error)
+          }
+
+        }
+
+      } else {
+        errors["password"] = append(errors["password"], "Challenge unconfirmed") // FIXME: Generic error message field
       }
 
     } else {
