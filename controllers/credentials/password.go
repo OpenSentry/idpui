@@ -80,7 +80,7 @@ func ShowPassword(env *app.Environment) gin.HandlerFunc {
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "provider": "Identity Provider",
+      "provider": config.GetString("provider.name"),
       "provideraction": "Change your password",
       "access_token": token.AccessToken,
       "id": identity.Id,
