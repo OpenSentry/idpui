@@ -9,12 +9,12 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gorilla/csrf"
   "github.com/gin-contrib/sessions"
-  idp "github.com/charmixer/idp/client"
+  idp "github.com/opensentry/idp/client"
 
-  "github.com/charmixer/idpui/app"
-  "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/utils"
-  "github.com/charmixer/idpui/validators"
+  "github.com/opensentry/idpui/app"
+  "github.com/opensentry/idpui/config"
+  "github.com/opensentry/idpui/utils"
+  "github.com/opensentry/idpui/validators"
 
   bulky "github.com/charmixer/bulky/client"
 )

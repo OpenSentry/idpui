@@ -18,11 +18,11 @@ import (
   oidc "github.com/coreos/go-oidc"
   "github.com/pborman/getopt"
 
-  "github.com/charmixer/idpui/app"
-  "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/controllers/challenges"
-  "github.com/charmixer/idpui/controllers/credentials"
-  "github.com/charmixer/idpui/controllers/profiles"
+  "github.com/opensentry/idpui/app"
+  "github.com/opensentry/idpui/config"
+  "github.com/opensentry/idpui/controllers/challenges"
+  "github.com/opensentry/idpui/controllers/credentials"
+  "github.com/opensentry/idpui/controllers/profiles"
 )
 
 const appName = "idpui"

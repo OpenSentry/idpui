@@ -10,7 +10,7 @@ import (
   "github.com/gin-gonic/gin"
   "github.com/gofrs/uuid"
 
-  "github.com/charmixer/idpui/utils"
+  "github.com/opensentry/idpui/utils"
 )
 
 type EnvironmentConstants struct {

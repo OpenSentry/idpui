@@ -10,8 +10,8 @@ import (
   "golang.org/x/oauth2"
   "golang.org/x/net/context"
 
-  "github.com/charmixer/idpui/config"
-  idp "github.com/charmixer/idp/client"
+  "github.com/opensentry/idpui/config"
+  idp "github.com/opensentry/idp/client"
 
   bulky "github.com/charmixer/bulky/client"
 )

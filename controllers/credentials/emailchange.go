@@ -12,12 +12,12 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
 
-  idp "github.com/charmixer/idp/client"
+  idp "github.com/opensentry/idp/client"
 
-  "github.com/charmixer/idpui/app"
-  "github.com/charmixer/idpui/config"
-  "github.com/charmixer/idpui/utils"
-  "github.com/charmixer/idpui/validators"
+  "github.com/opensentry/idpui/app"
+  "github.com/opensentry/idpui/config"
+  "github.com/opensentry/idpui/utils"
+  "github.com/opensentry/idpui/validators"
 
   bulky "github.com/charmixer/bulky/client"
 )

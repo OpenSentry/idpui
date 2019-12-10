@@ -9,7 +9,7 @@ import (
   "github.com/gin-gonic/gin"
   "golang.org/x/oauth2"
 
-  "github.com/charmixer/idpui/config"
+  "github.com/opensentry/idpui/config"
 )
 
 // # Authentication and Authorization

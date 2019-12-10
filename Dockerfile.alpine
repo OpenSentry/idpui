@@ -1,4 +1,4 @@
-# Build with: DOCKER_BUILDKIT=1 docker build -t charmixer/idpui:`cat ./VERSION` -f Dockerfile.alpine .
+# Build with: DOCKER_BUILDKIT=1 docker build -t opensentry/idpui:`cat ./VERSION` -f Dockerfile.alpine .
 
 ARG GO_VERSION=1.12
 ARG ALPINE_VERSION=3.10.3
@@ -9,7 +9,7 @@ ARG APP=idpui
 
 RUN apk add --update --no-cache ca-certificates cmake make g++ openssl-dev git curl pkgconfig libcap
 
-WORKDIR $GOPATH/src/github.com/charmixer/${APP}
+WORKDIR $GOPATH/src/github.com/opensentry/${APP}
 
 COPY . .
 
