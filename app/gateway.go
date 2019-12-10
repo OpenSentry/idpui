@@ -10,7 +10,7 @@ import (
   "github.com/gin-contrib/sessions"
   "golang.org/x/oauth2"
 
-  idp "github.com/charmixer/idp/client"
+  idp "github.com/opensentry/idp/client"
 )
 
 func IdpClientUsingAuthorizationCode(env *Environment, oauth2Delegator *oauth2.Config, c *gin.Context) (*idp.IdpClient) {

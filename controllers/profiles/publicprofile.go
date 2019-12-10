@@ -4,10 +4,10 @@ import (
   "net/http"
   "github.com/sirupsen/logrus"
   "github.com/gin-gonic/gin"
-  idp "github.com/charmixer/idp/client"
+  idp "github.com/opensentry/idp/client"
 
-  "github.com/charmixer/idpui/app"
-  "github.com/charmixer/idpui/config"
+  "github.com/opensentry/idpui/app"
+  "github.com/opensentry/idpui/config"
 
   bulky "github.com/charmixer/bulky/client"
 )
