@@ -56,7 +56,7 @@ func ShowLogout(env *app.Environment) gin.HandlerFunc {
         },
         "title": "Logout",
         csrf.TemplateTag: csrf.TemplateField(c.Request),
-        "provider": "Identity Provider",
+        "provider": config.GetString("provider.name"),
         "provideraction": "Logout of the system",
         "challenge": logoutChallenge,
         "logoutUrl": config.GetString("idpui.public.endpoints.logout"),

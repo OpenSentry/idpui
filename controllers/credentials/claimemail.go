@@ -127,7 +127,7 @@ func ShowClaimEmail(env *app.Environment) gin.HandlerFunc {
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "provider": "Identity Provider",
+      "provider": config.GetString("provider.name"),
       "provideraction": "Claim an identity in the system with an email",
       "claimUrl": config.GetString("idpui.public.endpoints.claim"),
       "loginUrl": config.GetString("idpui.public.endpoints.login"),

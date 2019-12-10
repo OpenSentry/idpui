@@ -135,7 +135,7 @@ func ShowLogin(env *app.Environment) gin.HandlerFunc {
         },
         "title": "Authenticate",
         csrf.TemplateTag: csrf.TemplateField(c.Request),
-        "provider": "Identity Provider",
+        "provider": config.GetString("provider.name"),
         "provideraction": "Identify yourself to gain access",
         "challenge": loginChallenge,
         "email": email,

@@ -146,7 +146,7 @@ func ShowTotp(env *app.Environment) gin.HandlerFunc {
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "provider": "Identity Provider",
+      "provider": config.GetString("provider.name"),
       "provideraction": "Enable two-factor authentication for better security",
       "access_token": token.AccessToken,
       "id": identity.Id,

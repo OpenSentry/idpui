@@ -76,7 +76,7 @@ func ShowProfileDelete(env *app.Environment) gin.HandlerFunc {
         {"href": "/public/css/credentials.css"},
       },
       csrf.TemplateTag: csrf.TemplateField(c.Request),
-      "provider": "Identity Provider",
+      "provider": config.GetString("provider.name"),
       "provideraction": "Delete your profile",
       "access_token": token.AccessToken,
       "redirect_to": redirectTo,
